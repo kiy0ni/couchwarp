@@ -1,5 +1,6 @@
 //! Software H.264 encoding with OpenH264, for hosts without a hardware encoder backend
-//! yet. Real-time video mode, no frame skipping, keyframes only on request.
+//! yet. Real-time video mode, keyframes only on request. The encoder may skip a frame to
+//! hold the bitrate: on a slow connection, a dropped frame beats a growing delay.
 
 use anyhow::{Context, Result};
 use openh264::OpenH264API;
@@ -7,6 +8,7 @@ use openh264::encoder::{
     BitRate, Encoder, EncoderConfig, FrameRate, IntraFramePeriod, Profile, UsageType,
 };
 use openh264::formats::{BgraSliceU8, YUVBuffer};
+use openh264_sys2::{ENCODER_OPTION_BITRATE, SBitrateInfo, SPATIAL_LAYER_ALL};
 
 pub struct SoftwareEncoder {
     bitrate: u32,
@@ -49,6 +51,34 @@ impl SoftwareEncoder {
         Ok((!annex_b.is_empty()).then_some(annex_b))
     }
 
+    /// Changes the target bitrate of the running encoder from the next frame, without a
+    /// keyframe. Encoders started later use it too.
+    pub fn set_bitrate(&mut self, bitrate: u32) -> Result<()> {
+        if bitrate == self.bitrate {
+            return Ok(());
+        }
+        self.bitrate = bitrate;
+        let Some((encoder, _)) = self.current.as_mut() else {
+            return Ok(());
+        };
+        let mut info = SBitrateInfo {
+            iLayer: SPATIAL_LAYER_ALL,
+            iBitrate: i32::try_from(bitrate).unwrap_or(i32::MAX),
+        };
+        // SAFETY: the encoder is initialized, and the option takes a pointer to an
+        // SBitrateInfo that lives for the call.
+        let status = unsafe {
+            encoder
+                .raw_api()
+                .set_option(ENCODER_OPTION_BITRATE, (&raw mut info).cast())
+        };
+        anyhow::ensure!(
+            status == 0,
+            "OpenH264 refused bitrate {bitrate} (status {status})"
+        );
+        Ok(())
+    }
+
     /// Starts the encoder for pictures of this size, unless it already runs at that size.
     /// Doing it before the first frame keeps the setup out of the first frame's latency.
     pub fn prepare(&mut self, width: usize, height: usize) -> Result<()> {
@@ -67,7 +97,7 @@ impl SoftwareEncoder {
             .profile(Profile::Baseline)
             .bitrate(BitRate::from_bps(self.bitrate))
             .max_frame_rate(FrameRate::from_hz(self.fps as f32))
-            .skip_frames(false)
+            .skip_frames(true)
             .scene_change_detect(false)
             .intra_frame_period(IntraFramePeriod::from_num_frames(self.fps * 60));
         Encoder::with_api_config(OpenH264API::from_source(), config)
@@ -87,6 +117,9 @@ fn crop(bgra: &[u8], width: usize, size: (usize, usize)) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// NAL unit type of a slice of an IDR picture (a keyframe).
+    const IDR_SLICE_NAL: u8 = 5;
 
     fn nal_types(annex_b: &[u8]) -> Vec<u8> {
         annex_b
@@ -129,6 +162,22 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(nal_types(&forced).contains(&5));
+    }
+
+    #[test]
+    fn the_bitrate_changes_without_a_keyframe() {
+        let mut encoder = SoftwareEncoder::new(8_000_000, 60);
+        let first = encoder
+            .encode(&grey_frame(64, 64, 10), 64, 64, false)
+            .unwrap()
+            .unwrap();
+        assert!(nal_types(&first).contains(&IDR_SLICE_NAL));
+        encoder.set_bitrate(2_000_000).unwrap();
+        let next = encoder
+            .encode(&grey_frame(64, 64, 200), 64, 64, false)
+            .unwrap()
+            .unwrap();
+        assert!(!nal_types(&next).contains(&IDR_SLICE_NAL));
     }
 
     #[test]

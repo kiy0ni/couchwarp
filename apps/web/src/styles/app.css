@@ -1333,3 +1333,14 @@ textarea.input,
 .menu > .menu__title + .stack {
   margin-top: var(--space-md);
 }
+
+.play__hint {
+  position: absolute;
+  top: calc(56px + var(--space-md));
+  padding: var(--space-xs) var(--space-sm);
+  background: color-mix(in oklab, var(--color-paper-2) 88%, transparent);
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
+  color: var(--color-ink-2);
+  pointer-events: none;
+}

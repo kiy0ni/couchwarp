@@ -53,6 +53,8 @@ cargo run -p couchwarp-host -- --window "nom du jeu" --game "Overcooked 2" --pla
 
 Pour lister une partie publiquement, l'hôte se connecte une fois à un compte : `cargo run -p couchwarp-host -- login` ouvre le navigateur (Discord par défaut, `--provider google` sinon) et garde la session dans le dossier de configuration de l'utilisateur, une par site. `logout` la termine. Une partie publique montre dans la liste une petite image du jeu, prise toutes les 10 secondes ; une partie privée n'en envoie aucune.
 
+Le site a aussi des comptes (Discord ou Google), des amis avec leur présence en jeu, un historique, les signalements avec une page de modération (`/moderation`, pour les comptes listés dans `ADMIN_USER_IDS`), et les pages Conditions et Confidentialité. La mise en ligne est décrite dans [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
+
 Par défaut, un invité joue à la manette seulement : son clavier n'atteint le jeu que si l'hôte l'autorise dans la console. Ctrl+C ferme la partie pour tout le monde.
 
 Le clavier des invités est mis en pause dès que la fenêtre du jeu n'est plus au premier plan. Pour tester l'hôte et l'invité sur le même Mac, où le navigateur passe forcément devant le jeu, lance l'hôte avec `--ignore-focus` : les touches continuent d'aller au jeu, et à lui seul.
@@ -74,7 +76,8 @@ Pour les téléphones d'un même réseau, le client doit être servi en HTTPS (l
 - **Réseau** : l'hôte écoute sur une seule interface en IPv4. Sans clé TURN Cloudflare (voir `services/edge/.dev.vars.example`), un invité derrière un réseau très fermé ne peut pas se connecter.
 - **Son** : sur Mac, celui de l'application qui possède la fenêtre ; un jeu qui joue son son dans un processus à part (jeux dans un navigateur, applications Electron) arrive muet. Sous Windows, le son du jeu et de tous les processus qu'il a lancés est capturé.
 - **Navigateurs basés sur Firefox (Firefox, Zen)** : sur macOS, ils peuvent n'ouvrir aucune connexion WebRTC (autorisation « Réseau local »). L'invité voit alors un message qui le dit ; Chrome, Edge et Arc fonctionnent.
-- **Débit fixe** : la qualité ne s'adapte pas encore au réseau de chaque invité ; règle-la avec `--bitrate` (en Mbit/s).
+- **Une seule qualité pour tous** : le débit s'adapte au réseau de l'invité le moins bien connecté (pertes et latence qu'il mesure, remontées chaque seconde). `--bitrate` fixe le plafond. Une qualité par invité demandera plusieurs encodages.
+- **Souris** : l'hôte l'autorise invité par invité dans la console ; l'invité clique sur l'image pour verrouiller le pointeur. Sous Windows, le curseur reste confiné à la fenêtre du jeu tant qu'une souris invitée agit. Sur Mac, les jeux qui lisent la position du curseur système plutôt que les événements reçus peuvent l'ignorer.
 - **Fenêtre fermée** : si le jeu se ferme, l'hôte s'arrête et les invités voient « L'hôte a fermé la partie ». La relance automatique du jeu est prévue au jalon 1.
 
 ## Vérifier

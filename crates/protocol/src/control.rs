@@ -13,6 +13,12 @@ pub enum GuestControl {
     Ping { t0: f64 },
     /// The guest unplugged a controller; its slot is freed.
     PadRemoved { pad: u8 },
+    /// How the stream arrives, sent every second: video packets lost over that second, in
+    /// thousandths, and the 95th percentile picture latency when the browser can measure it.
+    Quality {
+        loss_permille: u16,
+        latency_ms: Option<u32>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

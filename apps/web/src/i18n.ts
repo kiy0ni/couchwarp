@@ -61,6 +61,8 @@ const fr = {
     banConfirm: (name: string) =>
       `Bannir ${name} ? Cette personne ne pourra plus revenir dans cette partie.`,
     keyboardAllowed: 'Clavier autorisé',
+    mouseAllowed: 'Souris autorisée',
+    mouseHint: 'Clique sur l’image pour jouer à la souris. Échap la libère.',
     actionsFor: (name: string) => `Actions pour ${name}`,
     watching: 'Tu regardes. Lève la main pour prendre une manette quand une place se libère.',
     inLine: (position: number) =>
@@ -354,6 +356,8 @@ const en: Strings = {
     ban: 'Ban',
     banConfirm: (name) => `Ban ${name}? They will not be able to come back to this game.`,
     keyboardAllowed: 'Keyboard allowed',
+    mouseAllowed: 'Mouse allowed',
+    mouseHint: 'Click the picture to play with the mouse. Escape lets it go.',
     actionsFor: (name) => `Actions for ${name}`,
     watching: 'You are watching. Raise your hand to take a controller when a seat frees up.',
     inLine: (position) =>

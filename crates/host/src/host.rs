@@ -4,7 +4,6 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow};
@@ -21,13 +20,14 @@ use tokio::time::{MissedTickBehavior, interval, sleep_until};
 use tracing::{debug, info, warn};
 
 use crate::audio::AudioPacket;
+use crate::bitrate::{BitrateController, QualityReport};
 use crate::input::{Action, InputRouter, Permissions};
 use crate::peer::{Peer, PeerEvent};
 use crate::platform::{InputSink, frontmost_pid};
 use crate::signaling::{Room, RoomEvent};
 use crate::stats::FrameDelays;
 use crate::thumbnail::Thumbnails;
-use crate::video::{EncodedFrame, StreamClock, unix_ms_now};
+use crate::video::{EncodedFrame, EncoderControl, StreamClock, unix_ms_now};
 
 const FOCUS_CHECK: Duration = Duration::from_millis(100);
 const IDLE_WAKE: Duration = Duration::from_millis(100);
@@ -90,6 +90,7 @@ fn permissions(state: &RoomState, guest: GuestId) -> Permissions {
         Some(member) if member.role != GuestRole::Spectator => Permissions {
             pads: true,
             keyboard: member.keyboard,
+            mouse: member.mouse,
         },
         _ => Permissions::default(),
     }
@@ -108,7 +109,8 @@ pub struct Host {
     /// Hold guest keys back while the game window is not in front.
     focus_lock: bool,
     clock: StreamClock,
-    keyframe_wanted: Arc<AtomicBool>,
+    encoder: EncoderControl,
+    bitrate: BitrateController,
     signal_out: mpsc::UnboundedSender<HostToEdge>,
     delays: FrameDelays,
     /// The latest room state; `None` until the room server sends the first one.
@@ -123,7 +125,7 @@ impl Host {
         socket: UdpSocket,
         local_candidates: Vec<Candidate>,
         game: Game,
-        keyframe_wanted: Arc<AtomicBool>,
+        encoder: EncoderControl,
         signal_out: mpsc::UnboundedSender<HostToEdge>,
         settings_request: SettingsRequest,
         thumbnails: Arc<Thumbnails>,
@@ -139,7 +141,8 @@ impl Host {
             game_pid: game.pid,
             focus_lock: game.focus_lock,
             clock: StreamClock::start(),
-            keyframe_wanted,
+            bitrate: BitrateController::new(encoder.bitrate()),
+            encoder,
             signal_out,
             delays: FrameDelays::default(),
             room_state: None,
@@ -247,7 +250,7 @@ impl Host {
                     peer.send_control(&HostControl::StreamClock { epoch_ms });
                     peer.send_control(&HostControl::InputPaused { paused });
                 }
-                self.keyframe_wanted.store(true, Ordering::Release);
+                self.encoder.want_keyframe();
             }
             PeerEvent::Input(packet) => {
                 let actions = self.router.apply(guest, packet);
@@ -259,11 +262,22 @@ impl Host {
                     peer.send_control(&HostControl::Pong { t0, t1 });
                 }
             }
+            PeerEvent::Control(GuestControl::Quality {
+                loss_permille,
+                latency_ms,
+            }) => {
+                let report = QualityReport {
+                    loss_permille,
+                    latency_ms,
+                };
+                let changed = self.bitrate.report(guest, report, Instant::now());
+                self.apply_bitrate(changed);
+            }
             PeerEvent::Control(GuestControl::PadRemoved { pad }) => {
                 let actions = self.router.remove_pad(guest, pad);
                 self.carry_out(actions);
             }
-            PeerEvent::KeyframeWanted => self.keyframe_wanted.store(true, Ordering::Release),
+            PeerEvent::KeyframeWanted => self.encoder.want_keyframe(),
         }
     }
 
@@ -286,8 +300,12 @@ impl Host {
                     self.sink.release_pad(slot);
                 }
                 Action::SetKeys(keys) => self.sink.set_keys(&keys),
+                Action::MoveMouse { dx, dy } => self.sink.move_mouse(dx, dy),
+                Action::SetMouseButtons(buttons) => self.sink.set_mouse_buttons(buttons),
+                Action::Scroll(wheel) => self.sink.scroll(wheel),
                 Action::KeyboardPaused(paused) => {
                     info!(paused, "guest keyboards follow the game window focus");
+                    self.sink.set_paused(paused);
                     for peer in &mut self.peers {
                         peer.send_control(&HostControl::InputPaused { paused });
                     }
@@ -308,6 +326,8 @@ impl Host {
                 self.peers.retain(|peer| peer.guest_id != guest_id);
                 let actions = self.router.forget_guest(guest_id);
                 self.carry_out(actions);
+                let changed = self.bitrate.remove(guest_id);
+                self.apply_bitrate(changed);
             }
             EdgeToHost::Signal { from, payload } => self.on_signal(from, payload),
             EdgeToHost::RoomState { state } => self.on_room_state(state),
@@ -433,6 +453,18 @@ impl Host {
             info!(guest, "guest connection closed");
             let actions = self.router.remove_guest(guest);
             self.carry_out(actions);
+            let changed = self.bitrate.remove(guest);
+            self.apply_bitrate(changed);
+        }
+    }
+
+    fn apply_bitrate(&self, changed: Option<u32>) {
+        if let Some(bits_per_second) = changed {
+            info!(
+                mbps = format!("{:.1}", f64::from(bits_per_second) / 1e6),
+                "video bitrate follows the guest with the weakest connection"
+            );
+            self.encoder.set_bitrate(bits_per_second);
         }
     }
 
@@ -518,14 +550,16 @@ mod tests {
             permissions(&state, 1),
             Permissions {
                 pads: true,
-                keyboard: false
+                keyboard: false,
+                mouse: false
             }
         );
         assert_eq!(
             permissions(&state, 2),
             Permissions {
                 pads: true,
-                keyboard: true
+                keyboard: true,
+                mouse: false
             }
         );
         assert_eq!(permissions(&state, 3), Permissions::default());

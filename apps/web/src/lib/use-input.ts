@@ -3,6 +3,7 @@ import { type RefObject, useEffect, useMemo } from 'react'
 import { PadTracker } from './gamepads'
 import { KeyboardTracker } from './keyboard'
 import { keyboardPadState } from './keyboard-pad'
+import { MouseTracker } from './mouse'
 import { NEUTRAL_PAD, type PadState } from './pad-state'
 import type { GuestSession } from './session'
 import { VirtualPad } from './virtual-pad'
@@ -23,7 +24,10 @@ interface Options {
   keyboardMode: KeyboardMode
   /** Current state of the on-screen controller, or null while it is hidden. */
   touch: RefObject<PadState | null>
+  /** The host lets this guest's mouse play: a click locks the pointer to the game. */
+  mouse: boolean
   onPadRemoved(pad: number): void
+  onPointerLock(locked: boolean): void
 }
 
 /**
@@ -34,7 +38,7 @@ interface Options {
 export function useInputForwarding(
   session: GuestSession | null,
   surface: RefObject<HTMLElement | null>,
-  { keyboardMode, touch, onPadRemoved }: Options,
+  { keyboardMode, touch, mouse: mouseAllowed, onPadRemoved, onPointerLock }: Options,
 ): void {
   // One set of trackers per session: their sequence numbers must keep rising across
   // keyboard mode changes, or the host would take the next packets for late ones.
@@ -45,6 +49,7 @@ export function useInputForwarding(
       keyboard: new KeyboardTracker(),
       keyboardPad: new VirtualPad(KEYBOARD_PAD),
       touchPad: new VirtualPad(TOUCH_PAD),
+      mouse: new MouseTracker(),
     }),
     [session],
   )
@@ -52,7 +57,7 @@ export function useInputForwarding(
   useEffect(() => {
     const element = surface.current
     if (!session || !element) return
-    const { pads, keyboard, keyboardPad, touchPad } = trackers
+    const { pads, keyboard, keyboardPad, touchPad, mouse } = trackers
     const heldCodes = new Set<string>()
 
     const send = (packet: InputPacket | null) => {
@@ -81,7 +86,41 @@ export function useInputForwarding(
       }
       send(touchPad.resend(now))
       send(keyboardMode === 'pad' ? keyboardPad.resend(now) : keyboard.resend(now))
+      if (mouseAllowed) send(mouse.packet(now))
     }, PAD_POLL_MS)
+
+    // The mouse plays only while the pointer is locked to the game; Escape unlocks it.
+    const locked = () => document.pointerLockElement === element
+    const onClick = (event: MouseEvent) => {
+      // Only a click on the picture itself: the bar and the menus keep their clicks.
+      const onPicture = event.target === element || event.target instanceof HTMLVideoElement
+      if (mouseAllowed && onPicture && !locked()) {
+        element
+          .requestPointerLock({ unadjustedMovement: true })
+          .catch(() => element.requestPointerLock())
+      }
+    }
+    const onLockChange = () => {
+      if (!locked()) mouse.releaseAll()
+      onPointerLock(locked())
+    }
+    const onMouseMove = (event: MouseEvent) => {
+      if (locked()) mouse.move(event.movementX, event.movementY)
+    }
+    const onMouseButton = (event: MouseEvent) => {
+      if (!locked()) return
+      event.preventDefault()
+      if (event.type === 'mousedown') mouse.press(event.button)
+      else mouse.release(event.button)
+    }
+    const onWheel = (event: WheelEvent) => {
+      if (!locked()) return
+      event.preventDefault()
+      mouse.scroll(event.deltaY, event.deltaMode)
+    }
+    const onContextMenu = (event: Event) => {
+      if (locked()) event.preventDefault()
+    }
 
     const onKeyDown = (event: KeyboardEvent) => {
       // Typing in the chat or the menu stays there.
@@ -108,6 +147,13 @@ export function useInputForwarding(
       playKeys(now)
     }
 
+    element.addEventListener('click', onClick)
+    element.addEventListener('mousemove', onMouseMove)
+    element.addEventListener('mousedown', onMouseButton)
+    element.addEventListener('mouseup', onMouseButton)
+    element.addEventListener('wheel', onWheel, { passive: false })
+    element.addEventListener('contextmenu', onContextMenu)
+    document.addEventListener('pointerlockchange', onLockChange)
     element.addEventListener('keydown', onKeyDown)
     element.addEventListener('keyup', onKeyUp)
     element.addEventListener('blur', releaseAll)
@@ -119,10 +165,20 @@ export function useInputForwarding(
         keyboardPad.reset()
         removePad(KEYBOARD_PAD)
       }
+      if (locked()) document.exitPointerLock()
+      mouse.releaseAll()
+      send(mouse.packet(performance.now()))
       window.clearInterval(poll)
+      element.removeEventListener('click', onClick)
+      element.removeEventListener('mousemove', onMouseMove)
+      element.removeEventListener('mousedown', onMouseButton)
+      element.removeEventListener('mouseup', onMouseButton)
+      element.removeEventListener('wheel', onWheel)
+      element.removeEventListener('contextmenu', onContextMenu)
+      document.removeEventListener('pointerlockchange', onLockChange)
       element.removeEventListener('keydown', onKeyDown)
       element.removeEventListener('keyup', onKeyUp)
       element.removeEventListener('blur', releaseAll)
     }
-  }, [session, surface, keyboardMode, touch, onPadRemoved, trackers])
+  }, [session, surface, keyboardMode, touch, mouseAllowed, onPadRemoved, onPointerLock, trackers])
 }

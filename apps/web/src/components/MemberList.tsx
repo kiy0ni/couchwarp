@@ -137,6 +137,23 @@ function MemberActions({ member, viewer, seatsLeft, onCommand }: ActionsProps) {
           {t.room.keyboardAllowed}
         </label>
       )}
+      {viewer === 'host' && (
+        <label className="members__toggle">
+          <input
+            type="checkbox"
+            checked={member.mouse}
+            onChange={(event) =>
+              onCommand({
+                type: 'set-permissions',
+                guestId,
+                keyboard: member.keyboard,
+                mouse: event.target.checked,
+              })
+            }
+          />
+          {t.room.mouseAllowed}
+        </label>
+      )}
       <button
         type="button"
         className="link-button"

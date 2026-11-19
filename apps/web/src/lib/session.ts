@@ -12,6 +12,7 @@ import {
   type RoomState,
   type SignalPayload,
 } from '@couchwarp/protocol'
+import type { PacketCounts } from './quality'
 
 export type EndReason =
   | RejectReason
@@ -72,6 +73,18 @@ export class GuestSession {
   /** Chat, raising a hand, and what moderators may do. Lost if the room server is gone. */
   sendRoom(message: Exclude<GuestToEdge, { type: 'signal' }>): void {
     if (this.socket.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message))
+  }
+
+  /** Video packets received and lost so far, or null before the video track exists. */
+  async videoPackets(): Promise<PacketCounts | null> {
+    const stats = await this.peer?.getStats()
+    let counts: PacketCounts | null = null
+    stats?.forEach((report: RTCInboundRtpStreamStats) => {
+      if (report.type === 'inbound-rtp' && report.kind === 'video') {
+        counts = { received: report.packetsReceived ?? 0, lost: report.packetsLost ?? 0 }
+      }
+    })
+    return counts
   }
 
   sendControl(message: GuestControl): void {

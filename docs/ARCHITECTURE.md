@@ -84,6 +84,20 @@ Mesuré en local : image toujours à 24 ms en médiane avec le son actif (le nav
    - si la fenêtre du jeu n'est plus au premier plan, toutes les touches sont relâchées et les invités sont prévenus (`input-paused`).
 3. Sur macOS, les touches sont envoyées **au seul processus du jeu** (`CGEventPostToPid`), jamais au système.
 
+## La souris
+
+Le paquet souris porte le mouvement relatif depuis le paquet précédent, la molette, et l'état complet des boutons. Le routeur ne le laisse passer que si l'hôte a autorisé la souris de l'invité et que le jeu est au premier plan. Les boutons de tous les invités sont réunis, comme les touches. Sur Mac, les événements sont postés au seul processus du jeu, avec un pointeur virtuel gardé dans sa fenêtre. Sous Windows, SendInput déplace le vrai curseur : il est confiné à la fenêtre du jeu (`ClipCursor`) et libéré dès que le jeu passe derrière.
+
+## La qualité qui s'adapte
+
+Chaque seconde, l'invité envoie sur le canal `control` sa perte de paquets vidéo (d'après `getStats`) et sa latence image au 95e centile (`quality`). L'hôte (`bitrate.rs`) baisse de 20 % la part d'un invité qui perd plus de 2 % des paquets ou dont la latence dépasse de 40 ms son meilleur niveau, au plus une fois par seconde. Il la remonte de 10 % après 4 secondes sans problème. L'encodeur, unique, suit l'invité le moins bien servi, sans descendre sous 1,5 Mbit/s ni dépasser `--bitrate`. Le changement s'applique à l'image suivante, sans image clé. L'estimation de bande passante de str0m (TWCC) n'est pas utilisée : elle lisse l'envoi des paquets, ce qui a fait passer la latence locale de 28 à 126 ms à l'essai.
+
+## Comptes, amis et modération
+
+- **Amis** : une demande exige une partie jouée ensemble (même code dans l'historique). La présence vient de l'historique ouvert ; le code n'est montré que si la partie est publique.
+- **Signalements** : `POST /api/rooms/:code/report`, cinq par heure et par réseau. Le salon dit au Worker le nom et le compte de la personne visée (route interne `facts`). Les admins (`ADMIN_USER_IDS`) décident sur `/moderation` : classer, fermer la partie (route interne `admin-close`) ou suspendre le compte (sessions supprimées). Chaque décision exige une raison et entre au journal.
+- **Nettoyage** : une tâche planifiée applique chaque nuit les durées de la page Confidentialité (`cleanup.ts`).
+
 ## Mesure de la latence
 
 L'hôte numérote ses images en RTP à 90 kHz depuis une origine dont il donne l'heure Unix (`stream-clock`). Le navigateur compare l'heure de capture déduite du timestamp RTP de chaque image affichée (`requestVideoFrameCallback`) avec l'heure d'affichage, corrigée du décalage d'horloge mesuré par ping sur le canal `control`. Le résultat (médiane et 95e centile sur 5 secondes) s'affiche dans la barre en jeu et dans le menu « Mesures ». L'hôte journalise de son côté le temps de la capture à l'envoi.
@@ -94,7 +108,7 @@ Le protocole existe en Rust (`crates/protocol`) et en TypeScript (`packages/prot
 
 ## Prochaines étapes
 
-- Premier test de l'hôte Windows sur un vrai PC, avec VIIPER.
+- Premier test de l'hôte Windows sur un vrai PC, avec VIIPER, la souris et la manette PlayStation.
 - Encodeurs matériels sous Windows (NVENC, AMF, Quick Sync).
 - Débit adaptatif : la qualité suit l'estimation de bande passante de chaque invité.
 - Mesure de latence entre deux réseaux différents, avec relai TURN, une fois le site en ligne.

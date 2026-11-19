@@ -3,8 +3,7 @@
 
 use std::ffi::{c_int, c_void};
 use std::ptr::{self, NonNull};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
@@ -27,7 +26,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
 use crate::avcc::{append_annex_b, append_parameter_set, has_idr_slice};
-use crate::video::EncodedFrame;
+use crate::video::{EncodedFrame, EncoderControl};
 
 /// Keyframes come on request. This only bounds how long a damaged picture could last.
 const MAX_SECONDS_BETWEEN_KEYFRAMES: i32 = 60;
@@ -42,7 +41,9 @@ pub struct EncoderSettings {
 pub struct Encoder {
     session: CFRetained<VTCompressionSession>,
     output: NonNull<Output>,
-    keyframe_wanted: Arc<AtomicBool>,
+    control: EncoderControl,
+    /// The bitrate the session runs at, to notice when the host asks for another.
+    applied_bitrate: AtomicU32,
     frame_duration: CMTime,
 }
 
@@ -54,16 +55,16 @@ unsafe impl Sync for Encoder {}
 /// What the encoder callback needs. Owned by [`Encoder`], lent to VideoToolbox.
 struct Output {
     frames: mpsc::Sender<EncodedFrame>,
-    keyframe_wanted: Arc<AtomicBool>,
+    control: EncoderControl,
     clock: HostClock,
 }
 
 impl Encoder {
-    /// Encoded frames go to `frames`. Set `keyframe_wanted` to get a keyframe next.
+    /// Encoded frames go to `frames`. `control` asks for keyframes and bitrate changes.
     pub fn new(
         settings: &EncoderSettings,
         frames: mpsc::Sender<EncodedFrame>,
-        keyframe_wanted: Arc<AtomicBool>,
+        control: EncoderControl,
     ) -> Result<Self> {
         let specification = dictionary(&[
             (
@@ -77,7 +78,7 @@ impl Encoder {
         ]);
         let output = Box::into_raw(Box::new(Output {
             frames,
-            keyframe_wanted: keyframe_wanted.clone(),
+            control: control.clone(),
             clock: HostClock::now(),
         }));
         let mut session = ptr::null_mut();
@@ -144,15 +145,38 @@ impl Encoder {
             session,
             // SAFETY: Box::into_raw never returns null.
             output: unsafe { NonNull::new_unchecked(output) },
-            keyframe_wanted,
+            applied_bitrate: AtomicU32::new(settings.bitrate),
+            control,
             // SAFETY: plain value constructor.
             frame_duration: unsafe { CMTime::new(1, fps) },
         })
     }
 
+    /// Moves the session to the bitrate the host asks for, if it changed. VideoToolbox
+    /// applies it from the next frame, without a keyframe.
+    fn follow_bitrate(&self) {
+        let wanted = self.control.bitrate();
+        if self.applied_bitrate.swap(wanted, Ordering::AcqRel) == wanted {
+            return;
+        }
+        let value = CFNumber::new_i32(i32::try_from(wanted).unwrap_or(i32::MAX));
+        // SAFETY: the session is live and the key and value are valid CF objects.
+        let status = unsafe {
+            VTSessionSetProperty(
+                &self.session,
+                kVTCompressionPropertyKey_AverageBitRate,
+                Some(&value),
+            )
+        };
+        if status != 0 {
+            warn!(status, "encoder refused the new bitrate");
+        }
+    }
+
     /// Queues one captured frame. `presented_at` is its timestamp on the host clock.
     pub fn encode(&self, image: &CVImageBuffer, presented_at: CMTime) {
-        let force_keyframe = self.keyframe_wanted.swap(false, Ordering::AcqRel);
+        self.follow_bitrate();
+        let force_keyframe = self.control.take_keyframe_request();
         let options = force_keyframe.then(|| {
             dictionary(&[(
                 unsafe { kVTEncodeFrameOptionKey_ForceKeyFrame },
@@ -209,7 +233,7 @@ unsafe extern "C-unwind" fn on_encoded(
     // SAFETY: VideoToolbox passes either null (frame dropped) or a valid sample buffer.
     let Some(sample) = (unsafe { sample.as_ref() }).filter(|_| status == 0) else {
         debug!(status, "encoder dropped a frame");
-        output.keyframe_wanted.store(true, Ordering::Release);
+        output.control.want_keyframe();
         return;
     };
     match encoded_frame(sample, output.clock) {
@@ -217,7 +241,7 @@ unsafe extern "C-unwind" fn on_encoded(
             // A full queue means the network side is behind. Dropping keeps latency
             // flat; the next keyframe repairs the picture.
             if output.frames.try_send(frame).is_err() {
-                output.keyframe_wanted.store(true, Ordering::Release);
+                output.control.want_keyframe();
             }
         }
         Err(error) => warn!(%error, "encoded frame unreadable"),

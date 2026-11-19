@@ -107,10 +107,14 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
     playing && touchScreen && stream.virtualPads === true && gamepads.length === 0 && touchWanted
   if (!showTouch) touch.current = null
 
+  const mouseAllowed = playing && (me?.mouse ?? false)
+  const [pointerLocked, setPointerLocked] = useState(false)
   useInputForwarding(playing ? session : null, surface, {
     keyboardMode,
     touch,
+    mouse: mouseAllowed,
     onPadRemoved: stream.forgetPad,
+    onPointerLock: setPointerLocked,
   })
   const [chromeVisible, wakeChrome] = useIdleChrome()
   const notices = useChatNotices(stream.chat, chatOpen, me?.id ?? null)
@@ -156,6 +160,9 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
             {placeInLine > 0 ? t.room.lowerHand : t.room.raiseHand}
           </button>
         </div>
+      )}
+      {mouseAllowed && stream.hasPicture && !pointerLocked && !touchScreen && (
+        <p className="play__hint">{t.room.mouseHint}</p>
       )}
       {notices.toast && (
         <p className="play__toast" role="status">

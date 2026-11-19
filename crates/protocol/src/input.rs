@@ -10,7 +10,12 @@
 //! ```text
 //! gamepad  (16 bytes): kind=1 | pad u8 | seq u16 | buttons u16 | lx ly rx ry i16 | lt rt u8
 //! keyboard (4+n bytes): kind=2 | seq u16 | n u8 | n × HID usage u8
+//! mouse    (10 bytes): kind=3 | seq u16 | buttons u8 | dx dy i16 | wheel i16
 //! ```
+//!
+//! The mouse is the one exception to whole states: its movement is relative, counted
+//! since the previous packet. Buttons are still a whole state, so a lost packet costs a
+//! few pixels of movement but never leaves a button held.
 
 use thiserror::Error;
 
@@ -24,7 +29,9 @@ pub const TOUCH_PAD: u8 = 5;
 
 const KIND_GAMEPAD: u8 = 1;
 const KIND_KEYBOARD: u8 = 2;
+const KIND_MOUSE: u8 = 3;
 const GAMEPAD_LEN: usize = 16;
+const MOUSE_LEN: usize = 10;
 const KEYBOARD_HEADER_LEN: usize = 4;
 
 /// Digital buttons, one bit each, in the order of the W3C standard gamepad mapping
@@ -80,10 +87,38 @@ pub struct KeyboardState {
     pub keys: Vec<u8>,
 }
 
+/// Mouse buttons, one bit each.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MouseButtons(pub u8);
+
+impl MouseButtons {
+    pub const LEFT: Self = Self(1 << 0);
+    pub const RIGHT: Self = Self(1 << 1);
+    pub const MIDDLE: Self = Self(1 << 2);
+    pub const BACK: Self = Self(1 << 3);
+    pub const FORWARD: Self = Self(1 << 4);
+
+    pub fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+}
+
+/// One guest's mouse: movement in pixels since the previous packet, wheel in 1/120ths
+/// of a notch (positive scrolls down), buttons held now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MouseState {
+    pub seq: u16,
+    pub buttons: MouseButtons,
+    pub dx: i16,
+    pub dy: i16,
+    pub wheel: i16,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputPacket {
     Gamepad(GamepadState),
     Keyboard(KeyboardState),
+    Mouse(MouseState),
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -126,6 +161,16 @@ impl InputPacket {
                 out.extend(keyboard.keys.iter().take(MAX_KEYS));
                 out
             }
+            Self::Mouse(mouse) => {
+                let mut out = Vec::with_capacity(MOUSE_LEN);
+                out.push(KIND_MOUSE);
+                out.extend(mouse.seq.to_le_bytes());
+                out.push(mouse.buttons.0);
+                for value in [mouse.dx, mouse.dy, mouse.wheel] {
+                    out.extend(value.to_le_bytes());
+                }
+                out
+            }
         }
     }
 
@@ -134,6 +179,7 @@ impl InputPacket {
             None => Err(DecodeError::Empty),
             Some(&KIND_GAMEPAD) => decode_gamepad(bytes).map(Self::Gamepad),
             Some(&KIND_KEYBOARD) => decode_keyboard(bytes).map(Self::Keyboard),
+            Some(&KIND_MOUSE) => decode_mouse(bytes).map(Self::Mouse),
             Some(&kind) => Err(DecodeError::UnknownKind(kind)),
         }
     }
@@ -154,6 +200,21 @@ fn decode_gamepad(bytes: &[u8]) -> Result<GamepadState, DecodeError> {
         right_stick: [i16_at(10), i16_at(12)],
         left_trigger: bytes[14],
         right_trigger: bytes[15],
+    })
+}
+
+fn decode_mouse(bytes: &[u8]) -> Result<MouseState, DecodeError> {
+    let bytes: &[u8; MOUSE_LEN] = bytes.try_into().map_err(|_| DecodeError::Length {
+        expected: MOUSE_LEN,
+        actual: bytes.len(),
+    })?;
+    let i16_at = |i: usize| i16::from_le_bytes([bytes[i], bytes[i + 1]]);
+    Ok(MouseState {
+        seq: u16::from_le_bytes([bytes[1], bytes[2]]),
+        buttons: MouseButtons(bytes[3]),
+        dx: i16_at(4),
+        dy: i16_at(6),
+        wheel: i16_at(8),
     })
 }
 

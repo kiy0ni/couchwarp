@@ -1,6 +1,7 @@
 //! Encoded frames on their way to guests, and the clock that stamps them.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const RTP_VIDEO_CLOCK_HZ: u128 = 90_000;
@@ -11,6 +12,41 @@ pub struct EncodedFrame {
     pub annex_b: Arc<[u8]>,
     /// When the frame was captured, on this machine's monotonic clock.
     pub captured_at: Instant,
+}
+
+/// What the host asks of the encoder while it runs. The encoder reads both on every
+/// frame, so a request takes effect on the next one.
+#[derive(Clone)]
+pub struct EncoderControl {
+    keyframe_wanted: Arc<AtomicBool>,
+    bitrate: Arc<AtomicU32>,
+}
+
+impl EncoderControl {
+    /// Starts at `bitrate`, with a keyframe first.
+    pub fn new(bitrate: u32) -> Self {
+        Self {
+            keyframe_wanted: Arc::new(AtomicBool::new(true)),
+            bitrate: Arc::new(AtomicU32::new(bitrate)),
+        }
+    }
+
+    pub fn want_keyframe(&self) {
+        self.keyframe_wanted.store(true, Ordering::Release);
+    }
+
+    /// True once per request.
+    pub fn take_keyframe_request(&self) -> bool {
+        self.keyframe_wanted.swap(false, Ordering::AcqRel)
+    }
+
+    pub fn set_bitrate(&self, bits_per_second: u32) {
+        self.bitrate.store(bits_per_second, Ordering::Release);
+    }
+
+    pub fn bitrate(&self) -> u32 {
+        self.bitrate.load(Ordering::Acquire)
+    }
 }
 
 /// Maps capture instants to RTP timestamps. Guests learn `epoch_unix_ms` and can then

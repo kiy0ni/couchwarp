@@ -40,6 +40,24 @@ describe('input packets', () => {
     expect(toHex(encodeInput(packet))).toBe(example.hex)
   })
 
+  it.each(input.mouse as Example[])('encodes the mouse example "$name"', (example) => {
+    const packet = { kind: 'mouse', ...example.packet } as InputPacket
+    expect(toHex(encodeInput(packet))).toBe(example.hex)
+  })
+
+  it('caps mouse movement at 16 bits', () => {
+    const bytes = encodeInput({
+      kind: 'mouse',
+      seq: 1,
+      buttons: 0,
+      dx: 99999,
+      dy: -99999,
+      wheel: 0,
+    })
+    const view = new DataView(bytes.buffer)
+    expect([view.getInt16(4, true), view.getInt16(6, true)]).toEqual([32767, -32768])
+  })
+
   it('drops keys past the limit instead of writing an invalid packet', () => {
     const bytes = encodeInput({ kind: 'keyboard', seq: 1, keys: Array(40).fill(4) })
     expect(bytes[3]).toBe(32)

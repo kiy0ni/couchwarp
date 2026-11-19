@@ -5,7 +5,11 @@
 
 import { isFiniteNumber, isInteger, parseObject } from './validate'
 
-export type GuestControl = { type: 'ping'; t0: number } | { type: 'pad-removed'; pad: number }
+export type GuestControl =
+  | { type: 'ping'; t0: number }
+  | { type: 'pad-removed'; pad: number }
+  /** Every second: video packets lost in thousandths, and the 95th percentile latency. */
+  | { type: 'quality'; lossPermille: number; latencyMs: number | null }
 
 export type HostControl =
   | { type: 'host-info'; virtualPads: boolean }

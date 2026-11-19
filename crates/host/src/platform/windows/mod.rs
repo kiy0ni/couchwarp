@@ -4,14 +4,16 @@
 pub mod capture;
 pub mod encoder;
 mod keyboard;
+mod mouse;
 mod pads;
 mod sound;
 
-use couchwarp_protocol::input::GamepadState;
+use couchwarp_protocol::input::{GamepadState, MouseButtons};
 use couchwarp_protocol::room::PadType;
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
 use keyboard::KeyboardSink;
+use mouse::MouseSink;
 use pads::PadSink;
 
 /// SendInput types into whatever window is in front, so the focus lock must stay on.
@@ -41,6 +43,7 @@ pub fn frontmost_pid() -> Option<i32> {
 /// Where guests' input ends up on this machine.
 pub struct InputSink {
     keyboard: KeyboardSink,
+    mouse: MouseSink,
     pads: PadSink,
 }
 
@@ -48,6 +51,7 @@ impl InputSink {
     pub fn new(_game_pid: i32) -> Self {
         Self {
             keyboard: KeyboardSink::default(),
+            mouse: MouseSink::default(),
             pads: PadSink::connect(),
         }
     }
@@ -67,5 +71,24 @@ impl InputSink {
 
     pub fn release_pad(&mut self, slot: u8) {
         self.pads.release(slot);
+    }
+
+    pub fn move_mouse(&mut self, dx: i32, dy: i32) {
+        self.mouse.move_by(dx, dy);
+    }
+
+    pub fn set_mouse_buttons(&mut self, buttons: MouseButtons) {
+        self.mouse.set_buttons(buttons);
+    }
+
+    pub fn scroll(&mut self, wheel: i32) {
+        self.mouse.scroll(wheel);
+    }
+
+    /// The game went behind: the cursor is set free at once.
+    pub fn set_paused(&mut self, paused: bool) {
+        if paused {
+            self.mouse.release();
+        }
     }
 }

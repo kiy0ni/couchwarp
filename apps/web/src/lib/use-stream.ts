@@ -1,10 +1,13 @@
 import type { ChatMessage, Member, RoomState } from '@couchwarp/protocol'
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import { ClockSync, captureTime, LatencyWindow } from './latency'
+import { lossPermille, type PacketCounts } from './quality'
 import { type EndReason, GuestSession } from './session'
 
 const PING_MS = 1000
 const MEASURES_MS = 500
+/** How often the host hears how the stream arrives, to adapt its bitrate. */
+const QUALITY_MS = 1000
 /** Messages kept on screen; the room server keeps its own history for newcomers. */
 const CHAT_KEPT = 100
 
@@ -148,10 +151,26 @@ export function useStream(
       })
     }, MEASURES_MS)
 
+    let lastPackets: PacketCounts | null = null
+    const qualityReporter = window.setInterval(async () => {
+      const packets = await current.videoPackets()
+      if (!packets) return
+      if (lastPackets) {
+        const p95 = latency.stats()?.p95
+        current.sendControl({
+          type: 'quality',
+          lossPermille: lossPermille(lastPackets, packets),
+          latencyMs: p95 === undefined ? null : Math.round(p95),
+        })
+      }
+      lastPackets = packets
+    }, QUALITY_MS)
+
     return () => {
       current.close()
       window.clearInterval(pinger)
       window.clearInterval(reporter)
+      window.clearInterval(qualityReporter)
       element?.cancelVideoFrameCallback(frameRequest)
     }
   }, [code, name, video])
