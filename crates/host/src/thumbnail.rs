@@ -56,6 +56,7 @@ impl Thumbnails {
     }
 
     /// Takes a picture from an NV12 frame (video range, BT.709), as macOS captures.
+    #[cfg(any(target_os = "macos", test))]
     pub fn send_nv12(&self, frame: &Nv12<'_>) {
         let (rgb, width, height) = downscale(frame.width, frame.height, |area| frame.rgb(area));
         self.send(&rgb, width, height);
@@ -85,6 +86,7 @@ impl Thumbnails {
 }
 
 /// One NV12 frame: a full-size luma plane, then a half-size plane of interleaved U and V.
+#[cfg(any(target_os = "macos", test))]
 pub struct Nv12<'a> {
     pub width: usize,
     pub height: usize,
@@ -94,6 +96,7 @@ pub struct Nv12<'a> {
     pub chroma_stride: usize,
 }
 
+#[cfg(any(target_os = "macos", test))]
 impl Nv12<'_> {
     /// Average colour of `area`, converted from video-range BT.709.
     fn rgb(&self, area: Area) -> [u8; 3] {
@@ -159,10 +162,12 @@ fn average(area: Area, pixel: impl Fn(usize, usize) -> [u8; 3]) -> [u8; 3] {
     sum.map(|total| (total / count) as u8)
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn average_channel(area: Area, value: impl Fn(usize, usize) -> u8) -> f32 {
     average(area, |x, y| [value(x, y), 0, 0])[0].into()
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn clamp(value: f32) -> u8 {
     value.round().clamp(0.0, 255.0) as u8
 }
@@ -211,6 +216,24 @@ mod tests {
         let picture = pictures.try_recv().expect("a picture");
         assert_eq!(&picture[..3], &[0xff, 0xd8, 0xff]);
         assert!(picture.len() < 128 * 1024);
+    }
+
+    #[test]
+    fn an_nv12_frame_becomes_a_picture_of_its_proportions() {
+        let (thumbnails, mut pictures) = thumbnails();
+        let (width, height) = (640, 400);
+        let luma = vec![128u8; width * height];
+        let chroma = vec![128u8; width * height / 2];
+        thumbnails.send_nv12(&Nv12 {
+            width,
+            height,
+            luma: &luma,
+            luma_stride: width,
+            chroma: &chroma,
+            chroma_stride: width,
+        });
+        let picture = pictures.try_recv().expect("a picture");
+        assert_eq!(&picture[..3], &[0xff, 0xd8, 0xff]);
     }
 
     #[test]
