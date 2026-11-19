@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Couchwarp</title>
+  <rect width="512" height="512" rx="112" fill="#1b1815"/>
+  <circle cx="136" cy="256" r="36" fill="#f66e5c"/>
+  <circle cx="216" cy="256" r="36" fill="#55c2f2"/>
+  <circle cx="296" cy="256" r="36" fill="#a8df68"/>
+  <circle cx="376" cy="256" r="36" fill="#f7bc50"/>
+</svg>

@@ -1,0 +1,14 @@
+{
+  "name": "Couchwarp",
+  "short_name": "Couchwarp",
+  "description": "Joue au jeu d’un ami depuis ton navigateur, sans rien installer.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#110f0d",
+  "theme_color": "#110f0d",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

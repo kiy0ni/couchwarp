@@ -1,0 +1,55 @@
+{
+  "edgeToHost": [
+    { "type": "room-created", "code": "K7M2QX" },
+    { "type": "guest-joined", "guestId": 1, "name": "Léa" },
+    { "type": "guest-left", "guestId": 1 },
+    {
+      "type": "signal",
+      "from": 1,
+      "payload": { "kind": "offer", "sdp": "v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\n" }
+    },
+    {
+      "type": "signal",
+      "from": 1,
+      "payload": {
+        "kind": "candidate",
+        "candidate": "candidate:1 1 udp 2122260223 192.168.1.20 54321 typ host",
+        "sdpMid": "0"
+      }
+    }
+  ],
+  "hostToEdge": [
+    {
+      "type": "signal",
+      "to": 1,
+      "payload": { "kind": "answer", "sdp": "v=0\r\no=- 3 4 IN IP4 0.0.0.0\r\n" }
+    }
+  ],
+  "edgeToGuest": [
+    {
+      "type": "welcome",
+      "guestId": 1,
+      "iceServers": [{ "urls": ["stun:stun.cloudflare.com:3478"] }]
+    },
+    {
+      "type": "signal",
+      "payload": { "kind": "answer", "sdp": "v=0\r\no=- 3 4 IN IP4 0.0.0.0\r\n" }
+    },
+    { "type": "rejected", "reason": "room-not-found" },
+    { "type": "host-left" }
+  ],
+  "guestToEdge": [
+    {
+      "type": "signal",
+      "payload": { "kind": "offer", "sdp": "v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\n" }
+    },
+    {
+      "type": "signal",
+      "payload": {
+        "kind": "candidate",
+        "candidate": "candidate:2 1 udp 1686052607 203.0.113.7 61000 typ srflx",
+        "sdpMid": null
+      }
+    }
+  ]
+}

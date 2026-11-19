@@ -1,0 +1,5 @@
+# Optional. Without these, guests only get a STUN server and cannot join
+# from networks that block direct connections.
+# Create a TURN key in the Cloudflare dashboard: Realtime > TURN Server.
+TURN_KEY_ID=
+TURN_KEY_API_TOKEN=

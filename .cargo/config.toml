@@ -1,0 +1,16 @@
+# The screencapturekit crate ships a small Swift bridge. Two settings it needs do not
+# reach our binary on their own:
+# - the Swift compatibility libraries, which it looks for inside a full Xcode install,
+#   live in the Command Line Tools here (with Xcode this extra path is simply unused);
+# - the Swift runtime of macOS sits in /usr/lib/swift, which the binary must search.
+[target.aarch64-apple-darwin]
+rustflags = [
+  "-L", "native=/Library/Developer/CommandLineTools/usr/lib/swift/macosx",
+  "-C", "link-arg=-Wl,-rpath,/usr/lib/swift",
+]
+
+[target.x86_64-apple-darwin]
+rustflags = [
+  "-L", "native=/Library/Developer/CommandLineTools/usr/lib/swift/macosx",
+  "-C", "link-arg=-Wl,-rpath,/usr/lib/swift",
+]

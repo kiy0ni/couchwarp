@@ -1,0 +1,23 @@
+{
+  "name": "couchwarp",
+  "private": true,
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently --names edge,web --prefix-colors yellow,cyan \"pnpm --filter @couchwarp/edge dev\" \"pnpm --filter @couchwarp/web dev\"",
+    "build": "pnpm --filter @couchwarp/web build",
+    "deploy": "pnpm build && pnpm --filter @couchwarp/edge deploy",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.8",
+    "concurrently": "10.0.7",
+    "typescript": "7.0.2"
+  }
+}

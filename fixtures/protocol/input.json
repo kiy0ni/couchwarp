@@ -1,0 +1,49 @@
+{
+  "gamepad": [
+    {
+      "name": "pad at rest",
+      "packet": {
+        "pad": 0,
+        "seq": 1,
+        "buttons": 0,
+        "leftStick": [0, 0],
+        "rightStick": [0, 0],
+        "leftTrigger": 0,
+        "rightTrigger": 0
+      },
+      "hex": "01000100000000000000000000000000"
+    },
+    {
+      "name": "extreme values, A and Start held",
+      "packet": {
+        "pad": 1,
+        "seq": 65535,
+        "buttons": 129,
+        "leftStick": [-32768, 32767],
+        "rightStick": [256, -1],
+        "leftTrigger": 255,
+        "rightTrigger": 128
+      },
+      "hex": "0101ffff81000080ff7f0001ffffff80"
+    }
+  ],
+  "keyboard": [
+    {
+      "name": "W and left shift held",
+      "packet": { "seq": 7, "keys": [26, 225] },
+      "hex": "020700021ae1"
+    },
+    {
+      "name": "every key released",
+      "packet": { "seq": 8, "keys": [] },
+      "hex": "02080000"
+    }
+  ],
+  "invalid": [
+    { "name": "empty packet", "hex": "" },
+    { "name": "unknown kind", "hex": "09" },
+    { "name": "truncated gamepad", "hex": "0100" },
+    { "name": "gamepad with trailing bytes", "hex": "01000100000000000000000000000000ff" },
+    { "name": "keyboard count larger than the packet", "hex": "0201000304" }
+  ]
+}
