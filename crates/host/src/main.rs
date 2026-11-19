@@ -1,6 +1,8 @@
 //! Couchwarp host: shares one game window with guests who join from a browser.
 
 mod audio;
+#[cfg(any(target_os = "macos", test))]
+mod avcc;
 mod host;
 mod input;
 mod net;

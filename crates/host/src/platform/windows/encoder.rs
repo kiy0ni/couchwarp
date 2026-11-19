@@ -26,14 +26,16 @@ pub struct Encoder {
 }
 
 impl Encoder {
-    /// The picture size follows the window, so `settings` only sets the rate and bitrate.
+    /// Starts at the window's size; if the window is resized, the encoder follows.
     pub fn new(
         settings: &EncoderSettings,
         frames: mpsc::Sender<EncodedFrame>,
         keyframe_wanted: Arc<AtomicBool>,
     ) -> Result<Self> {
+        let mut software = SoftwareEncoder::new(settings.bitrate, settings.fps);
+        software.prepare(settings.width as usize, settings.height as usize)?;
         Ok(Self {
-            software: Mutex::new(SoftwareEncoder::new(settings.bitrate, settings.fps)),
+            software: Mutex::new(software),
             frames,
             keyframe_wanted,
         })

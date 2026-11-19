@@ -4,6 +4,7 @@
 //! its local API. Without it, controllers are received but not played.
 
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::net::SocketAddr;
 
 use anyhow::{Context, Result};
@@ -56,10 +57,10 @@ impl PadSink {
         let Some((client, bus)) = &self.service else {
             return;
         };
-        if !self.pads.contains_key(&slot) {
+        if let Entry::Vacant(free) = self.pads.entry(slot) {
             match plug_in(client, *bus) {
                 Ok(pad) => {
-                    self.pads.insert(slot, pad);
+                    free.insert(pad);
                 }
                 Err(error) => {
                     warn!(slot, "{error:#}");

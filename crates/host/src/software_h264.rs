@@ -36,10 +36,8 @@ impl SoftwareEncoder {
         // H.264 works on 2×2 blocks of colour: drop a last odd row or column.
         let size = (width & !1, height & !1);
         let packed = crop(bgra, width, size);
-        if self.current.as_ref().map(|(_, current)| *current) != Some(size) {
-            self.current = Some((self.create(size)?, size));
-        }
-        let (encoder, _) = self.current.as_mut().expect("just created");
+        self.prepare(size.0, size.1)?;
+        let (encoder, _) = self.current.as_mut().expect("prepared above");
         if keyframe {
             encoder.force_intra_frame();
         }
@@ -49,6 +47,16 @@ impl SoftwareEncoder {
             .context("OpenH264 encoding failed")?
             .to_vec();
         Ok((!annex_b.is_empty()).then_some(annex_b))
+    }
+
+    /// Starts the encoder for pictures of this size, unless it already runs at that size.
+    /// Doing it before the first frame keeps the setup out of the first frame's latency.
+    pub fn prepare(&mut self, width: usize, height: usize) -> Result<()> {
+        let size = (width & !1, height & !1);
+        if self.current.as_ref().map(|(_, current)| *current) != Some(size) {
+            self.current = Some((self.create(size)?, size));
+        }
+        Ok(())
     }
 
     fn create(&self, size: (usize, usize)) -> Result<Encoder> {
