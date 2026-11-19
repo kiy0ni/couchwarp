@@ -7,8 +7,11 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow};
 use couchwarp_protocol::control::{GuestControl, HostControl};
+use couchwarp_protocol::room::{
+    GuestRole, Hotseat, HotseatMode, RoomSettings, RoomState, Visibility,
+};
 use couchwarp_protocol::signal::{EdgeToHost, GuestId, HostToEdge, SignalPayload};
 use str0m::net::{Protocol, Receive};
 use str0m::{Candidate, Input};
@@ -18,16 +21,72 @@ use tokio::time::{MissedTickBehavior, interval, sleep_until};
 use tracing::{debug, info, warn};
 
 use crate::audio::AudioPacket;
-use crate::input::{Action, InputRouter};
+use crate::input::{Action, InputRouter, Permissions};
 use crate::peer::{Peer, PeerEvent};
 use crate::platform::{InputSink, frontmost_pid};
-use crate::signaling::Room;
+use crate::signaling::{Room, RoomEvent};
 use crate::stats::FrameDelays;
 use crate::video::{EncodedFrame, StreamClock, unix_ms_now};
 
 const FOCUS_CHECK: Duration = Duration::from_millis(100);
 const IDLE_WAKE: Duration = Duration::from_millis(100);
 const MAX_DATAGRAM: usize = 2000;
+/// How long the last messages to the room server may take once the host stops.
+const FAREWELL: Duration = Duration::from_secs(2);
+
+/// Room settings chosen on the command line, applied over the room server's defaults.
+#[derive(Debug, Default, Clone)]
+pub struct SettingsRequest {
+    pub title: Option<String>,
+    pub game: Option<String>,
+    pub max_players: Option<u8>,
+    pub public: bool,
+    pub relay_only: bool,
+    pub turn_minutes: Option<u32>,
+}
+
+impl SettingsRequest {
+    fn is_empty(&self) -> bool {
+        self.title.is_none()
+            && self.game.is_none()
+            && self.max_players.is_none()
+            && !self.public
+            && !self.relay_only
+            && self.turn_minutes.is_none()
+    }
+
+    fn apply_to(&self, current: &RoomSettings) -> RoomSettings {
+        RoomSettings {
+            title: self.title.clone().unwrap_or_else(|| current.title.clone()),
+            game: self.game.clone().unwrap_or_else(|| current.game.clone()),
+            max_players: self.max_players.unwrap_or(current.max_players),
+            visibility: if self.public {
+                Visibility::Public
+            } else {
+                current.visibility
+            },
+            relay_only: self.relay_only || current.relay_only,
+            hotseat: match self.turn_minutes {
+                Some(minutes) => Hotseat {
+                    mode: HotseatMode::Timer,
+                    minutes,
+                },
+                None => current.hotseat,
+            },
+        }
+    }
+}
+
+/// What a member of the room may send to the game.
+fn permissions(state: &RoomState, guest: GuestId) -> Permissions {
+    match state.member(guest) {
+        Some(member) if member.role != GuestRole::Spectator => Permissions {
+            pads: true,
+            keyboard: member.keyboard,
+        },
+        _ => Permissions::default(),
+    }
+}
 
 pub struct Host {
     socket: UdpSocket,
@@ -43,6 +102,10 @@ pub struct Host {
     keyframe_wanted: Arc<AtomicBool>,
     signal_out: mpsc::UnboundedSender<HostToEdge>,
     delays: FrameDelays,
+    /// The latest room state; `None` until the room server sends the first one.
+    room_state: Option<RoomState>,
+    /// Applied once, over the first room state.
+    settings_request: Option<SettingsRequest>,
 }
 
 impl Host {
@@ -53,6 +116,7 @@ impl Host {
         focus_lock: bool,
         keyframe_wanted: Arc<AtomicBool>,
         signal_out: mpsc::UnboundedSender<HostToEdge>,
+        settings_request: SettingsRequest,
     ) -> Self {
         Self {
             socket,
@@ -67,10 +131,13 @@ impl Host {
             keyframe_wanted,
             signal_out,
             delays: FrameDelays::default(),
+            room_state: None,
+            settings_request: (!settings_request.is_empty()).then_some(settings_request),
         }
     }
 
-    /// Runs until Ctrl+C, or until the shared window goes away.
+    /// Runs until Ctrl+C, until the room is closed from the console, or until the shared
+    /// window goes away. On Ctrl+C the room closes for everyone.
     pub async fn run(
         mut self,
         mut room: Room,
@@ -83,7 +150,7 @@ impl Host {
         focus.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let mut room_open = true;
 
-        loop {
+        let outcome = loop {
             let deadline = self.drain();
             tokio::select! {
                 Some(frame) = frames.recv() => self.send_frame(&frame),
@@ -92,27 +159,45 @@ impl Host {
                         peer.send_sound(&packet);
                     }
                 }
-                message = room.incoming.recv(), if room_open => match message {
-                    Some(message) => self.on_room_message(message),
-                    None => {
+                event = room.incoming.recv(), if room_open => match event {
+                    Some(RoomEvent::Message(message)) => self.on_room_message(message),
+                    Some(RoomEvent::Closed) => {
+                        info!("the room was closed from the host console");
+                        room_open = false;
+                        break Ok(());
+                    }
+                    Some(RoomEvent::Lost) | None => {
                         room_open = false;
                         warn!("lost the room server: guests already playing stay, new ones cannot join");
                     }
                 },
                 received = self.socket.recv_from(&mut buffer) => {
-                    let (length, source) = received?;
-                    self.on_datagram(&buffer[..length], source)?;
+                    let handled = received.map_err(anyhow::Error::from).and_then(|(length, source)| {
+                        self.on_datagram(&buffer[..length], source)
+                    });
+                    if let Err(error) = handled {
+                        break Err(error);
+                    }
                 }
                 () = sleep_until(deadline.into()) => self.on_timeout(),
                 _ = focus.tick() => self.check_focus(),
                 Some(reason) = capture_stopped.recv() => {
-                    bail!("the shared window is gone, so the game ended ({reason})");
+                    break Err(anyhow!("the shared window is gone, so the game ended ({reason})"));
                 }
-                _ = tokio::signal::ctrl_c() => break,
+                _ = tokio::signal::ctrl_c() => break Ok(()),
             }
-        }
+        };
         info!("stopping");
-        Ok(())
+        // Close the room for everyone, and give the message time to leave.
+        if room_open {
+            let _ = self.signal_out.send(HostToEdge::Close);
+        }
+        drop(self);
+        drop(room.outgoing);
+        if tokio::time::timeout(FAREWELL, room.writer).await.is_err() {
+            warn!("the room server did not hear that the room closed");
+        }
+        outcome
     }
 
     /// Lets every peer send what it has queued and handles what they report, until all are
@@ -202,12 +287,49 @@ impl Host {
                 info!(guest = guest_id, "guest left the room");
                 self.names.remove(&guest_id);
                 self.peers.retain(|peer| peer.guest_id != guest_id);
-                let actions = self.router.remove_guest(guest_id);
+                let actions = self.router.forget_guest(guest_id);
                 self.carry_out(actions);
             }
             EdgeToHost::Signal { from, payload } => self.on_signal(from, payload),
+            EdgeToHost::RoomState { state } => self.on_room_state(state),
+            EdgeToHost::Chat { message } => info!(from = %message.name, "chat: {}", message.text),
             EdgeToHost::RoomCreated { .. } => debug!("room already open"),
         }
+    }
+
+    /// Roles and permissions come from the room server; the router enforces them here.
+    fn on_room_state(&mut self, state: RoomState) {
+        if let Some(request) = self.settings_request.take() {
+            let settings = request.apply_to(&state.settings);
+            if self
+                .signal_out
+                .send(HostToEdge::Configure { settings })
+                .is_err()
+            {
+                warn!("room settings not sent, the room server is gone");
+            }
+        }
+        if let Some(refused) = state.public_refused
+            && self.room_state.as_ref().and_then(|s| s.public_refused) != Some(refused)
+        {
+            warn!(
+                ?refused,
+                "the room stays unlisted: only people with the link can join"
+            );
+        }
+        let guests: Vec<GuestId> = state
+            .members
+            .iter()
+            .map(|member| member.id)
+            .chain(self.names.keys().copied())
+            .collect();
+        for guest in guests {
+            let actions = self
+                .router
+                .set_permissions(guest, permissions(&state, guest));
+            self.carry_out(actions);
+        }
+        self.room_state = Some(state);
     }
 
     fn on_signal(&mut self, guest: GuestId, payload: SignalPayload) {
@@ -294,5 +416,89 @@ impl Host {
 
     fn peer(&mut self, guest: GuestId) -> Option<&mut Peer> {
         self.peers.iter_mut().find(|peer| peer.guest_id == guest)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use couchwarp_protocol::room::{Member, PadType};
+
+    fn settings() -> RoomSettings {
+        RoomSettings {
+            title: "Partie de Kiyo".into(),
+            game: String::new(),
+            max_players: 4,
+            visibility: Visibility::Link,
+            relay_only: false,
+            hotseat: Hotseat {
+                mode: HotseatMode::Off,
+                minutes: 5,
+            },
+        }
+    }
+
+    fn member(id: GuestId, role: GuestRole, keyboard: bool) -> Member {
+        Member {
+            id,
+            name: format!("Guest {id}"),
+            avatar_url: None,
+            user_id: None,
+            role,
+            keyboard,
+            mouse: false,
+            pad_type: PadType::Xbox360,
+        }
+    }
+
+    #[test]
+    fn command_line_settings_override_only_what_they_name() {
+        let request = SettingsRequest {
+            game: Some("Overcooked".into()),
+            public: true,
+            turn_minutes: Some(3),
+            ..SettingsRequest::default()
+        };
+        let applied = request.apply_to(&settings());
+        assert_eq!(applied.title, "Partie de Kiyo");
+        assert_eq!(applied.game, "Overcooked");
+        assert_eq!(applied.visibility, Visibility::Public);
+        assert_eq!(applied.hotseat.mode, HotseatMode::Timer);
+        assert_eq!(applied.max_players, 4);
+        assert!(SettingsRequest::default().is_empty());
+    }
+
+    #[test]
+    fn spectators_and_strangers_may_send_nothing() {
+        let state = RoomState {
+            code: "K7M2QX".into(),
+            settings: settings(),
+            host_name: "Kiyo".into(),
+            members: vec![
+                member(1, GuestRole::Player, false),
+                member(2, GuestRole::Moderator, true),
+                member(3, GuestRole::Spectator, true),
+            ],
+            queue: vec![],
+            turn_ends_at: None,
+            public_refused: None,
+            relay_available: false,
+        };
+        assert_eq!(
+            permissions(&state, 1),
+            Permissions {
+                pads: true,
+                keyboard: false
+            }
+        );
+        assert_eq!(
+            permissions(&state, 2),
+            Permissions {
+                pads: true,
+                keyboard: true
+            }
+        );
+        assert_eq!(permissions(&state, 3), Permissions::default());
+        assert_eq!(permissions(&state, 9), Permissions::default());
     }
 }

@@ -1,15 +1,23 @@
+import type { ChatMessage, PadType } from '@couchwarp/protocol'
 import { useEffect, useRef, useState } from 'react'
+import { ChatPanel } from '../components/ChatPanel'
+import { Choice } from '../components/Choice'
 import { KeyboardHelp } from '../components/KeyboardHelp'
+import { MemberList } from '../components/MemberList'
 import { PlayerBadge } from '../components/PlayerBadge'
 import { TouchPad } from '../components/TouchPad'
 import { t } from '../i18n'
+import { latencyQuality } from '../lib/latency'
 import type { PadState } from '../lib/pad-state'
 import type { EndReason } from '../lib/session'
 import { useGamepads } from '../lib/use-gamepads'
 import { type KeyboardMode, useInputForwarding } from '../lib/use-input'
+import { countdown, useNow } from '../lib/use-now'
 import { type Measures, useStream } from '../lib/use-stream'
 
 const CHROME_IDLE_MS = 3000
+/** How long a chat message stays over the game while the chat is closed. */
+const TOAST_MS = 5000
 
 type KeyboardLockNavigator = Navigator & { keyboard?: { lock(): Promise<void> } }
 
@@ -37,6 +45,29 @@ function ms(value: number | null): string {
   return value === null ? '…' : `${Math.round(value)} ms`
 }
 
+/**
+ * Messages read and the latest one to show over the game: unread ones count up while
+ * the chat is closed, and each new message from someone else shows for a few seconds.
+ */
+function useChatNotices(messages: readonly ChatMessage[], open: boolean, selfId: number | null) {
+  const [seen, setSeen] = useState(0)
+  const [toast, setToast] = useState<ChatMessage | null>(null)
+  if (open && seen !== messages.length) setSeen(messages.length)
+  const latest = messages.at(-1)
+  const quiet = useRef(true)
+  quiet.current = open || latest?.from === selfId
+
+  // Runs once per new message, so closing the chat never brings an old one back.
+  useEffect(() => {
+    if (!latest || quiet.current) return
+    setToast(latest)
+    const timer = window.setTimeout(() => setToast(null), TOAST_MS)
+    return () => window.clearTimeout(timer)
+  }, [latest])
+
+  return { unread: open ? 0 : messages.length - seen, toast: open ? null : toast }
+}
+
 interface Props {
   code: string
   name: string
@@ -48,27 +79,45 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
   const video = useRef<HTMLVideoElement>(null)
   const surface = useRef<HTMLElement>(null)
   const menu = useRef<HTMLDialogElement>(null)
+  const chatDialog = useRef<HTMLDialogElement>(null)
+  const [chatOpen, setChatOpen] = useState(false)
   const stream = useStream(code, name, video, onEnd)
+  const { room, me, session } = stream
   const gamepads = useGamepads()
   const [touchScreen] = useState(() => matchMedia('(pointer: coarse)').matches)
-  const [keyboardChoice, setKeyboardChoice] = useState<KeyboardMode | null>(null)
+  const [keyboardChoice, setKeyboardChoice] = useState<'keys' | 'pad' | null>(null)
   const [touchWanted, setTouchWanted] = useState(true)
   const touch = useRef<PadState | null>(null)
 
+  // Until the room state arrives, the guest is taken as a player: the host checks anyway.
+  const playing = me === null || me.role !== 'spectator'
+  const keyboardAllowed = me?.keyboard ?? false
   // Playing the keyboard as a controller only helps when the host can play controllers.
-  const keyboardMode = keyboardChoice ?? (stream.virtualPads ? 'pad' : 'keys')
+  const preferred = keyboardChoice ?? (stream.virtualPads ? 'pad' : 'keys')
+  const keyboardMode: KeyboardMode = !playing
+    ? 'off'
+    : keyboardAllowed
+      ? preferred
+      : stream.virtualPads
+        ? 'pad'
+        : 'off'
   const showTouch =
-    touchScreen && stream.virtualPads === true && gamepads.length === 0 && touchWanted
+    playing && touchScreen && stream.virtualPads === true && gamepads.length === 0 && touchWanted
   if (!showTouch) touch.current = null
 
-  useInputForwarding(stream.session, surface, {
+  useInputForwarding(playing ? session : null, surface, {
     keyboardMode,
     touch,
     onPadRemoved: stream.forgetPad,
   })
   const [chromeVisible, wakeChrome] = useIdleChrome()
-  const showChrome = chromeVisible || !stream.hasPicture || stream.paused
+  const notices = useChatNotices(stream.chat, chatOpen, me?.id ?? null)
+  const turnEndsAt = room?.turnEndsAt ?? null
+  const now = useNow(turnEndsAt !== null)
+  const showChrome = chromeVisible || !stream.hasPicture || stream.paused || !playing
   const players = [...stream.slots.values()].sort((a, b) => a - b)
+  const placeInLine = me ? (room?.queue.indexOf(me.id) ?? -1) + 1 : 0
+  const median = stream.measures.median
 
   return (
     <main
@@ -94,6 +143,24 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
         </p>
       )}
 
+      {!playing && (
+        <div className="play__notice play__notice--watching" role="status">
+          <p>{placeInLine > 0 ? t.room.inLine(placeInLine) : t.room.watching}</p>
+          <button
+            type="button"
+            className="button button--secondary button--small"
+            onClick={() => session?.sendRoom({ type: 'raise-hand', raised: placeInLine === 0 })}
+          >
+            {placeInLine > 0 ? t.room.lowerHand : t.room.raiseHand}
+          </button>
+        </div>
+      )}
+      {notices.toast && (
+        <p className="play__toast" role="status">
+          <span className="chat__name">{notices.toast.name}</span> {notices.toast.text}
+        </p>
+      )}
+
       {showTouch && <TouchPad state={touch} />}
 
       <div className="play__bar">
@@ -104,6 +171,12 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
             </li>
           ))}
         </ul>
+        {turnEndsAt !== null && (
+          <p className="play__turn">
+            <span className="play__latency-label">{t.room.turnLeft}</span>
+            <span className="num">{countdown(turnEndsAt - now)}</span>
+          </p>
+        )}
         {stream.soundBlocked && (
           <button
             type="button"
@@ -113,10 +186,26 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
             {t.play.enableSound}
           </button>
         )}
-        <p className="play__latency">
+        <p
+          className="play__latency"
+          data-quality={median === null ? undefined : latencyQuality(median)}
+        >
           <span className="play__latency-label">{t.play.latency}</span>
-          <span className="num">{ms(stream.measures.median)}</span>
+          <span className="num">{ms(median)}</span>
+          {median !== null && (
+            <span className="visually-hidden">{qualityLabel(latencyQuality(median))}</span>
+          )}
         </p>
+        <button
+          type="button"
+          className="button button--secondary button--small"
+          onClick={() => {
+            chatDialog.current?.showModal()
+            setChatOpen(true)
+          }}
+        >
+          {t.room.chatOpen(notices.unread)}
+        </button>
         <button
           type="button"
           className="button button--secondary button--small"
@@ -126,20 +215,65 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
         </button>
       </div>
 
+      <dialog
+        ref={chatDialog}
+        className="menu menu--chat"
+        aria-label={t.room.chatTitle}
+        onClose={() => {
+          setChatOpen(false)
+          surface.current?.focus()
+        }}
+      >
+        <div className="menu__head">
+          <h2 className="menu__title">{t.room.chatTitle}</h2>
+          <button type="button" className="link-button" onClick={() => chatDialog.current?.close()}>
+            {t.room.chatClose}
+          </button>
+        </div>
+        {chatOpen && (
+          <ChatPanel
+            messages={stream.chat}
+            hostName={room?.hostName ?? ''}
+            onSend={(text) => session?.sendRoom({ type: 'chat', text })}
+            autoFocus
+          />
+        )}
+      </dialog>
+
       <dialog ref={menu} className="menu" onClose={() => surface.current?.focus()}>
         <h2 className="menu__title">{t.play.controlsTitle}</h2>
         {stream.virtualPads === false && <p className="menu__note">{t.play.padsUnavailable}</p>}
-        {stream.virtualPads && (
+        {playing && !keyboardAllowed && (
+          <p className="menu__note">
+            {stream.virtualPads ? t.room.keyboardNotAllowed : t.room.keyboardOff}
+          </p>
+        )}
+        {stream.virtualPads && playing && (
           <div className="menu__settings">
-            <Choice<KeyboardMode>
-              label={t.play.keyboardLabel}
-              value={keyboardMode}
-              options={[
-                ['pad', t.play.keyboardAsPad],
-                ['keys', t.play.keyboardAsKeys],
-              ]}
-              onChange={setKeyboardChoice}
-            />
+            {keyboardAllowed && (
+              <Choice<'keys' | 'pad'>
+                label={t.play.keyboardLabel}
+                value={preferred}
+                options={[
+                  ['pad', t.play.keyboardAsPad],
+                  ['keys', t.play.keyboardAsKeys],
+                ]}
+                onChange={setKeyboardChoice}
+              />
+            )}
+            {me && (
+              <Choice<PadType>
+                label={t.room.padTypeLabel}
+                value={me.padType}
+                options={[
+                  ['xbox360', t.room.padXbox],
+                  ['dualshock4', t.room.padPlayStation],
+                ]}
+                onChange={(padType) =>
+                  session?.sendRoom({ type: 'set-pad-type', guestId: me.id, padType })
+                }
+              />
+            )}
             {touchScreen && (
               <Choice<'show' | 'hide'>
                 label={t.play.touchLabel}
@@ -154,6 +288,18 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
           </div>
         )}
         {keyboardMode === 'pad' && <KeyboardHelp />}
+
+        {room && (
+          <>
+            <h2 className="menu__title">{t.room.membersTitle}</h2>
+            <MemberList
+              room={room}
+              viewer={me?.role === 'moderator' ? 'moderator' : 'guest'}
+              selfId={me?.id ?? null}
+              onCommand={(command) => session?.sendRoom(command)}
+            />
+          </>
+        )}
 
         <h2 className="menu__title">{t.play.measuresTitle}</h2>
         <MeasuresList measures={stream.measures} />
@@ -182,31 +328,12 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
   )
 }
 
-interface ChoiceProps<T extends string> {
-  label: string
-  value: T
-  options: readonly (readonly [T, string])[]
-  onChange(value: T): void
-}
-
-/** A two-way switch as radio buttons, so arrows and screen readers work as usual. */
-function Choice<T extends string>({ label, value, options, onChange }: ChoiceProps<T>) {
-  return (
-    <fieldset className="choice">
-      <legend className="choice__label">{label}</legend>
-      {options.map(([option, text]) => (
-        <label key={option} className="choice__option">
-          <input
-            type="radio"
-            name={label}
-            checked={value === option}
-            onChange={() => onChange(option)}
-          />
-          {text}
-        </label>
-      ))}
-    </fieldset>
-  )
+function qualityLabel(quality: ReturnType<typeof latencyQuality>): string {
+  return {
+    good: t.room.latencyGood,
+    fair: t.room.latencyFair,
+    poor: t.room.latencyPoor,
+  }[quality]
 }
 
 function MeasuresList({ measures }: { measures: Measures }) {

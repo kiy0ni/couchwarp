@@ -4,6 +4,7 @@ import { CodeEntry } from '../components/CodeEntry'
 import { TopBar } from '../components/TopBar'
 import { t } from '../i18n'
 import { useGamepadNavigation } from '../lib/gamepad-nav'
+import { navigate } from '../lib/router'
 import { isRoomOpen } from '../lib/session'
 import { useGamepads } from '../lib/use-gamepads'
 
@@ -59,6 +60,16 @@ export function Home({ onFound }: { onFound(code: string): void }) {
         <button type="submit" className="button" disabled={status.kind === 'looking'}>
           {status.kind === 'looking' ? t.home.looking : t.home.join}
         </button>
+        <a
+          className="link-button"
+          href="/parties"
+          onClick={(event) => {
+            event.preventDefault()
+            navigate('/parties')
+          }}
+        >
+          {t.browse.link}
+        </a>
       </form>
     </main>
   )

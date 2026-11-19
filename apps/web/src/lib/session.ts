@@ -1,4 +1,5 @@
 import {
+  type ChatMessage,
   encodeInput,
   type GuestControl,
   type GuestToEdge,
@@ -8,6 +9,7 @@ import {
   parseEdgeToGuest,
   parseHostControl,
   type RejectReason,
+  type RoomState,
   type SignalPayload,
 } from '@couchwarp/protocol'
 
@@ -19,6 +21,11 @@ export type EndReason =
   | 'server-unreachable'
 
 export interface SessionEvents {
+  /** The room server let us in, under this id. */
+  onWelcome(guestId: number): void
+  /** The whole room, after every change. */
+  onRoom(state: RoomState): void
+  onChat(message: ChatMessage): void
   /** The control channel is open: the host can hear us. */
   onConnected(): void
   /** Called once, with a stream that gains the sound track when it arrives. */
@@ -62,6 +69,11 @@ export class GuestSession {
     this.input.send(encodeInput(packet))
   }
 
+  /** Chat, raising a hand, and what moderators may do. Lost if the room server is gone. */
+  sendRoom(message: Exclude<GuestToEdge, { type: 'signal' }>): void {
+    if (this.socket.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message))
+  }
+
   sendControl(message: GuestControl): void {
     if (this.control?.readyState === 'open') this.control.send(JSON.stringify(message))
   }
@@ -86,7 +98,14 @@ export class GuestSession {
     }
     switch (message.type) {
       case 'welcome':
-        this.connect(message.iceServers).catch((error) => this.fail(error))
+        this.events.onWelcome(message.guestId)
+        this.connect(message.iceServers, message.relayOnly).catch((error) => this.fail(error))
+        break
+      case 'room-state':
+        this.events.onRoom(message.state)
+        break
+      case 'chat':
+        this.events.onChat(message.message)
         break
       case 'signal':
         this.applySignal(message.payload).catch((error) => this.fail(error))
@@ -100,8 +119,13 @@ export class GuestSession {
     }
   }
 
-  private async connect(iceServers: IceServer[]): Promise<void> {
-    const peer = new RTCPeerConnection({ iceServers, bundlePolicy: 'max-bundle' })
+  /** `relayOnly`: only relay candidates are gathered, so the host never sees our address. */
+  private async connect(iceServers: IceServer[], relayOnly: boolean): Promise<void> {
+    const peer = new RTCPeerConnection({
+      iceServers,
+      bundlePolicy: 'max-bundle',
+      iceTransportPolicy: relayOnly ? 'relay' : 'all',
+    })
     this.peer = peer
 
     this.control = peer.createDataChannel('control')

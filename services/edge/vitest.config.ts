@@ -13,6 +13,7 @@ export default defineConfig(async () => {
             PUBLIC_URL: 'https://couchwarp.test',
             DISCORD_CLIENT_ID: 'discord-client',
             DISCORD_CLIENT_SECRET: 'discord-secret',
+            PUBLIC_ROOMS: 'on',
           },
         },
       }),

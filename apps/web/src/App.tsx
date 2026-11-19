@@ -3,15 +3,22 @@ import { useCallback, useEffect, useState } from 'react'
 import { navigate, usePath } from './lib/router'
 import type { EndReason } from './lib/session'
 import { AccountPage } from './screens/AccountPage'
+import { Browse } from './screens/Browse'
+import { Console } from './screens/Console'
 import { Ended } from './screens/Ended'
 import { Home } from './screens/Home'
 import { Join } from './screens/Join'
 import { Play } from './screens/Play'
 
-/** A shared link is `/<code>`. */
-function codeFromPath(pathname: string): string | null {
-  const code = normalizeRoomCode(decodeURIComponent(pathname.slice(1)))
-  return isRoomCode(code) ? code : null
+/** A shared link is `/<code>`; the host console is `/<code>/console#key=…`. */
+function parsePath(pathname: string): { code: string | null; isConsole: boolean } {
+  const [first = '', second, ...rest] = pathname.slice(1).split('/')
+  const code = normalizeRoomCode(decodeURIComponent(first))
+  const isConsole = second === 'console' && rest.length === 0
+  if (!isRoomCode(code) || (second !== undefined && !isConsole)) {
+    return { code: null, isConsole: false }
+  }
+  return { code, isConsole }
 }
 
 type Stage =
@@ -21,7 +28,7 @@ type Stage =
 
 export function App() {
   const path = usePath()
-  const code = codeFromPath(path)
+  const { code, isConsole } = parsePath(path)
   const [stage, setStage] = useState<Stage>({ name: 'join' })
 
   // Every new page starts at the join step.
@@ -33,7 +40,9 @@ export function App() {
   const onClosed = useCallback(() => onEnd('room-not-found'), [onEnd])
 
   if (path === '/compte') return <AccountPage />
+  if (path === '/parties') return <Browse />
   if (!code) return <Home onFound={goTo} />
+  if (isConsole && stage.name !== 'ended') return <Console code={code} onEnd={onEnd} />
   switch (stage.name) {
     case 'join':
       return (

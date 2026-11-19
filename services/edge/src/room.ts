@@ -1,19 +1,43 @@
 import { DurableObject } from 'cloudflare:workers'
 import {
+  type EdgeToConsole,
   type EdgeToGuest,
   type EdgeToHost,
   type GuestId,
+  type HostCommand,
+  parseConsoleToEdge,
   parseGuestToEdge,
   parseHostToEdge,
   type RejectReason,
 } from '@couchwarp/protocol'
+import { publish, unpublish } from './directory'
 import { iceServersFor } from './ice'
+import { type Account, type Actor, type Policy, RoomModel, type Snapshot } from './room-model'
 
-/** Guests per room. Eight controller slots, so more guests could never all play. */
-export const MAX_GUESTS = 8
 const MAX_NAME_LENGTH = 24
+/** A thumbnail is a small JPEG; anything bigger is refused. */
+const MAX_THUMBNAIL_BYTES = 128 * 1024
+/** How often a room wakes up to refresh its public row and check the turn timer. */
+const HEARTBEAT_MS = 60 * 1000
 
-type Peer = { role: 'host' } | { role: 'guest'; guestId: GuestId; name: string }
+type Peer =
+  | { role: 'host' }
+  | { role: 'guest'; guestId: GuestId }
+  | { role: 'console'; authed: boolean }
+
+/** What every peer receives: the room state, and chat. */
+type Broadcast = Extract<EdgeToGuest, { type: 'room-state' | 'chat' }>
+
+/** Facts the Worker resolved before handing the request over. */
+export interface Arrival {
+  account: Account | null
+  /** SHA-256 of the network address, for bans that survive a new nickname. */
+  addressHash: string
+  country: string | null
+  continent: string | null
+}
+
+export const ARRIVAL_HEADER = 'X-Couchwarp-Arrival'
 
 /** WebSocket close codes in the private range, one per rejection. */
 const CLOSE_CODES: Record<RejectReason, number> = {
@@ -21,141 +45,459 @@ const CLOSE_CODES: Record<RejectReason, number> = {
   'room-full': 4409,
   'invalid-name': 4400,
   'host-already-connected': 4403,
+  kicked: 4410,
+  banned: 4411,
+  'room-closed': 4412,
+  'console-key-invalid': 4401,
+}
+
+interface Meta {
+  code: string
+  consoleKey: string
+  nextGuestId: number
+  country: string | null
+  continent: string | null
+  hasThumbnail: boolean
 }
 
 /**
- * One room: the host's WebSocket and its guests'. It relays WebRTC negotiation
- * between them and nothing else. Uses the hibernation API, so an idle room costs nothing.
+ * One room: the host's WebSocket, its guests', and the host consoles. It relays WebRTC
+ * negotiation, keeps the room state (`RoomModel`) and sends it out after every change.
+ * Uses the hibernation API, so an idle room costs nothing.
  *
- * Routes, called by the Worker: `/<code>/host`, `/<code>/guest?name=`, `/<code>/info`.
+ * Routes, called by the Worker: `/<code>/host`, `/<code>/guest?name=`, `/<code>/console`,
+ * `/<code>/info`, `/<code>/thumbnail`.
  */
 export class Room extends DurableObject<Env> {
+  private model: RoomModel | null = null
+
   override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
     const [, code = '', route] = url.pathname.split('/')
+    const arrival = JSON.parse(request.headers.get(ARRIVAL_HEADER) ?? 'null') as Arrival | null
     switch (route) {
       case 'info':
-        return Response.json({ open: this.host() !== undefined })
+        return Response.json({ open: this.hostSocket() !== undefined })
+      case 'thumbnail':
+        return this.thumbnail()
+      case 'console':
+        return this.acceptConsole()
       case 'host':
-        return this.acceptHost(code)
+        return arrival ? this.acceptHost(code, arrival) : new Response(null, { status: 400 })
       case 'guest':
-        return this.acceptGuest(url.searchParams.get('name') ?? '')
+        return arrival
+          ? this.acceptGuest(url.searchParams.get('name') ?? '', arrival)
+          : new Response(null, { status: 400 })
       default:
         return new Response('Not found', { status: 404 })
     }
   }
 
-  override webSocketMessage(socket: WebSocket, message: string | ArrayBuffer): void {
-    if (typeof message !== 'string') {
-      socket.close(1003, 'text messages only')
-      return
-    }
+  override async webSocketMessage(socket: WebSocket, message: string | ArrayBuffer): Promise<void> {
     const peer = socket.deserializeAttachment() as Peer
-    const relayed =
-      peer.role === 'host'
-        ? this.relayFromHost(message)
-        : this.relayFromGuest(peer.guestId, message)
-    if (!relayed) socket.close(1008, 'invalid message')
+    const model = this.load()
+    if (!model) {
+      socket.close(1011, 'room gone')
+    } else if (peer.role === 'host' && message instanceof ArrayBuffer) {
+      this.storeThumbnail(message)
+    } else if (typeof message !== 'string') {
+      socket.close(1003, 'text messages only')
+    } else if (peer.role === 'host') {
+      await this.fromHost(socket, model, message)
+    } else if (peer.role === 'guest') {
+      await this.fromGuest(socket, model, peer.guestId, message)
+    } else {
+      await this.fromConsole(socket, model, peer.authed, message)
+    }
   }
 
-  /** False when the message is not valid. A guest that already left is not an error. */
-  private relayFromHost(message: string): boolean {
-    const parsed = parseHostToEdge(message)
-    if (!parsed) return false
-    this.guestSocket(parsed.to)?.send(
-      json<EdgeToGuest>({ type: 'signal', payload: parsed.payload }),
-    )
-    return true
+  override async webSocketClose(socket: WebSocket): Promise<void> {
+    await this.leave(socket)
   }
 
-  private relayFromGuest(guestId: GuestId, message: string): boolean {
-    const parsed = parseGuestToEdge(message)
-    if (!parsed) return false
-    this.host()?.send(json<EdgeToHost>({ type: 'signal', from: guestId, payload: parsed.payload }))
-    return true
+  override async webSocketError(socket: WebSocket): Promise<void> {
+    await this.leave(socket)
   }
 
-  override webSocketClose(socket: WebSocket): void {
-    this.leave(socket)
+  /** Keeps the public row fresh and ends timed turns, while the host is here. */
+  override async alarm(): Promise<void> {
+    const model = this.load()
+    if (!model || !this.hostSocket()) return
+    const now = Date.now()
+    if (model.turnEndsAt !== null && model.turnEndsAt <= now) model.nextTurn(now)
+    await this.changed(model)
   }
 
-  override webSocketError(socket: WebSocket): void {
-    this.leave(socket)
+  private async fromHost(socket: WebSocket, model: RoomModel, text: string): Promise<void> {
+    const parsed = parseHostToEdge(text)
+    if (!parsed) {
+      socket.close(1008, 'invalid message')
+    } else if (parsed.type === 'signal') {
+      this.guestSocket(parsed.to)?.send(
+        json<EdgeToGuest>({ type: 'signal', payload: parsed.payload }),
+      )
+    } else {
+      await this.command(model, { kind: 'host' }, parsed)
+    }
   }
 
-  private acceptHost(code: string): Response {
-    if (this.host()) {
+  private async fromGuest(
+    socket: WebSocket,
+    model: RoomModel,
+    guestId: GuestId,
+    text: string,
+  ): Promise<void> {
+    const parsed = parseGuestToEdge(text)
+    if (!parsed) {
+      socket.close(1008, 'invalid message')
+    } else if (parsed.type === 'signal') {
+      this.hostSocket()?.send(
+        json<EdgeToHost>({ type: 'signal', from: guestId, payload: parsed.payload }),
+      )
+    } else if (parsed.type === 'raise-hand') {
+      if (model.raiseHand(guestId, parsed.raised).ok) await this.changed(model)
+    } else {
+      await this.command(model, { kind: 'guest', guestId }, parsed)
+    }
+  }
+
+  private async fromConsole(
+    socket: WebSocket,
+    model: RoomModel,
+    authed: boolean,
+    text: string,
+  ): Promise<void> {
+    const parsed = parseConsoleToEdge(text)
+    if (!parsed) {
+      socket.close(1008, 'invalid message')
+    } else if (parsed.type === 'auth') {
+      if (!(await this.consoleKeyMatches(parsed.key))) {
+        reject(socket, 'console-key-invalid')
+        return
+      }
+      socket.serializeAttachment({ role: 'console', authed: true } satisfies Peer)
+      socket.send(json<EdgeToConsole>({ type: 'room-state', state: model.state(this.policy()) }))
+      for (const message of model.chatHistory) {
+        socket.send(json<EdgeToConsole>({ type: 'chat', message }))
+      }
+    } else if (authed) {
+      await this.command(model, { kind: 'host' }, parsed)
+    } else {
+      socket.close(1008, 'authenticate first')
+    }
+  }
+
+  private async acceptHost(code: string, arrival: Arrival): Promise<Response> {
+    if (this.hostSocket()) {
       // The Worker drew a code already in use; it draws another.
       return new Response('Room code taken', { status: 409 })
     }
-    const [client, server] = Object.values(new WebSocketPair()) as [WebSocket, WebSocket]
+    const model = RoomModel.create(code, {
+      name: arrival.account?.displayName ?? '',
+      userId: arrival.account?.userId ?? null,
+    })
+    this.model = model
+    const meta: Meta = {
+      code,
+      consoleKey: randomKey(),
+      nextGuestId: 1,
+      country: arrival.country,
+      continent: arrival.continent,
+      hasThumbnail: false,
+    }
+    this.ctx.storage.kv.put('meta', meta)
+    this.ctx.storage.kv.delete('thumbnail')
+
+    const [client, server] = pair()
     this.ctx.acceptWebSocket(server, ['host'])
     server.serializeAttachment({ role: 'host' } satisfies Peer)
-    server.send(json<EdgeToHost>({ type: 'room-created', code }))
+    server.send(json<EdgeToHost>({ type: 'room-created', code, consoleKey: meta.consoleKey }))
+    await this.changed(model)
     return new Response(null, { status: 101, webSocket: client })
   }
 
-  private async acceptGuest(rawName: string): Promise<Response> {
-    const host = this.host()
-    const name = cleanGuestName(rawName)
-    if (!host) return reject('room-not-found')
-    if (name === null) return reject('invalid-name')
-    if (this.guestCount() >= MAX_GUESTS) return reject('room-full')
+  private async acceptGuest(rawName: string, arrival: Arrival): Promise<Response> {
+    const model = this.load()
+    if (!model || !this.hostSocket()) return rejection('room-not-found')
+    const name = cleanGuestName(rawName || arrival.account?.displayName || '')
+    if (name === null) return rejection('invalid-name')
 
-    const [client, server] = Object.values(new WebSocketPair()) as [WebSocket, WebSocket]
-    const guestId = this.nextGuestId()
+    const meta = this.meta()
+    const guestId = meta.nextGuestId
+    // Ids are never reused within a room, so a late message cannot reach the wrong guest.
+    this.ctx.storage.kv.put('meta', { ...meta, nextGuestId: guestId + 1 })
+    const banKeys = [`ip:${arrival.addressHash}`]
+    if (arrival.account) banKeys.push(`user:${arrival.account.userId}`)
+    const joined = model.join(guestId, name, arrival.account, banKeys, Date.now())
+    if (typeof joined === 'string') return rejection(joined)
+
+    const [client, server] = pair()
     this.ctx.acceptWebSocket(server, [guestTag(guestId)])
-    server.serializeAttachment({ role: 'guest', guestId, name } satisfies Peer)
+    server.serializeAttachment({ role: 'guest', guestId } satisfies Peer)
+    const iceServers = await iceServersFor(this.env)
     server.send(
-      json<EdgeToGuest>({ type: 'welcome', guestId, iceServers: await iceServersFor(this.env) }),
+      json<EdgeToGuest>({
+        type: 'welcome',
+        guestId,
+        iceServers,
+        relayOnly: model.settings.relayOnly && hasRelay(iceServers),
+      }),
     )
-    host.send(json<EdgeToHost>({ type: 'guest-joined', guestId, name }))
+    for (const message of model.chatHistory) {
+      server.send(json<EdgeToGuest>({ type: 'chat', message }))
+    }
+    this.hostSocket()?.send(json<EdgeToHost>({ type: 'guest-joined', guestId, name }))
+    if (arrival.account) await this.recordJoin(model, arrival.account.userId)
+    await this.changed(model)
     return new Response(null, { status: 101, webSocket: client })
   }
 
-  private leave(socket: WebSocket): void {
+  private acceptConsole(): Response {
+    if (!this.hostSocket()) return rejection('room-not-found')
+    const [client, server] = pair()
+    this.ctx.acceptWebSocket(server, ['console'])
+    server.serializeAttachment({ role: 'console', authed: false } satisfies Peer)
+    return new Response(null, { status: 101, webSocket: client })
+  }
+
+  private async command(model: RoomModel, actor: Actor, command: HostCommand): Promise<void> {
+    const now = Date.now()
+    const target = 'guestId' in command ? model.member(command.guestId) : undefined
+    const outcome = model.apply(actor, command, now)
+    if (!outcome.ok) return
+    if (command.type === 'kick' || command.type === 'set-role') {
+      const action =
+        command.type === 'kick' ? (command.ban ? 'ban' : 'kick') : `role:${command.role}`
+      await this.audit(model, actor, action, target)
+    }
+    if (outcome.closed) {
+      await this.close(model)
+      return
+    }
+    if (outcome.chat) {
+      this.broadcast({ type: 'chat', message: outcome.chat })
+      this.persist(model)
+      return
+    }
+    if (outcome.kicked !== undefined) {
+      const kicked = this.guestSocket(outcome.kicked)
+      if (kicked) reject(kicked, command.type === 'kick' && command.ban ? 'banned' : 'kicked')
+      model.leave(outcome.kicked, now)
+      this.hostSocket()?.send(json<EdgeToHost>({ type: 'guest-left', guestId: outcome.kicked }))
+    }
+    await this.changed(model)
+  }
+
+  private async leave(socket: WebSocket): Promise<void> {
     const peer = socket.deserializeAttachment() as Peer
+    const model = this.load()
+    if (!model) return
     if (peer.role === 'host') {
-      for (const guest of this.guestSockets()) {
-        guest.send(json<EdgeToGuest>({ type: 'host-left' }))
-        guest.close(1000, 'host left')
+      await this.close(model)
+      return
+    }
+    if (peer.role !== 'guest') return
+    const member = model.member(peer.guestId)
+    if (!member) return
+    model.leave(peer.guestId, Date.now())
+    this.hostSocket()?.send(json<EdgeToHost>({ type: 'guest-left', guestId: peer.guestId }))
+    if (member.userId) await this.recordLeave(model, member.userId)
+    await this.changed(model)
+  }
+
+  /** Ends the room: everyone is told, the listing goes, the storage is wiped. */
+  private async close(model: RoomModel): Promise<void> {
+    for (const socket of this.ctx.getWebSockets()) {
+      if (socket.readyState !== WebSocket.OPEN) continue
+      const peer = socket.deserializeAttachment() as Peer
+      if (peer.role === 'guest') socket.send(json<EdgeToGuest>({ type: 'host-left' }))
+      if (peer.role === 'console') {
+        socket.send(json<EdgeToConsole>({ type: 'rejected', reason: 'room-closed' }))
       }
+      socket.close(1000, 'room closed')
+    }
+    await unpublish(this.env.DB, model.code)
+    await this.env.DB.prepare(
+      'UPDATE play_history SET left_at = ? WHERE room_code = ? AND left_at IS NULL',
+    )
+      .bind(Date.now(), model.code)
+      .run()
+    this.ctx.storage.kv.delete('room')
+    this.ctx.storage.kv.delete('meta')
+    this.ctx.storage.kv.delete('thumbnail')
+    await this.ctx.storage.deleteAlarm()
+    this.model = null
+  }
+
+  /** After any change: save, tell everyone, update the public list, plan the next check. */
+  private async changed(model: RoomModel): Promise<void> {
+    this.persist(model)
+    const state = model.state(this.policy())
+    this.broadcast({ type: 'room-state', state })
+    const now = Date.now()
+    const meta = this.meta()
+    if (model.effectiveVisibility(this.policy()) === 'public') {
+      const players = model.players()
+      await publish(
+        this.env.DB,
+        {
+          code: model.code,
+          title: model.settings.title,
+          game: model.settings.game,
+          hostName: model.host.name,
+          hostUserId: model.host.userId,
+          players: players.length,
+          maxPlayers: model.settings.maxPlayers,
+          spectators: state.members.length - players.length,
+          country: meta.country,
+          continent: meta.continent,
+          avatars: players.map((member) => member.avatarUrl),
+          hasThumbnail: meta.hasThumbnail,
+        },
+        now,
+      )
     } else {
-      this.host()?.send(json<EdgeToHost>({ type: 'guest-left', guestId: peer.guestId }))
+      await unpublish(this.env.DB, model.code)
+    }
+    await this.ctx.storage.setAlarm(Math.min(model.turnEndsAt ?? Infinity, now + HEARTBEAT_MS))
+  }
+
+  private broadcast(message: Broadcast): void {
+    const text = JSON.stringify(message)
+    for (const socket of this.ctx.getWebSockets()) {
+      const peer = socket.deserializeAttachment() as Peer
+      // A socket being closed (a refused console, a kicked guest) is still listed briefly.
+      if (socket.readyState !== WebSocket.OPEN) continue
+      if (peer.role !== 'console' || peer.authed) socket.send(text)
     }
   }
 
-  private host(): WebSocket | undefined {
+  private async audit(
+    model: RoomModel,
+    actor: Actor,
+    action: string,
+    target: { name: string; userId: string | null } | undefined,
+  ): Promise<void> {
+    const actorName =
+      actor.kind === 'host'
+        ? `host:${model.host.name}`
+        : `guest:${model.member(actor.guestId)?.name}`
+    await this.env.DB.prepare(
+      'INSERT INTO moderation_log (room_code, actor, action, target_name, target_user_id, at) VALUES (?, ?, ?, ?, ?, ?)',
+    )
+      .bind(model.code, actorName, action, target?.name ?? '?', target?.userId ?? null, Date.now())
+      .run()
+  }
+
+  private async recordJoin(model: RoomModel, userId: string): Promise<void> {
+    await this.env.DB.prepare(
+      'INSERT INTO play_history (user_id, room_code, title, game, host_name, joined_at) VALUES (?, ?, ?, ?, ?, ?)',
+    )
+      .bind(
+        userId,
+        model.code,
+        model.settings.title,
+        model.settings.game,
+        model.host.name,
+        Date.now(),
+      )
+      .run()
+  }
+
+  private async recordLeave(model: RoomModel, userId: string): Promise<void> {
+    await this.env.DB.prepare(
+      'UPDATE play_history SET left_at = ? WHERE user_id = ? AND room_code = ? AND left_at IS NULL',
+    )
+      .bind(Date.now(), userId, model.code)
+      .run()
+  }
+
+  private storeThumbnail(bytes: ArrayBuffer): void {
+    if (bytes.byteLength > MAX_THUMBNAIL_BYTES) return
+    this.ctx.storage.kv.put('thumbnail', bytes)
+    const meta = this.meta()
+    if (!meta.hasThumbnail) this.ctx.storage.kv.put('meta', { ...meta, hasThumbnail: true })
+  }
+
+  private thumbnail(): Response {
+    const bytes = this.ctx.storage.kv.get<ArrayBuffer>('thumbnail')
+    if (!bytes) return new Response('No thumbnail', { status: 404 })
+    return new Response(bytes, {
+      headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=10' },
+    })
+  }
+
+  private async consoleKeyMatches(key: string): Promise<boolean> {
+    // Comparing digests means the time taken says nothing about how much of the key matched.
+    const [given, expected] = await Promise.all([digest(key), digest(this.meta().consoleKey)])
+    return given.every((byte, i) => byte === expected[i])
+  }
+
+  private load(): RoomModel | null {
+    if (this.model) return this.model
+    const snapshot = this.ctx.storage.kv.get<Snapshot>('room')
+    const meta = this.ctx.storage.kv.get<Meta>('meta')
+    if (!snapshot || !meta) return null
+    this.model = RoomModel.restore(meta.code, snapshot)
+    return this.model
+  }
+
+  private persist(model: RoomModel): void {
+    this.ctx.storage.kv.put('room', model.save())
+  }
+
+  private meta(): Meta {
+    const meta = this.ctx.storage.kv.get<Meta>('meta')
+    if (!meta) throw new Error('room metadata missing')
+    return meta
+  }
+
+  private policy(): Policy {
+    return {
+      publicRoomsEnabled: this.env.PUBLIC_ROOMS === 'on',
+      relayAvailable: Boolean(this.env.TURN_KEY_ID && this.env.TURN_KEY_API_TOKEN),
+    }
+  }
+
+  private hostSocket(): WebSocket | undefined {
     return this.ctx.getWebSockets('host')[0]
   }
 
   private guestSocket(guestId: GuestId): WebSocket | undefined {
     return this.ctx.getWebSockets(guestTag(guestId))[0]
   }
+}
 
-  private guestSockets(): WebSocket[] {
-    return this.ctx.getWebSockets().filter((socket) => socket !== this.host())
-  }
-
-  private guestCount(): number {
-    return this.guestSockets().length
-  }
-
-  /** Ids are never reused within a room, so a late message cannot reach the wrong guest. */
-  private nextGuestId(): GuestId {
-    const id = this.ctx.storage.kv.get<GuestId>('nextGuestId') ?? 1
-    this.ctx.storage.kv.put('nextGuestId', id + 1)
-    return id
-  }
+function pair(): [WebSocket, WebSocket] {
+  return Object.values(new WebSocketPair()) as [WebSocket, WebSocket]
 }
 
 /** Rejected guests still get a WebSocket, so the page can say why. */
-function reject(reason: RejectReason): Response {
-  const [client, server] = Object.values(new WebSocketPair()) as [WebSocket, WebSocket]
+function rejection(reason: RejectReason): Response {
+  const [client, server] = pair()
   server.accept()
-  server.send(json<EdgeToGuest>({ type: 'rejected', reason }))
-  server.close(CLOSE_CODES[reason], reason)
+  reject(server, reason)
   return new Response(null, { status: 101, webSocket: client })
+}
+
+function reject(socket: WebSocket, reason: RejectReason): void {
+  socket.send(json<EdgeToGuest>({ type: 'rejected', reason }))
+  socket.close(CLOSE_CODES[reason], reason)
+}
+
+function hasRelay(servers: { urls: string[] }[]): boolean {
+  return servers.some((server) => server.urls.some((url) => url.startsWith('turn')))
+}
+
+function randomKey(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(18))
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+}
+
+async function digest(text: string): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))
 }
 
 function guestTag(guestId: GuestId): string {
@@ -169,8 +511,8 @@ function json<T>(message: T): string {
 /** Trims, collapses inner spaces and drops control characters. Null if nothing is left or too long. */
 export function cleanGuestName(raw: string): string | null {
   const name = raw
-    .replace(/\p{Cc}/gu, '')
     .replace(/\s+/g, ' ')
+    .replace(/\p{Cc}/gu, '')
     .trim()
   const length = [...name].length
   return length > 0 && length <= MAX_NAME_LENGTH ? name : null

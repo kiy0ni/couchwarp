@@ -8,6 +8,7 @@
  * - `POST /api/auth/logout`
  * - `GET  /api/me`, `DELETE /api/me`, `GET /api/me/export`, `POST /api/me/age`
  * - `DELETE /api/me/identities/:provider`
+ * - `GET  /api/me/history`
  */
 
 import { fromOurPages, json, problem, redirect, siteOrigin } from '../http'
@@ -227,10 +228,21 @@ async function exportAccount(env: Env, user: User): Promise<Response> {
     user: publicUser(user),
     identities: await identities(env.DB, user.id),
     sessions: sessions.results,
+    history: await history(env, user.id),
   }
   return json(body, 200, {
     'Content-Disposition': 'attachment; filename="couchwarp-compte.json"',
   })
+}
+
+async function history(env: Env, userId: string) {
+  const { results } = await env.DB.prepare(
+    `SELECT room_code AS roomCode, title, game, host_name AS hostName, joined_at AS joinedAt, left_at AS leftAt
+     FROM play_history WHERE user_id = ? ORDER BY joined_at DESC LIMIT 100`,
+  )
+    .bind(userId)
+    .all()
+  return results
 }
 
 async function unlink(env: Env, user: User, provider: string): Promise<Response> {
@@ -273,6 +285,8 @@ export async function handleAccounts(request: Request, env: Env): Promise<Respon
     return json({ deleted: true }, 200, { 'Set-Cookie': CLEARED_COOKIE })
   }
   if (pathname === '/api/me/export' && method === 'GET') return exportAccount(env, user)
+  if (pathname === '/api/me/history' && method === 'GET')
+    return json({ history: await history(env, user.id) })
   if (pathname === '/api/me/age' && method === 'POST') return confirmAge(request, env, user)
   const identity = pathname.match(/^\/api\/me\/identities\/([a-z]+)$/)
   if (identity?.[1] && method === 'DELETE') return unlink(env, user, identity[1])

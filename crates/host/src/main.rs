@@ -80,6 +80,30 @@ struct Args {
     /// STUN server used to find this machine's public address
     #[arg(long, default_value = "stun.cloudflare.com:3478")]
     stun: String,
+
+    /// Name of the room, as guests see it
+    #[arg(long)]
+    title: Option<String>,
+
+    /// Game being played, shown in the room list
+    #[arg(long)]
+    game: Option<String>,
+
+    /// Seats for players; whoever joins after them watches
+    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=8))]
+    players: Option<u8>,
+
+    /// List the room publicly (needs a signed-in host)
+    #[arg(long)]
+    public: bool,
+
+    /// Guests connect through the relay only, so nobody learns another's address
+    #[arg(long)]
+    relay_only: bool,
+
+    /// Take turns: a spectator in line gets a seat every this many minutes
+    #[arg(long, value_parser = clap::value_parser!(u32).range(1..=60))]
+    turn_minutes: Option<u32>,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -118,7 +142,7 @@ async fn main() -> Result<()> {
     info!(address = %socket.local_addr()?, "listening for guests");
 
     let room = signaling::open_room(&args.server).await?;
-    print_invitation(&args.server, &room.code);
+    print_invitation(&args.server, &room.code, &room.console_key);
 
     let (frame_tx, frames) = mpsc::channel(FRAME_QUEUE);
     let keyframe_wanted = Arc::new(AtomicBool::new(true));
@@ -144,6 +168,14 @@ async fn main() -> Result<()> {
     );
 
     let signal_out = room.outgoing.clone();
+    let settings = host::SettingsRequest {
+        title: args.title,
+        game: args.game,
+        max_players: args.players,
+        public: args.public,
+        relay_only: args.relay_only,
+        turn_minutes: args.turn_minutes,
+    };
     host::Host::new(
         socket,
         endpoint.candidates,
@@ -151,14 +183,18 @@ async fn main() -> Result<()> {
         !args.ignore_focus,
         keyframe_wanted,
         signal_out,
+        settings,
     )
     .run(room, frames, sound, capture_stopped)
     .await
 }
 
-fn print_invitation(server: &str, code: &str) {
-    let link = format!("{}/{code}", server.trim_end_matches('/'));
-    println!("\n  Room code: {code}\n  Link:      {link}\n");
+fn print_invitation(server: &str, code: &str, console_key: &str) {
+    let site = server.trim_end_matches('/');
+    let link = format!("{site}/{code}");
+    // The key sits after `#`, so it never reaches a server log.
+    let console = format!("{site}/{code}/console#key={console_key}");
+    println!("\n  Room code: {code}\n  Link:      {link}\n  Console:   {console}\n");
     if let Ok(qr) = QrCode::new(link.as_bytes()) {
         println!("{}", qr.render::<Dense1x2>().quiet_zone(true).build());
     }

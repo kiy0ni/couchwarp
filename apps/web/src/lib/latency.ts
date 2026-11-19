@@ -70,3 +70,14 @@ export class LatencyWindow {
     return { median: at(0.5), p95: at(0.95), frames: sorted.length }
   }
 }
+
+export type LatencyQuality = 'good' | 'fair' | 'poor'
+
+/**
+ * How a picture latency feels in play: under 60 ms most players notice nothing, past
+ * 110 ms fast games suffer.
+ */
+export function latencyQuality(ms: number): LatencyQuality {
+  if (ms < 60) return 'good'
+  return ms < 110 ? 'fair' : 'poor'
+}

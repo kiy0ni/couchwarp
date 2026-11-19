@@ -1,12 +1,26 @@
 {
   "edgeToHost": [
-    { "type": "room-created", "code": "K7M2QX" },
-    { "type": "guest-joined", "guestId": 1, "name": "Léa" },
-    { "type": "guest-left", "guestId": 1 },
+    {
+      "type": "room-created",
+      "code": "K7M2QX",
+      "consoleKey": "Zq3v8sLm0Rk2"
+    },
+    {
+      "type": "guest-joined",
+      "guestId": 1,
+      "name": "Léa"
+    },
+    {
+      "type": "guest-left",
+      "guestId": 1
+    },
     {
       "type": "signal",
       "from": 1,
-      "payload": { "kind": "offer", "sdp": "v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\n" }
+      "payload": {
+        "kind": "offer",
+        "sdp": "v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\n"
+      }
     },
     {
       "type": "signal",
@@ -16,32 +30,206 @@
         "candidate": "candidate:1 1 udp 2122260223 192.168.1.20 54321 typ host",
         "sdpMid": "0"
       }
+    },
+    {
+      "type": "room-state",
+      "state": {
+        "code": "K7M2QX",
+        "settings": {
+          "title": "Soirée Overcooked",
+          "game": "Overcooked 2",
+          "maxPlayers": 4,
+          "visibility": "link",
+          "relayOnly": false,
+          "hotseat": {
+            "mode": "off",
+            "minutes": 5
+          }
+        },
+        "hostName": "Kiyo",
+        "members": [
+          {
+            "id": 1,
+            "name": "Léa",
+            "avatarUrl": null,
+            "userId": null,
+            "role": "player",
+            "keyboard": false,
+            "mouse": false,
+            "padType": "xbox360"
+          },
+          {
+            "id": 2,
+            "name": "Sam",
+            "avatarUrl": "https://cdn.discordapp.com/avatars/1/a.png",
+            "userId": "6b1d2a1e-0000-4000-8000-000000000002",
+            "role": "spectator",
+            "keyboard": false,
+            "mouse": false,
+            "padType": "dualshock4"
+          }
+        ],
+        "queue": [2],
+        "turnEndsAt": null,
+        "publicRefused": null,
+        "relayAvailable": false
+      }
+    },
+    {
+      "type": "chat",
+      "message": {
+        "from": 1,
+        "name": "Léa",
+        "text": "On lance ?",
+        "at": 1763540000000
+      }
     }
   ],
   "hostToEdge": [
     {
       "type": "signal",
       "to": 1,
-      "payload": { "kind": "answer", "sdp": "v=0\r\no=- 3 4 IN IP4 0.0.0.0\r\n" }
+      "payload": {
+        "kind": "answer",
+        "sdp": "v=0\r\no=- 3 4 IN IP4 0.0.0.0\r\n"
+      }
+    },
+    {
+      "type": "configure",
+      "settings": {
+        "title": "Soirée Overcooked",
+        "game": "Overcooked 2",
+        "maxPlayers": 4,
+        "visibility": "link",
+        "relayOnly": false,
+        "hotseat": {
+          "mode": "off",
+          "minutes": 5
+        }
+      }
+    },
+    {
+      "type": "set-role",
+      "guestId": 2,
+      "role": "player"
+    },
+    {
+      "type": "set-permissions",
+      "guestId": 1,
+      "keyboard": true,
+      "mouse": false
+    },
+    {
+      "type": "set-pad-type",
+      "guestId": 2,
+      "padType": "dualshock4"
+    },
+    {
+      "type": "kick",
+      "guestId": 2,
+      "ban": true
+    },
+    {
+      "type": "next-turn"
+    },
+    {
+      "type": "chat",
+      "text": "Bienvenue"
+    },
+    {
+      "type": "close"
     }
   ],
   "edgeToGuest": [
     {
       "type": "welcome",
       "guestId": 1,
-      "iceServers": [{ "urls": ["stun:stun.cloudflare.com:3478"] }]
+      "iceServers": [
+        {
+          "urls": ["stun:stun.cloudflare.com:3478"]
+        }
+      ],
+      "relayOnly": false
     },
     {
       "type": "signal",
-      "payload": { "kind": "answer", "sdp": "v=0\r\no=- 3 4 IN IP4 0.0.0.0\r\n" }
+      "payload": {
+        "kind": "answer",
+        "sdp": "v=0\r\no=- 3 4 IN IP4 0.0.0.0\r\n"
+      }
     },
-    { "type": "rejected", "reason": "room-not-found" },
-    { "type": "host-left" }
+    {
+      "type": "rejected",
+      "reason": "room-not-found"
+    },
+    {
+      "type": "host-left"
+    },
+    {
+      "type": "room-state",
+      "state": {
+        "code": "K7M2QX",
+        "settings": {
+          "title": "Soirée Overcooked",
+          "game": "Overcooked 2",
+          "maxPlayers": 4,
+          "visibility": "link",
+          "relayOnly": false,
+          "hotseat": {
+            "mode": "off",
+            "minutes": 5
+          }
+        },
+        "hostName": "Kiyo",
+        "members": [
+          {
+            "id": 1,
+            "name": "Léa",
+            "avatarUrl": null,
+            "userId": null,
+            "role": "player",
+            "keyboard": false,
+            "mouse": false,
+            "padType": "xbox360"
+          },
+          {
+            "id": 2,
+            "name": "Sam",
+            "avatarUrl": "https://cdn.discordapp.com/avatars/1/a.png",
+            "userId": "6b1d2a1e-0000-4000-8000-000000000002",
+            "role": "spectator",
+            "keyboard": false,
+            "mouse": false,
+            "padType": "dualshock4"
+          }
+        ],
+        "queue": [2],
+        "turnEndsAt": null,
+        "publicRefused": null,
+        "relayAvailable": false
+      }
+    },
+    {
+      "type": "chat",
+      "message": {
+        "from": 1,
+        "name": "Léa",
+        "text": "On lance ?",
+        "at": 1763540000000
+      }
+    },
+    {
+      "type": "rejected",
+      "reason": "kicked"
+    }
   ],
   "guestToEdge": [
     {
       "type": "signal",
-      "payload": { "kind": "offer", "sdp": "v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\n" }
+      "payload": {
+        "kind": "offer",
+        "sdp": "v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\n"
+      }
     },
     {
       "type": "signal",
@@ -50,6 +238,30 @@
         "candidate": "candidate:2 1 udp 1686052607 203.0.113.7 61000 typ srflx",
         "sdpMid": null
       }
+    },
+    {
+      "type": "raise-hand",
+      "raised": true
+    },
+    {
+      "type": "chat",
+      "text": "Salut"
+    },
+    {
+      "type": "kick",
+      "guestId": 3,
+      "ban": false
+    }
+  ],
+  "consoleToEdge": [
+    {
+      "type": "auth",
+      "key": "Zq3v8sLm0Rk2"
+    },
+    {
+      "type": "set-role",
+      "guestId": 1,
+      "role": "moderator"
     }
   ]
 }
