@@ -2,7 +2,9 @@
   "guestToHost": [
     { "type": "ping", "t0": 1763540000000.25 },
     { "type": "pad-removed", "pad": 1 },
-    { "type": "pad-removed", "pad": 5 }
+    { "type": "pad-removed", "pad": 5 },
+    { "type": "quality", "lossPermille": 12, "latencyMs": 41 },
+    { "type": "quality", "lossPermille": 0, "latencyMs": null }
   ],
   "hostToGuest": [
     { "type": "host-info", "virtualPads": false },

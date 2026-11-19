@@ -9,7 +9,7 @@ pub mod filter;
 
 use std::collections::{BTreeSet, HashMap};
 
-use couchwarp_protocol::input::{GamepadState, InputPacket, is_newer};
+use couchwarp_protocol::input::{GamepadState, InputPacket, MouseButtons, is_newer};
 use couchwarp_protocol::signal::GuestId;
 
 use filter::{allowed_buttons, allowed_keys};
@@ -34,6 +34,15 @@ pub enum Action {
     },
     /// Every key that must be held down on the host now, already filtered.
     SetKeys(Vec<u8>),
+    /// Relative pointer movement, in pixels.
+    MoveMouse {
+        dx: i32,
+        dy: i32,
+    },
+    /// Every mouse button that must be held down now, across guests.
+    SetMouseButtons(MouseButtons),
+    /// Wheel movement in 1/120ths of a notch, positive down.
+    Scroll(i32),
     /// Tell every guest whether their keyboard is held back.
     KeyboardPaused(bool),
 }
@@ -43,6 +52,7 @@ pub enum Action {
 pub struct Permissions {
     pub pads: bool,
     pub keyboard: bool,
+    pub mouse: bool,
 }
 
 pub struct InputRouter {
@@ -51,8 +61,10 @@ pub struct InputRouter {
     permissions: HashMap<GuestId, Permissions>,
     pad_seqs: HashMap<(GuestId, u8), u16>,
     keyboards: HashMap<GuestId, (u16, Vec<u8>)>,
+    mice: HashMap<GuestId, (u16, MouseButtons)>,
     game_focused: bool,
     held_keys: Vec<u8>,
+    held_buttons: MouseButtons,
 }
 
 impl InputRouter {
@@ -62,8 +74,10 @@ impl InputRouter {
             permissions: HashMap::new(),
             pad_seqs: HashMap::new(),
             keyboards: HashMap::new(),
+            mice: HashMap::new(),
             game_focused,
             held_keys: Vec::new(),
+            held_buttons: MouseButtons::default(),
         }
     }
 
@@ -73,6 +87,28 @@ impl InputRouter {
         match packet {
             InputPacket::Gamepad(_) if !allowed.pads => {}
             InputPacket::Keyboard(_) if !allowed.keyboard => {}
+            InputPacket::Mouse(_) if !allowed.mouse => {}
+            InputPacket::Mouse(mouse) => {
+                let last = self.mice.get(&guest).map(|(seq, _)| *seq);
+                if self.is_stale(last, mouse.seq) {
+                    return actions;
+                }
+                self.mice.insert(guest, (mouse.seq, mouse.buttons));
+                // Movement while the game is in the background would go to whatever is in
+                // front: it is dropped, not saved for later.
+                if self.game_focused {
+                    if mouse.dx != 0 || mouse.dy != 0 {
+                        actions.push(Action::MoveMouse {
+                            dx: i32::from(mouse.dx),
+                            dy: i32::from(mouse.dy),
+                        });
+                    }
+                    if mouse.wheel != 0 {
+                        actions.push(Action::Scroll(i32::from(mouse.wheel)));
+                    }
+                }
+                self.update_buttons(&mut actions);
+            }
             InputPacket::Gamepad(mut state) => {
                 let key = (guest, state.pad);
                 if self.is_stale(self.pad_seqs.get(&key).copied(), state.seq) {
@@ -109,6 +145,9 @@ impl InputRouter {
         if !permissions.keyboard && self.keyboards.remove(&guest).is_some() {
             self.update_keys(&mut actions);
         }
+        if !permissions.mouse && self.mice.remove(&guest).is_some() {
+            self.update_buttons(&mut actions);
+        }
         actions
     }
 
@@ -128,7 +167,9 @@ impl InputRouter {
         self.pad_seqs.retain(|(owner, _), _| *owner != guest);
         let mut actions = self.free_slots(|(owner, _)| owner == guest);
         self.keyboards.remove(&guest);
+        self.mice.remove(&guest);
         self.update_keys(&mut actions);
+        self.update_buttons(&mut actions);
         actions
     }
 
@@ -140,6 +181,7 @@ impl InputRouter {
             self.game_focused = focused;
             actions.push(Action::KeyboardPaused(!focused));
             self.update_keys(&mut actions);
+            self.update_buttons(&mut actions);
         }
         actions
     }
@@ -176,6 +218,19 @@ impl InputRouter {
         actions
     }
 
+    /// A button stays down while any guest holds it, and never while the game is behind.
+    fn update_buttons(&mut self, actions: &mut Vec<Action>) {
+        let wanted = if self.game_focused {
+            MouseButtons(self.mice.values().fold(0, |bits, (_, held)| bits | held.0))
+        } else {
+            MouseButtons::default()
+        };
+        if wanted != self.held_buttons {
+            self.held_buttons = wanted;
+            actions.push(Action::SetMouseButtons(wanted));
+        }
+    }
+
     /// Several guests can hold the same key; it stays down until the last one lets go.
     fn update_keys(&mut self, actions: &mut Vec<Action>) {
         let wanted: Vec<u8> = if self.game_focused {
@@ -196,6 +251,27 @@ impl InputRouter {
     }
 }
 
+/// The mouse buttons, one at a time, each with whether it goes down, to go from `held`
+/// to `wanted`. Releases come first.
+pub fn button_changes(held: MouseButtons, wanted: MouseButtons) -> Vec<(MouseButtons, bool)> {
+    const EACH: [MouseButtons; 5] = [
+        MouseButtons::LEFT,
+        MouseButtons::RIGHT,
+        MouseButtons::MIDDLE,
+        MouseButtons::BACK,
+        MouseButtons::FORWARD,
+    ];
+    let released = EACH
+        .iter()
+        .filter(|button| held.contains(**button) && !wanted.contains(**button))
+        .map(|button| (*button, false));
+    let pressed = EACH
+        .iter()
+        .filter(|button| wanted.contains(**button) && !held.contains(**button))
+        .map(|button| (*button, true));
+    released.chain(pressed).collect()
+}
+
 /// Keys to release, then keys to press, to go from `held` to `wanted`.
 pub fn key_changes(held: &[u8], wanted: &[u8]) -> (Vec<u8>, Vec<u8>) {
     let released = held
@@ -214,7 +290,7 @@ pub fn key_changes(held: &[u8], wanted: &[u8]) -> (Vec<u8>, Vec<u8>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use couchwarp_protocol::input::{Buttons, KeyboardState};
+    use couchwarp_protocol::input::{Buttons, KeyboardState, MouseState};
 
     const KEY_A: u8 = 0x04;
     const KEY_W: u8 = 0x1a;
@@ -229,6 +305,15 @@ mod tests {
         })
     }
 
+    fn mouse(seq: u16, buttons: u8, dx: i16) -> InputPacket {
+        InputPacket::Mouse(MouseState {
+            seq,
+            buttons: MouseButtons(buttons),
+            dx,
+            ..MouseState::default()
+        })
+    }
+
     fn keys(seq: u16, keys: &[u8]) -> InputPacket {
         InputPacket::Keyboard(KeyboardState {
             seq,
@@ -239,6 +324,7 @@ mod tests {
     const EVERYTHING: Permissions = Permissions {
         pads: true,
         keyboard: true,
+        mouse: true,
     };
 
     /// A router where guests 1 to 9 may send everything.
@@ -344,6 +430,15 @@ mod tests {
     }
 
     #[test]
+    fn button_changes_release_before_pressing() {
+        assert_eq!(
+            button_changes(MouseButtons(0b011), MouseButtons(0b110)),
+            [(MouseButtons::LEFT, false), (MouseButtons::MIDDLE, true)]
+        );
+        assert_eq!(button_changes(MouseButtons(1), MouseButtons(1)), []);
+    }
+
+    #[test]
     fn key_changes_release_before_pressing() {
         assert_eq!(
             key_changes(&[KEY_W, KEY_A], &[KEY_A, LEFT_GUI]),
@@ -378,6 +473,7 @@ mod tests {
             Permissions {
                 pads: true,
                 keyboard: false,
+                mouse: false,
             },
         );
         assert_eq!(router.apply(1, keys(1, &[KEY_W])), []);
@@ -407,5 +503,51 @@ mod tests {
         assert!(!slots_assigned(&router.apply(1, pad(0, 1, Buttons::A))).is_empty());
         router.forget_guest(1);
         assert_eq!(router.apply(1, pad(0, 2, Buttons::A)), []);
+    }
+
+    #[test]
+    fn mice_move_the_pointer_and_share_buttons() {
+        let mut router = router(true);
+        assert_eq!(
+            router.apply(1, mouse(1, 0b01, 5)),
+            [
+                Action::MoveMouse { dx: 5, dy: 0 },
+                Action::SetMouseButtons(MouseButtons(0b01))
+            ]
+        );
+        assert_eq!(
+            router.apply(2, mouse(1, 0b10, 0)),
+            [Action::SetMouseButtons(MouseButtons(0b11))]
+        );
+        assert_eq!(router.apply(1, mouse(0, 0, 9)), [], "late packet");
+        assert_eq!(
+            router.remove_guest(2),
+            [Action::SetMouseButtons(MouseButtons(0b01))]
+        );
+    }
+
+    #[test]
+    fn the_mouse_needs_permission_and_the_game_in_front() {
+        let mut router = InputRouter::new(true);
+        router.set_permissions(
+            1,
+            Permissions {
+                pads: true,
+                keyboard: true,
+                mouse: false,
+            },
+        );
+        assert_eq!(router.apply(1, mouse(1, 1, 5)), []);
+
+        let mut router = self::router(true);
+        router.apply(1, mouse(1, 1, 0));
+        assert_eq!(
+            router.set_game_focused(false),
+            [
+                Action::KeyboardPaused(true),
+                Action::SetMouseButtons(MouseButtons(0))
+            ]
+        );
+        assert_eq!(router.apply(1, mouse(2, 1, 40)), []);
     }
 }

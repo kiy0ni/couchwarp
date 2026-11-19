@@ -21,5 +21,7 @@
       "migrations_dir": "migrations"
     }
   ],
+  // The daily clean-up (src/cleanup.ts), at a quiet hour.
+  "triggers": { "crons": ["17 4 * * *"] },
   "observability": { "enabled": true }
 }

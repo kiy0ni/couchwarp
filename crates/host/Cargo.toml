@@ -43,15 +43,19 @@ str0m = { version = "0.25", default-features = false, features = ["aws-lc-rs"] }
 [dev-dependencies]
 # The Windows encoder is tested on every platform.
 openh264 = "0.9"
+openh264-sys2 = "0.9"
 
 [target.'cfg(windows)'.dependencies]
 openh264 = "0.9"
+# The raw option to change the bitrate of a running encoder.
+openh264-sys2 = "0.9"
 # Windows' own cryptography (CNG): no C library to build.
 str0m = { version = "0.25", default-features = false, features = ["wincrypto"] }
 viiper-client = "0.9"
 wasapi = "0.27"
 windows = { version = "0.62", features = [
   "Win32_Foundation",
+  "Win32_Graphics_Gdi",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_WindowsAndMessaging",
 ] }

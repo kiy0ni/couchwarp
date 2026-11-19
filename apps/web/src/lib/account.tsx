@@ -7,6 +7,7 @@ export interface Account {
   displayName: string
   avatarUrl: string | null
   ageConfirmed: boolean
+  isAdmin: boolean
   identities: { provider: ProviderId; username: string }[]
 }
 

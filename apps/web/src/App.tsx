@@ -3,11 +3,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { navigate, usePath } from './lib/router'
 import type { EndReason } from './lib/session'
 import { AccountPage } from './screens/AccountPage'
+import { Admin } from './screens/Admin'
 import { Browse } from './screens/Browse'
 import { Console } from './screens/Console'
 import { Ended } from './screens/Ended'
+import { Friends } from './screens/Friends'
 import { Home } from './screens/Home'
 import { Join } from './screens/Join'
+import { Legal } from './screens/Legal'
 import { Play } from './screens/Play'
 
 /** A shared link is `/<code>`; the host console is `/<code>/console#key=…`. */
@@ -41,6 +44,10 @@ export function App() {
 
   if (path === '/compte') return <AccountPage />
   if (path === '/parties') return <Browse />
+  if (path === '/amis') return <Friends />
+  if (path === '/moderation') return <Admin />
+  if (path === '/conditions') return <Legal page="terms" />
+  if (path === '/confidentialite') return <Legal page="privacy" />
   if (!code) return <Home onFound={goTo} />
   if (isConsole && stage.name !== 'ended') return <Console code={code} onEnd={onEnd} />
   switch (stage.name) {

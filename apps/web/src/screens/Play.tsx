@@ -5,6 +5,7 @@ import { Choice } from '../components/Choice'
 import { KeyboardHelp } from '../components/KeyboardHelp'
 import { MemberList } from '../components/MemberList'
 import { PlayerBadge } from '../components/PlayerBadge'
+import { ReportDialog, type ReportTarget } from '../components/ReportDialog'
 import { TouchPad } from '../components/TouchPad'
 import { t } from '../i18n'
 import { latencyQuality } from '../lib/latency'
@@ -81,6 +82,7 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
   const menu = useRef<HTMLDialogElement>(null)
   const chatDialog = useRef<HTMLDialogElement>(null)
   const [chatOpen, setChatOpen] = useState(false)
+  const [reporting, setReporting] = useState<ReportTarget | null>(null)
   const stream = useStream(code, name, video, onEnd)
   const { room, me, session } = stream
   const gamepads = useGamepads()
@@ -105,10 +107,14 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
     playing && touchScreen && stream.virtualPads === true && gamepads.length === 0 && touchWanted
   if (!showTouch) touch.current = null
 
+  const mouseAllowed = playing && (me?.mouse ?? false)
+  const [pointerLocked, setPointerLocked] = useState(false)
   useInputForwarding(playing ? session : null, surface, {
     keyboardMode,
     touch,
+    mouse: mouseAllowed,
     onPadRemoved: stream.forgetPad,
+    onPointerLock: setPointerLocked,
   })
   const [chromeVisible, wakeChrome] = useIdleChrome()
   const notices = useChatNotices(stream.chat, chatOpen, me?.id ?? null)
@@ -154,6 +160,9 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
             {placeInLine > 0 ? t.room.lowerHand : t.room.raiseHand}
           </button>
         </div>
+      )}
+      {mouseAllowed && stream.hasPicture && !pointerLocked && !touchScreen && (
+        <p className="play__hint">{t.room.mouseHint}</p>
       )}
       {notices.toast && (
         <p className="play__toast" role="status">
@@ -214,6 +223,8 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
           {t.play.menu}
         </button>
       </div>
+
+      <ReportDialog target={reporting} onClose={() => setReporting(null)} />
 
       <dialog
         ref={chatDialog}
@@ -297,6 +308,7 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
               viewer={me?.role === 'moderator' ? 'moderator' : 'guest'}
               selfId={me?.id ?? null}
               onCommand={(command) => session?.sendRoom(command)}
+              onReport={(member) => setReporting({ code, guestId: member.id, name: member.name })}
             />
           </>
         )}
@@ -318,6 +330,13 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
           </button>
           <button type="button" className="button button--secondary" onClick={onLeave}>
             {t.play.leave}
+          </button>
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setReporting({ code, guestId: null, name: '' })}
+          >
+            {t.report.openRoom}
           </button>
           <button type="button" className="link-button" onClick={() => menu.current?.close()}>
             {t.play.closeMenu}

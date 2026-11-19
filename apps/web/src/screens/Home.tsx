@@ -1,6 +1,7 @@
 import { ROOM_CODE_LENGTH } from '@couchwarp/protocol'
 import { type FormEvent, useState } from 'react'
 import { CodeEntry } from '../components/CodeEntry'
+import { Footer } from '../components/Footer'
 import { TopBar } from '../components/TopBar'
 import { t } from '../i18n'
 import { useGamepadNavigation } from '../lib/gamepad-nav'
@@ -71,6 +72,7 @@ export function Home({ onFound }: { onFound(code: string): void }) {
           {t.browse.link}
         </a>
       </form>
+      <Footer />
     </main>
   )
 }

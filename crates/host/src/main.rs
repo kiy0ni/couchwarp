@@ -4,6 +4,7 @@ mod account;
 mod audio;
 #[cfg(any(target_os = "macos", test))]
 mod avcc;
+mod bitrate;
 #[cfg(any(windows, test))]
 mod ds4;
 mod host;
@@ -24,7 +25,6 @@ mod video;
 mod xinput;
 
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -68,7 +68,7 @@ struct Args {
     #[arg(long, default_value_t = 60)]
     fps: u32,
 
-    /// Video bitrate, in megabits per second
+    /// Highest video bitrate, in megabits per second; it drops to fit the slowest guest
     #[arg(long, default_value_t = 12)]
     bitrate: u32,
 
@@ -191,7 +191,7 @@ async fn main() -> Result<()> {
     print_invitation(&args.server, &room.code, &room.console_key);
 
     let (frame_tx, frames) = mpsc::channel(FRAME_QUEUE);
-    let keyframe_wanted = Arc::new(AtomicBool::new(true));
+    let control = video::EncoderControl::new(args.bitrate * 1_000_000);
     let size = window.stream_size(args.max_height);
     let encoder = Arc::new(Encoder::new(
         &EncoderSettings {
@@ -201,7 +201,7 @@ async fn main() -> Result<()> {
             bitrate: args.bitrate * 1_000_000,
         },
         frame_tx,
-        keyframe_wanted.clone(),
+        control.clone(),
     )?);
     let (sound_tx, sound) = mpsc::channel(SOUND_QUEUE);
     let (stopped_tx, capture_stopped) = mpsc::unbounded_channel();
@@ -238,7 +238,7 @@ async fn main() -> Result<()> {
             pid: window.pid,
             focus_lock: !args.ignore_focus,
         },
-        keyframe_wanted,
+        control,
         signal_out,
         settings,
         thumbnails,

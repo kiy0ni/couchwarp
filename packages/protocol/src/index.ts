@@ -1,3 +1,4 @@
+export * from './community'
 export * from './control'
 export * from './input'
 export * from './room'

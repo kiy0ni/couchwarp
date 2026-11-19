@@ -12,6 +12,7 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { ChatPanel } from '../components/ChatPanel'
 import { Choice } from '../components/Choice'
 import { MemberList } from '../components/MemberList'
+import { ReportDialog, type ReportTarget } from '../components/ReportDialog'
 import { TopBar } from '../components/TopBar'
 import { t } from '../i18n'
 import { type ConsoleEnd, ConsoleSession, consoleKeyFromHash } from '../lib/console-session'
@@ -32,6 +33,7 @@ export function Console({ code, onEnd }: Props) {
   const [session, setSession] = useState<ConsoleSession | null>(null)
   const [room, setRoom] = useState<RoomState | null>(null)
   const [chat, setChat] = useState<ChatMessage[]>([])
+  const [reporting, setReporting] = useState<ReportTarget | null>(null)
 
   useEffect(() => {
     if (!key) return
@@ -78,7 +80,12 @@ export function Console({ code, onEnd }: Props) {
             <h2 id="console-members" className="section-title">
               {t.room.membersTitle}
             </h2>
-            <MemberList room={room} viewer="host" onCommand={command} />
+            <MemberList
+              room={room}
+              viewer="host"
+              onCommand={command}
+              onReport={(member) => setReporting({ code, guestId: member.id, name: member.name })}
+            />
             {room.settings.hotseat.mode !== 'off' && <Queue room={room} onCommand={command} />}
           </section>
 
@@ -102,6 +109,8 @@ export function Console({ code, onEnd }: Props) {
               onSave={(settings) => command({ type: 'configure', settings })}
             />
           </section>
+
+          <ReportDialog target={reporting} onClose={() => setReporting(null)} />
 
           <section className="console__block" aria-labelledby="console-close">
             <h2 id="console-close" className="section-title">

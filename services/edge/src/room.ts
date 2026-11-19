@@ -12,6 +12,7 @@ import {
 } from '@couchwarp/protocol'
 import { publish, unpublish } from './directory'
 import { iceServersFor } from './ice'
+import { factsFrom } from './reports'
 import { type Account, type Actor, type Policy, RoomModel, type Snapshot } from './room-model'
 
 const MAX_NAME_LENGTH = 24
@@ -66,7 +67,8 @@ interface Meta {
  * Uses the hibernation API, so an idle room costs nothing.
  *
  * Routes, called by the Worker: `/<code>/host`, `/<code>/guest?name=`, `/<code>/console`,
- * `/<code>/info`, `/<code>/thumbnail`.
+ * `/<code>/info`, `/<code>/thumbnail`, `/<code>/facts?guestId=` (for a report) and
+ * `/<code>/admin-close`. The last two are never routed from outside the Worker.
  */
 export class Room extends DurableObject<Env> {
   private model: RoomModel | null = null
@@ -80,6 +82,18 @@ export class Room extends DurableObject<Env> {
         return Response.json({ open: this.hostSocket() !== undefined })
       case 'thumbnail':
         return this.thumbnail()
+      case 'facts': {
+        const model = this.hostSocket() ? this.load() : null
+        const guestId = url.searchParams.get('guestId')
+        return Response.json(
+          factsFrom(model?.state(this.policy()) ?? null, guestId ? Number(guestId) : null),
+        )
+      }
+      case 'admin-close': {
+        const model = this.load()
+        if (model) await this.close(model)
+        return new Response(null, { status: 204 })
+      }
       case 'console':
         return this.acceptConsole()
       case 'host':
@@ -212,6 +226,7 @@ export class Room extends DurableObject<Env> {
     this.ctx.acceptWebSocket(server, ['host'])
     server.serializeAttachment({ role: 'host' } satisfies Peer)
     server.send(json<EdgeToHost>({ type: 'room-created', code, consoleKey: meta.consoleKey }))
+    if (arrival.account) await this.recordJoin(model, arrival.account.userId, true)
     await this.changed(model)
     return new Response(null, { status: 101, webSocket: client })
   }
@@ -316,17 +331,18 @@ export class Room extends DurableObject<Env> {
       }
       socket.close(1000, 'room closed')
     }
+    // Gone before the first await: a socket closing meanwhile finds no room to leave.
+    this.ctx.storage.kv.delete('room')
+    this.ctx.storage.kv.delete('meta')
+    this.ctx.storage.kv.delete('thumbnail')
+    this.model = null
+    await this.ctx.storage.deleteAlarm()
     await unpublish(this.env.DB, model.code)
     await this.env.DB.prepare(
       'UPDATE play_history SET left_at = ? WHERE room_code = ? AND left_at IS NULL',
     )
       .bind(Date.now(), model.code)
       .run()
-    this.ctx.storage.kv.delete('room')
-    this.ctx.storage.kv.delete('meta')
-    this.ctx.storage.kv.delete('thumbnail')
-    await this.ctx.storage.deleteAlarm()
-    this.model = null
   }
 
   /** After any change: save, tell everyone, update the public list, plan the next check. */
@@ -389,9 +405,9 @@ export class Room extends DurableObject<Env> {
       .run()
   }
 
-  private async recordJoin(model: RoomModel, userId: string): Promise<void> {
+  private async recordJoin(model: RoomModel, userId: string, hosted = false): Promise<void> {
     await this.env.DB.prepare(
-      'INSERT INTO play_history (user_id, room_code, title, game, host_name, joined_at) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO play_history (user_id, room_code, title, game, host_name, joined_at, hosted) VALUES (?, ?, ?, ?, ?, ?, ?)',
     )
       .bind(
         userId,
@@ -400,6 +416,7 @@ export class Room extends DurableObject<Env> {
         model.settings.game,
         model.host.name,
         Date.now(),
+        hosted ? 1 : 0,
       )
       .run()
   }

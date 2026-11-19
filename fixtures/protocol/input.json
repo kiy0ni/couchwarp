@@ -39,11 +39,24 @@
       "hex": "02080000"
     }
   ],
+  "mouse": [
+    {
+      "name": "left button held, moved right and up, one notch down",
+      "packet": { "seq": 9, "buttons": 1, "dx": 5, "dy": -3, "wheel": 120 },
+      "hex": "030900010500fdff7800"
+    },
+    {
+      "name": "buttons released, no movement",
+      "packet": { "seq": 10, "buttons": 0, "dx": 0, "dy": 0, "wheel": 0 },
+      "hex": "030a0000000000000000"
+    }
+  ],
   "invalid": [
     { "name": "empty packet", "hex": "" },
     { "name": "unknown kind", "hex": "09" },
     { "name": "truncated gamepad", "hex": "0100" },
     { "name": "gamepad with trailing bytes", "hex": "01000100000000000000000000000000ff" },
-    { "name": "keyboard count larger than the packet", "hex": "0201000304" }
+    { "name": "keyboard count larger than the packet", "hex": "0201000304" },
+    { "name": "truncated mouse", "hex": "0301" }
   ]
 }

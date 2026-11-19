@@ -3,7 +3,9 @@
 use std::path::PathBuf;
 
 use couchwarp_protocol::control::{GuestControl, HostControl};
-use couchwarp_protocol::input::{Buttons, GamepadState, InputPacket, KeyboardState};
+use couchwarp_protocol::input::{
+    Buttons, GamepadState, InputPacket, KeyboardState, MouseButtons, MouseState,
+};
 use couchwarp_protocol::signal::{EdgeToHost, HostToEdge};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -79,6 +81,32 @@ fn keyboard_packets_match_the_fixtures() {
             InputPacket::Keyboard(KeyboardState {
                 seq: k.seq,
                 keys: k.keys,
+            }),
+        );
+    }
+}
+
+#[derive(Deserialize)]
+struct MouseExample {
+    seq: u16,
+    buttons: u8,
+    dx: i16,
+    dy: i16,
+    wheel: i16,
+}
+
+#[test]
+fn mouse_packets_match_the_fixtures() {
+    for example in list(&fixture("input.json"), "mouse") {
+        let m: MouseExample = serde_json::from_value(example["packet"].clone()).unwrap();
+        check_input(
+            &example,
+            InputPacket::Mouse(MouseState {
+                seq: m.seq,
+                buttons: MouseButtons(m.buttons),
+                dx: m.dx,
+                dy: m.dy,
+                wheel: m.wheel,
             }),
         );
     }

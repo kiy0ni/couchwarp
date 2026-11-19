@@ -10,6 +10,9 @@ PUBLIC_URL=http://localhost:5173
 # "on" lists public rooms. Keep it off in production until moderation is staffed.
 PUBLIC_ROOMS=on
 
+# Account ids (see /api/me) of the people who handle reports, comma-separated.
+ADMIN_USER_IDS=
+
 # Sign-in providers, each optional. Redirect URL to register with the provider:
 #   <PUBLIC_URL>/api/auth/<discord|google>/callback
 # Discord: https://discord.com/developers/applications > OAuth2.

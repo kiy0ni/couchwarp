@@ -25,6 +25,11 @@ export function TopBar({ children }: { children?: ReactNode }) {
           </a>
         )}
         {account && (
+          <a className="link-button" href="/amis" onClick={go('/amis')}>
+            {t.friends.link}
+          </a>
+        )}
+        {account && (
           <a
             className="account-chip"
             href="/compte"

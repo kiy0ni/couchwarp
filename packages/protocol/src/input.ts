@@ -49,11 +49,40 @@ export interface KeyboardPacket {
   keys: readonly number[]
 }
 
-export type InputPacket = GamepadPacket | KeyboardPacket
+export const MouseButton = {
+  left: 1 << 0,
+  right: 1 << 1,
+  middle: 1 << 2,
+  back: 1 << 3,
+  forward: 1 << 4,
+} as const
+
+/**
+ * Movement since the previous packet, in pixels; wheel in 1/120ths of a notch, positive
+ * down. Buttons are the whole state, so a lost packet never leaves one held.
+ */
+export interface MousePacket {
+  kind: 'mouse'
+  seq: number
+  buttons: number
+  dx: number
+  dy: number
+  wheel: number
+}
+
+export type InputPacket = GamepadPacket | KeyboardPacket | MousePacket
 
 const KIND_GAMEPAD = 1
 const KIND_KEYBOARD = 2
+const KIND_MOUSE = 3
 const GAMEPAD_LENGTH = 16
+const MOUSE_LENGTH = 10
+const INT16_MIN = -32768
+const INT16_MAX = 32767
+
+function int16(value: number): number {
+  return Math.max(INT16_MIN, Math.min(INT16_MAX, Math.round(value)))
+}
 
 export function encodeInput(packet: InputPacket): Uint8Array<ArrayBuffer> {
   if (packet.kind === 'gamepad') {
@@ -68,6 +97,16 @@ export function encodeInput(packet: InputPacket): Uint8Array<ArrayBuffer> {
     view.setInt16(12, packet.rightStick[1], true)
     view.setUint8(14, packet.leftTrigger)
     view.setUint8(15, packet.rightTrigger)
+    return new Uint8Array(view.buffer)
+  }
+  if (packet.kind === 'mouse') {
+    const view = new DataView(new ArrayBuffer(MOUSE_LENGTH))
+    view.setUint8(0, KIND_MOUSE)
+    view.setUint16(1, packet.seq, true)
+    view.setUint8(3, packet.buttons)
+    view.setInt16(4, int16(packet.dx), true)
+    view.setInt16(6, int16(packet.dy), true)
+    view.setInt16(8, int16(packet.wheel), true)
     return new Uint8Array(view.buffer)
   }
   const keys = packet.keys.slice(0, MAX_KEYS)
