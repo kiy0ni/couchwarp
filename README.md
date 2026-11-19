@@ -53,7 +53,7 @@ cargo run -p couchwarp-host -- --window "nom du jeu" --game "Overcooked 2" --pla
 
 Pour lister une partie publiquement, l'hôte se connecte une fois à un compte : `cargo run -p couchwarp-host -- login` ouvre le navigateur (Discord par défaut, `--provider google` sinon) et garde la session dans le dossier de configuration de l'utilisateur, une par site. `logout` la termine. Une partie publique montre dans la liste une petite image du jeu, prise toutes les 10 secondes ; une partie privée n'en envoie aucune.
 
-Le site a aussi des comptes (Discord ou Google), des amis avec leur présence en jeu, un historique, les signalements avec une page de modération (`/moderation`, pour les comptes listés dans `ADMIN_USER_IDS`), et les pages Conditions et Confidentialité. La mise en ligne est décrite dans [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
+Le site a aussi des comptes (Discord ou Google), des amis avec leur présence en jeu, un historique, les signalements avec une page de modération (`/moderation`, pour les comptes listés dans `ADMIN_USER_IDS`), et les pages Conditions et Confidentialité. La mise en ligne est décrite dans [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md) ; le site tourne sur https://couchwarp.sachapastor34.workers.dev.
 
 Par défaut, un invité joue à la manette seulement : son clavier n'atteint le jeu que si l'hôte l'autorise dans la console. Ctrl+C ferme la partie pour tout le monde.
 

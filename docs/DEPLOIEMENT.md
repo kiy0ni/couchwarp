@@ -1,5 +1,7 @@
 # Mise en ligne
 
+En production : https://couchwarp.sachapastor34.workers.dev (base D1 `couchwarp` en Europe de l'Ouest).
+
 Le site, les salons et la base tournent sur Cloudflare (Workers, Durable Objects, D1). Un seul Worker sert le client web et l'API.
 
 ## 1. Compte Cloudflare
