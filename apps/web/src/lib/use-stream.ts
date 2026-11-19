@@ -1,9 +1,12 @@
+import type { ChatMessage, Member, RoomState } from '@couchwarp/protocol'
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import { ClockSync, captureTime, LatencyWindow } from './latency'
 import { type EndReason, GuestSession } from './session'
 
 const PING_MS = 1000
 const MEASURES_MS = 500
+/** Messages kept on screen; the room server keeps its own history for newcomers. */
+const CHAT_KEPT = 100
 
 export interface Measures {
   /** Glass-to-glass latency over the last seconds, in ms. Null until measured. */
@@ -50,6 +53,9 @@ export function useStream(
   /** Whether controllers reach the game. Unknown (null) until the host says. */
   const [virtualPads, setVirtualPads] = useState<boolean | null>(null)
   const [measures, setMeasures] = useState(NO_MEASURES)
+  const [guestId, setGuestId] = useState<number | null>(null)
+  const [room, setRoom] = useState<RoomState | null>(null)
+  const [chat, setChat] = useState<ChatMessage[]>([])
   const onEndRef = useRef(onEnd)
   useEffect(() => {
     onEndRef.current = onEnd
@@ -64,6 +70,9 @@ export function useStream(
     let pinger = 0
 
     const current = new GuestSession(code, name, {
+      onWelcome: setGuestId,
+      onRoom: setRoom,
+      onChat: (message) => setChat((previous) => [...previous, message].slice(-CHAT_KEPT)),
       onConnected: startPinging,
       onMedia(stream) {
         const element = video.current
@@ -165,8 +174,13 @@ export function useStream(
     })
   }, [])
 
+  const me: Member | null = room?.members.find((member) => member.id === guestId) ?? null
+
   return {
     session,
+    room,
+    me,
+    chat,
     hasPicture,
     slots,
     paused,

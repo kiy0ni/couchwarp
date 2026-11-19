@@ -12,5 +12,14 @@
     "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "couchwarp",
+      // Created with `wrangler d1 create couchwarp`; replace with the id it prints.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
   "observability": { "enabled": true }
 }

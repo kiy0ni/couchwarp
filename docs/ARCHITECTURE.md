@@ -1,6 +1,6 @@
 # Architecture
 
-État au jalon 0a. Le projet visé est décrit dans [CAHIER-DES-CHARGES.md](CAHIER-DES-CHARGES.md).
+État au jalon 1, parties complètes. Le projet visé est décrit dans [CAHIER-DES-CHARGES.md](CAHIER-DES-CHARGES.md).
 
 ## Les trois programmes
 
@@ -24,6 +24,19 @@ Le serveur de salons ne voit passer que la négociation (offres SDP, candidats I
 3. L'invité crée la connexion WebRTC : une piste vidéo en réception (H.264 constrained baseline uniquement), un canal `control` fiable et un canal `input` non fiable et non ordonné. Il envoie son offre.
 4. L'hôte crée un `Peer` str0m, répond avec son adresse locale et son adresse publique (trouvée par STUN au démarrage). Les candidats de l'invité suivent au fil de l'eau.
 5. À l'ouverture du canal `control`, l'hôte envoie l'horloge du flux et force une image clé.
+
+## L'état d'un salon
+
+Le Durable Object du salon tient l'état complet (`RoomState` : réglages, membres et rôles, file d'attente, fin du tour) et toutes les règles qui le modifient, dans un modèle pur (`services/edge/src/room-model.ts`) testé sans réseau. Après chaque changement, il envoie l'état entier à l'hôte, aux invités et aux consoles ; personne ne le recalcule.
+
+- **Commandes** (`HostCommand`) : réglages, rôle, permissions, type de manette, expulsion et bannissement, tour suivant, chat, fermeture. L'hôte (application ou console) peut tout ; un modérateur peut déplacer et expulser les joueurs, pas les autres modérateurs ; un joueur choisit seulement son type de manette. Chaque action de modération est journalisée en base (`moderation_log`).
+- **Console** : une page web authentifiée par la clé du lien (`room-created` la donne à l'hôte). La clé est dans le fragment `#`, que le navigateur n'envoie jamais à un serveur ; le salon la compare par empreinte SHA-256.
+- **Bannissement** : par compte et par empreinte de l'adresse IP salée avec le code du salon. L'adresse elle-même n'est jamais stockée.
+- **Relais seul** : avec `relayOnly`, l'invité ne collecte que des candidats TURN, donc l'hôte et les autres invités ne voient jamais son adresse.
+- **Parties publiques** : un salon public est écrit dans la table `rooms` de D1 et rafraîchi chaque minute par une alarme ; une ligne de plus de deux minutes disparaît de la liste. Seul un hôte connecté à un compte peut lister sa partie : `couchwarp-host login` passe par la page de connexion du site, qui renvoie un jeton de session sur une page locale de l'hôte (`127.0.0.1`, chemin aléatoire) ; l'hôte le présente ensuite en `Authorization: Bearer`.
+- **Aperçu** : tant que la partie est publique, la capture réduit une image toutes les 10 secondes à 320 pixels de large et l'envoie en JPEG, en message binaire, au salon. Le salon n'accepte qu'un JPEG de moins de 128 Ko et ne le sert que tant que la partie est publique.
+
+L'hôte applique ce qu'il reçoit dans son routeur d'entrées : un spectateur n'envoie rien au jeu, et le clavier d'un invité n'y arrive que si l'hôte l'a autorisé (`Permissions`).
 
 ## Ce qui dépend du système
 
@@ -63,6 +76,7 @@ Mesuré en local : image toujours à 24 ms en médiane avec le son actif (le nav
 
 1. Le navigateur lit les manettes toutes les 4 ms et le clavier à chaque événement, et envoie **l'état complet** de l'appareil. Trois sources donnent une manette : les manettes physiques (numéros 0 à 3), le clavier joué comme une manette (4) et la manette tactile (5). Ces deux dernières ne prennent une place de joueur qu'au premier usage. Le clavier peut aussi être envoyé tel quel (« touches du jeu ») ; c'est le choix par défaut quand l'hôte annonce (`host-info`) qu'il ne sait pas jouer les manettes (format binaire, `crates/protocol/src/input.rs`). Un état est renvoyé tous les 100 ms même sans changement : un paquet perdu ne laisse jamais une touche enfoncée.
 2. L'hôte décode, écarte les paquets en retard (numéro de séquence sur 16 bits, qui reboucle), puis passe tout au routeur (`input/mod.rs`) :
+   - un invité n'agit que selon ses permissions : rien pour un spectateur, manettes pour un joueur, clavier en plus s'il est autorisé ;
    - chaque manette reçoit la première place libre de 1 à 8, annoncée à l'invité ;
    - le bouton Guide est retiré ;
    - les touches passent par le filtre (`input/filter.rs`) : Windows/Cmd, Impr. écran, Alt+Tab, Alt+F4, Ctrl+Échap, etc. ne sont jamais envoyées ;

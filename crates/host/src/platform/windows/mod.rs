@@ -8,6 +8,7 @@ mod pads;
 mod sound;
 
 use couchwarp_protocol::input::GamepadState;
+use couchwarp_protocol::room::PadType;
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
 use keyboard::KeyboardSink;
@@ -60,8 +61,8 @@ impl InputSink {
         self.keyboard.set_keys(keys);
     }
 
-    pub fn set_pad(&mut self, slot: u8, state: &GamepadState) {
-        self.pads.set(slot, state);
+    pub fn set_pad(&mut self, slot: u8, pad_type: PadType, state: &GamepadState) {
+        self.pads.set(slot, pad_type, state);
     }
 
     pub fn release_pad(&mut self, slot: u8) {

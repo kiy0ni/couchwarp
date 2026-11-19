@@ -5,7 +5,11 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result, anyhow};
 use objc2_core_media::{CMTime, CMTimeFlags};
-use objc2_core_video::CVImageBuffer;
+use objc2_core_video::{
+    CVImageBuffer, CVPixelBufferGetBaseAddressOfPlane, CVPixelBufferGetBytesPerRowOfPlane,
+    CVPixelBufferGetHeightOfPlane, CVPixelBufferGetWidthOfPlane, CVPixelBufferLockBaseAddress,
+    CVPixelBufferLockFlags, CVPixelBufferUnlockBaseAddress,
+};
 use screencapturekit::SCFrameStatus;
 use screencapturekit::prelude::*;
 use screencapturekit::stream::configuration::PixelFormat;
@@ -14,6 +18,7 @@ use tracing::warn;
 
 use super::encoder::Encoder;
 use crate::audio::{AudioEncoder, AudioPacket, SAMPLE_RATE, interleave};
+use crate::thumbnail::{Nv12, Thumbnails};
 
 /// Windows smaller than this are palettes, tooltips and the like, never a game.
 const MIN_WINDOW_SIDE: f64 = 200.0;
@@ -105,6 +110,7 @@ impl Capture {
         size: (u32, u32),
         fps: u32,
         encoder: Arc<Encoder>,
+        thumbnails: Arc<Thumbnails>,
         sound: mpsc::Sender<AudioPacket>,
         stopped: mpsc::UnboundedSender<String>,
     ) -> Result<Self> {
@@ -147,7 +153,11 @@ impl Capture {
                     epoch: time.epoch,
                 };
                 // SAFETY: a complete frame carries a valid pixel buffer, alive while `sample` is.
-                encoder.encode(unsafe { &*image.cast::<CVImageBuffer>() }, presented_at);
+                let image = unsafe { &*image.cast::<CVImageBuffer>() };
+                encoder.encode(image, presented_at);
+                if thumbnails.due() {
+                    send_thumbnail(&thumbnails, image);
+                }
             },
             SCStreamOutputType::Screen,
         )?;
@@ -177,6 +187,37 @@ impl Capture {
         stream.start_capture()?;
         Ok(Self { stream })
     }
+}
+
+/// Reads the frame's two NV12 planes while the buffer is locked for reading.
+fn send_thumbnail(thumbnails: &Thumbnails, image: &CVImageBuffer) {
+    let flags = CVPixelBufferLockFlags::ReadOnly;
+    // SAFETY: the buffer is valid for the call; the lock keeps its memory in place.
+    if unsafe { CVPixelBufferLockBaseAddress(image, flags) } != 0 {
+        warn!("room picture skipped: the frame could not be read");
+        return;
+    }
+    let plane = |index: usize| {
+        let rows = CVPixelBufferGetHeightOfPlane(image, index);
+        let stride = CVPixelBufferGetBytesPerRowOfPlane(image, index);
+        let base = CVPixelBufferGetBaseAddressOfPlane(image, index).cast::<u8>();
+        // SAFETY: while locked, a plane is `rows * stride` readable bytes at its base address.
+        let bytes =
+            (!base.is_null()).then(|| unsafe { std::slice::from_raw_parts(base, rows * stride) });
+        (bytes, stride)
+    };
+    if let ((Some(luma), luma_stride), (Some(chroma), chroma_stride)) = (plane(0), plane(1)) {
+        thumbnails.send_nv12(&Nv12 {
+            width: CVPixelBufferGetWidthOfPlane(image, 0),
+            height: CVPixelBufferGetHeightOfPlane(image, 0),
+            luma,
+            luma_stride,
+            chroma,
+            chroma_stride,
+        });
+    }
+    // SAFETY: unlocks the lock taken above, with the same flags.
+    unsafe { CVPixelBufferUnlockBaseAddress(image, flags) };
 }
 
 /// ScreenCaptureKit hands sound as 32-bit floats, usually one buffer per channel.

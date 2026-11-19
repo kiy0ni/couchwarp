@@ -25,6 +25,10 @@ tokio = { version = "1", features = ["rt", "net", "time", "sync", "macros", "sig
 tokio-tungstenite = { version = "0.30", features = ["rustls-tls-webpki-roots"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# Sign-in checks and sign-out: a few small HTTPS requests.
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+# Small pictures of the game for the public room list.
+jpeg-encoder = "0.7"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

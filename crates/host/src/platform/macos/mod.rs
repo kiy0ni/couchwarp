@@ -9,6 +9,7 @@ pub mod encoder;
 mod keyboard;
 
 use couchwarp_protocol::input::GamepadState;
+use couchwarp_protocol::room::PadType;
 use objc2_core_foundation::{CFArray, CFDictionary, CFNumber, CFRetained, CFString, CFType};
 use objc2_core_graphics::{
     CGMainDisplayID, CGPreflightPostEventAccess, CGRequestPostEventAccess,
@@ -82,7 +83,7 @@ impl InputSink {
         self.keyboard.set_keys(keys);
     }
 
-    pub fn set_pad(&mut self, slot: u8, _state: &GamepadState) {
+    pub fn set_pad(&mut self, slot: u8, _pad_type: PadType, _state: &GamepadState) {
         if !self.warned_about_pads {
             self.warned_about_pads = true;
             warn!(

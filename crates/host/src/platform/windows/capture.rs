@@ -20,6 +20,7 @@ use windows_capture::window::Window;
 use super::encoder::Encoder;
 use super::sound::SoundCapture;
 use crate::audio::AudioPacket;
+use crate::thumbnail::Thumbnails;
 
 /// Windows smaller than this are palettes, tooltips and the like, never a game.
 const MIN_WINDOW_SIDE: i32 = 200;
@@ -77,18 +78,20 @@ pub fn find_window(query: &str) -> Result<GameWindow> {
 
 struct FrameHandler {
     encoder: Arc<Encoder>,
+    thumbnails: Arc<Thumbnails>,
     stopped: mpsc::UnboundedSender<String>,
     scratch: Vec<u8>,
 }
 
 impl GraphicsCaptureApiHandler for FrameHandler {
-    type Flags = (Arc<Encoder>, mpsc::UnboundedSender<String>);
+    type Flags = (Arc<Encoder>, Arc<Thumbnails>, mpsc::UnboundedSender<String>);
     type Error = CaptureError;
 
     fn new(context: CaptureContext<Self::Flags>) -> Result<Self, Self::Error> {
-        let (encoder, stopped) = context.flags;
+        let (encoder, thumbnails, stopped) = context.flags;
         Ok(Self {
             encoder,
+            thumbnails,
             stopped,
             scratch: Vec::new(),
         })
@@ -104,6 +107,9 @@ impl GraphicsCaptureApiHandler for FrameHandler {
         let buffer = frame.buffer()?;
         let pixels = buffer.as_nopadding_buffer(&mut self.scratch);
         self.encoder.encode_bgra(pixels, width, height, captured_at);
+        if self.thumbnails.due() {
+            self.thumbnails.send_bgra(pixels, width, height);
+        }
         Ok(())
     }
 
@@ -127,6 +133,7 @@ impl Capture {
         _size: (u32, u32),
         fps: u32,
         encoder: Arc<Encoder>,
+        thumbnails: Arc<Thumbnails>,
         sound: mpsc::Sender<AudioPacket>,
         stopped: mpsc::UnboundedSender<String>,
     ) -> Result<Self> {
@@ -138,7 +145,7 @@ impl Capture {
             MinimumUpdateIntervalSettings::Custom(Duration::from_secs_f64(1.0 / f64::from(fps))),
             DirtyRegionSettings::Default,
             ColorFormat::Bgra8,
-            (encoder, stopped),
+            (encoder, thumbnails, stopped),
         );
         let control = FrameHandler::start_free_threaded(settings)
             .map_err(|error| anyhow!("window capture failed: {error}"))?;

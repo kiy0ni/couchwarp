@@ -4,6 +4,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::room::{ChatMessage, GuestRole, PadType, RoomSettings, RoomState};
+
 /// Assigned by the room server, unique within a room.
 pub type GuestId = u32;
 
@@ -14,8 +16,10 @@ pub type GuestId = u32;
     rename_all_fields = "camelCase"
 )]
 pub enum EdgeToHost {
+    /// `console_key` opens the host console, a page to manage the room from any device.
     RoomCreated {
         code: String,
+        console_key: String,
     },
     GuestJoined {
         guest_id: GuestId,
@@ -28,6 +32,12 @@ pub enum EdgeToHost {
         from: GuestId,
         payload: SignalPayload,
     },
+    RoomState {
+        state: RoomState,
+    },
+    Chat {
+        message: ChatMessage,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,7 +47,35 @@ pub enum EdgeToHost {
     rename_all_fields = "camelCase"
 )]
 pub enum HostToEdge {
-    Signal { to: GuestId, payload: SignalPayload },
+    Signal {
+        to: GuestId,
+        payload: SignalPayload,
+    },
+    Configure {
+        settings: RoomSettings,
+    },
+    SetRole {
+        guest_id: GuestId,
+        role: GuestRole,
+    },
+    SetPermissions {
+        guest_id: GuestId,
+        keyboard: bool,
+        mouse: bool,
+    },
+    SetPadType {
+        guest_id: GuestId,
+        pad_type: PadType,
+    },
+    Kick {
+        guest_id: GuestId,
+        ban: bool,
+    },
+    NextTurn,
+    Chat {
+        text: String,
+    },
+    Close,
 }
 
 /// WebRTC negotiation. The guest always makes the offer; the host answers.

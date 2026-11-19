@@ -3,3 +3,18 @@
 # Create a TURN key in the Cloudflare dashboard: Realtime > TURN Server.
 TURN_KEY_ID=
 TURN_KEY_API_TOKEN=
+
+# The address people open. In local development, Vite serves the site on 5173.
+PUBLIC_URL=http://localhost:5173
+
+# "on" lists public rooms. Keep it off in production until moderation is staffed.
+PUBLIC_ROOMS=on
+
+# Sign-in providers, each optional. Redirect URL to register with the provider:
+#   <PUBLIC_URL>/api/auth/<discord|google>/callback
+# Discord: https://discord.com/developers/applications > OAuth2.
+DISCORD_CLIENT_ID=
+DISCORD_CLIENT_SECRET=
+# Google: https://console.cloud.google.com/apis/credentials > OAuth client ID (Web).
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
