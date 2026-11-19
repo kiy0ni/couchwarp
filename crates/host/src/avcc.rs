@@ -95,6 +95,13 @@ mod tests {
     }
 
     #[test]
+    fn parameter_sets_get_a_start_code() {
+        let mut out = vec![0, 0, 0, 1, 0x09];
+        append_parameter_set(&[0x67, 0x42], &mut out);
+        assert_eq!(out, [0, 0, 0, 1, 0x09, 0, 0, 0, 1, 0x67, 0x42]);
+    }
+
+    #[test]
     fn finds_the_idr_slice() {
         let access_unit = [0, 0, 0, 1, 0x09, 0, 0, 0, 2, 0x65, 0x88];
         assert!(has_idr_slice(&access_unit, 4));
