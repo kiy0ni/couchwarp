@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TopBar } from '../components/TopBar'
 import { t } from '../i18n'
 import {
@@ -174,6 +174,8 @@ function Profile({ account }: { account: Account }) {
         )}
       </section>
 
+      <History />
+
       <section className="stack" aria-labelledby="data-title">
         <h2 id="data-title" className="section-title">
           {t.account.dataTitle}
@@ -211,6 +213,54 @@ function Profile({ account }: { account: Account }) {
           {t.account.deleteButton}
         </button>
       </section>
+    </section>
+  )
+}
+
+interface Played {
+  roomCode: string
+  title: string
+  game: string
+  hostName: string
+  joinedAt: number
+}
+
+const playedOn = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+
+/** The last games joined while signed in, newest first. */
+function History() {
+  const [games, setGames] = useState<Played[] | null>(null)
+  useEffect(() => {
+    fetch('/api/me/history')
+      .then((response) => (response.ok ? response.json() : { history: [] }))
+      .then(({ history }: { history: Played[] }) => setGames(history))
+      .catch(() => setGames([]))
+  }, [])
+
+  return (
+    <section className="stack" aria-labelledby="history-title">
+      <h2 id="history-title" className="section-title">
+        {t.account.historyTitle}
+      </h2>
+      {games === null ? null : games.length === 0 ? (
+        <p className="field__help">{t.account.historyEmpty}</p>
+      ) : (
+        <ul className="rows">
+          {games.slice(0, 20).map((game) => (
+            <li key={`${game.roomCode}-${game.joinedAt}`} className="rows__item">
+              <span>
+                {game.title || game.game || game.roomCode}
+                {game.hostName && (
+                  <span className="rows__detail">{t.browse.hostedBy(game.hostName)}</span>
+                )}
+              </span>
+              <time className="rows__detail" dateTime={new Date(game.joinedAt).toISOString()}>
+                {playedOn.format(game.joinedAt)}
+              </time>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }
