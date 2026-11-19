@@ -25,6 +25,22 @@ Le serveur de salons ne voit passer que la négociation (offres SDP, candidats I
 4. L'hôte crée un `Peer` str0m, répond avec son adresse locale et son adresse publique (trouvée par STUN au démarrage). Les candidats de l'invité suivent au fil de l'eau.
 5. À l'ouverture du canal `control`, l'hôte envoie l'horloge du flux et force une image clé.
 
+## Ce qui dépend du système
+
+Le dossier `crates/host/src/platform` contient un module par système, qui exposent les mêmes noms. Le reste de l'hôte ne sait pas sur quel système il tourne.
+
+|                       | macOS                                                  | Windows                                                                  |
+| --------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Capture de la fenêtre | ScreenCaptureKit, NV12, mise à l'échelle               | Windows Graphics Capture, BGRA, taille de la fenêtre, sans bordure jaune |
+| Encodage H.264        | VideoToolbox matériel, contrôle de débit basse latence | OpenH264 logiciel (le matériel viendra par Media Foundation)             |
+| Son                   | ScreenCaptureKit, application de la fenêtre            | WASAPI process loopback, jeu et processus enfants                        |
+| Clavier               | CGEvent envoyé au seul processus du jeu                | SendInput par scancodes                                                  |
+| Manettes              | impossibles (aucune manette virtuelle autorisée)       | VIIPER, une manette Xbox 360 virtuelle par place                         |
+| Premier plan          | liste des fenêtres à l'écran                           | `GetForegroundWindow`                                                    |
+| Cryptographie WebRTC  | aws-lc                                                 | CNG de Windows                                                           |
+
+Les tables de traduction (touche HID vers code de touche Mac, vers scancode PC, état de manette vers rapport Xbox) sont des fonctions pures, testées sur tous les systèmes.
+
 ## Le parcours d'une image
 
 | Étape      | Où                            | Détail                                                                                                                        |
@@ -62,7 +78,9 @@ L'hôte numérote ses images en RTP à 90 kHz depuis une origine dont il donne l
 
 Le protocole existe en Rust (`crates/protocol`) et en TypeScript (`packages/protocol`). Les exemples de `fixtures/protocol` sont la référence : les deux suites de tests les relisent et doivent produire les mêmes octets.
 
-## Prochaines étapes (jalon 0b)
+## Prochaines étapes
 
-- Hôte Windows : capture Windows Graphics Capture, encodeur matériel (NVENC, AMF, Quick Sync), manettes, claviers et souris virtuels par VIIPER, verrou de focus sur `GetForegroundWindow`.
-- Mesure de latence entre deux réseaux différents, avec relai TURN.
+- Premier test de l'hôte Windows sur un vrai PC, avec VIIPER.
+- Encodeurs matériels sous Windows (NVENC, AMF, Quick Sync).
+- Débit adaptatif : la qualité suit l'estimation de bande passante de chaque invité.
+- Mesure de latence entre deux réseaux différents, avec relai TURN, une fois le site en ligne.

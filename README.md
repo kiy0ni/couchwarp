@@ -18,7 +18,7 @@ Ces chiffres sont mesurés en local, sans réseau entre les deux. La mesure sur 
 
 ## Lancer en local
 
-Prérequis : Node 22 et pnpm (via mise), Rust stable, macOS 13 ou plus récent pour l'hôte.
+Prérequis : Node 22 et pnpm (via mise), Rust stable. L'hôte tourne sur macOS 13 ou plus récent, ou sur Windows 10 (version 2004) ou plus récent.
 
 ```sh
 pnpm install
@@ -41,15 +41,19 @@ Le clavier des invités est mis en pause dès que la fenêtre du jeu n'est plus 
 - **Enregistrement de l'écran** (Réglages Système > Confidentialité et sécurité), pour capturer la fenêtre ;
 - **Accessibilité**, pour envoyer les touches des invités au jeu.
 
+Sous Windows, aucune autorisation n'est demandée. Pour que les manettes des invités agissent sur le jeu, installe et lance [VIIPER](https://alia5.github.io/VIIPER/) (il crée les manettes Xbox virtuelles) : l'hôte le détecte au démarrage sur `127.0.0.1:3242` et l'annonce aux invités. Sans VIIPER, le clavier fonctionne et les manettes sont reçues sans agir. Pense aussi à lancer l'hôte avec les mêmes droits que le jeu : Windows bloque les touches envoyées à un jeu lancé en administrateur depuis un programme qui ne l'est pas.
+
 Pour les téléphones d'un même réseau, le client doit être servi en HTTPS (l'API Gamepad l'exige) : le plus simple est de déployer (`pnpm deploy`) ou de passer par un tunnel.
 
 ## Limites connues
 
-- **Manettes sur un hôte Mac** : macOS ne permet pas à une application de créer une manette virtuelle. Les manettes des invités reçoivent une place de joueur mais n'agissent pas sur le jeu. Elles fonctionneront avec l'hôte Windows (jalon 0b, via VIIPER).
-- **Hôte Windows et Linux** : pas encore écrits.
+- **Manettes sur un hôte Mac** : macOS ne permet pas à une application de créer une manette virtuelle. Les manettes des invités reçoivent une place de joueur mais n'agissent pas sur le jeu. Avec un hôte Windows et VIIPER, elles agissent.
+- **Hôte Windows** : il compile et passe ses tests sur Windows (intégration continue), mais n'a pas encore tourné sur un vrai PC de jeu. Il encode en logiciel (OpenH264) à la taille de la fenêtre : `--max-height` n'y a pas d'effet, et les encodeurs matériels (NVIDIA, AMD, Intel) viendront ensuite.
+- **Hôte Linux** : pas encore écrit.
 - **Réseau** : l'hôte écoute sur une seule interface en IPv4. Sans clé TURN Cloudflare (voir `services/edge/.dev.vars.example`), un invité derrière un réseau très fermé ne peut pas se connecter.
-- **Son** : celui de l'application qui possède la fenêtre. Un jeu qui joue son son dans un processus à part (jeux dans un navigateur, applications Electron) arrive muet.
+- **Son** : sur Mac, celui de l'application qui possède la fenêtre ; un jeu qui joue son son dans un processus à part (jeux dans un navigateur, applications Electron) arrive muet. Sous Windows, le son du jeu et de tous les processus qu'il a lancés est capturé.
 - **Navigateurs basés sur Firefox (Firefox, Zen)** : sur macOS, ils peuvent n'ouvrir aucune connexion WebRTC (autorisation « Réseau local »). L'invité voit alors un message qui le dit ; Chrome, Edge et Arc fonctionnent.
+- **Débit fixe** : la qualité ne s'adapte pas encore au réseau de chaque invité ; règle-la avec `--bitrate` (en Mbit/s).
 - **Fenêtre fermée** : si le jeu se ferme, l'hôte s'arrête et les invités voient « L'hôte a fermé la partie ». La relance automatique du jeu est prévue au jalon 1.
 
 ## Vérifier

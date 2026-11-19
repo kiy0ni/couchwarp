@@ -375,10 +375,11 @@ Objectif : répondre à « est-ce qu'on fait au moins aussi bien que moonlight-w
 - Hôte Rust sur macOS : capture de la fenêtre (ScreenCaptureKit), H.264 matériel (VideoToolbox), WebRTC (str0m), routeur d'entrées avec filtre de touches et verrou de focus, clavier envoyé au seul processus du jeu.
 - Mesuré en local : 28 ms de la capture à l'affichage en médiane, 40 ms pour 95 % des images.
 
-**0b, à faire** :
+**0b, en cours** :
 
-- Banc d'essai : moonlight-web sur `kiyoni`, pour comparer.
-- Hôte Windows : capture WGC, encodeur matériel, manettes et claviers virtuels VIIPER, verrou de focus Windows ; tests automatiques d'isolation (alt-tab, fenêtre surgissante, combinaisons interdites).
+- Fait : hôte Windows (capture WGC, encodage OpenH264, manettes VIIPER, clavier SendInput, son WASAPI, verrou de focus), compilé et testé par l'intégration continue sur Windows.
+- Fait en avance (jalon 1) : son du jeu, clavier joué comme une manette, manette tactile.
+- À faire : premier essai sur `kiyoni` avec VIIPER, banc d'essai moonlight-web pour comparer, encodeurs matériels Windows.
 - **Critère de sortie** : < 40 ms sur Internet entre deux réseaux différents, 2 manettes qui jouent en même temps.
 
 ### Jalon 1 : MVP entre amis (6 à 8 semaines)
