@@ -60,6 +60,8 @@ const fr = {
       'host-left': 'L’hôte a fermé la partie.',
       'connection-failed':
         'Impossible de joindre le PC de l’hôte. Son réseau ou le tien bloque peut-être les connexions directes.',
+      'browser-blocked':
+        'Ton navigateur n’a ouvert aucune connexion réseau pour la vidéo. Essaie Chrome, Edge ou Arc, ou autorise-le dans Réglages Système > Confidentialité et sécurité > Réseau local.',
       'server-unreachable': 'Le serveur ne répond pas. Vérifie ta connexion.',
     } satisfies Record<EndReason, string>,
   },
@@ -124,6 +126,8 @@ const en: Strings = {
       'host-left': 'The host closed the game.',
       'connection-failed':
         'Could not reach the host’s PC. Their network or yours may block direct connections.',
+      'browser-blocked':
+        'Your browser opened no network connection for the video. Try Chrome, Edge or Arc, or allow it under System Settings > Privacy & Security > Local Network.',
       'server-unreachable': 'The server is not answering. Check your connection.',
     },
   },

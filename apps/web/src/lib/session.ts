@@ -11,7 +11,12 @@ import {
   type SignalPayload,
 } from '@couchwarp/protocol'
 
-export type EndReason = RejectReason | 'host-left' | 'connection-failed' | 'server-unreachable'
+export type EndReason =
+  | RejectReason
+  | 'host-left'
+  | 'connection-failed'
+  | 'browser-blocked'
+  | 'server-unreachable'
 
 export interface SessionEvents {
   /** The control channel is open: the host can hear us. */
@@ -114,8 +119,12 @@ export class GuestSession {
       event.receiver.jitterBufferTarget = 0
       this.events.onVideo(event.streams[0] ?? new MediaStream([event.track]))
     }
+    // No candidate at all means the browser itself has no network path for WebRTC
+    // (blocked by a privacy setting or the system), not that the host is unreachable.
+    let candidates = 0
     peer.onicecandidate = (event) => {
       if (event.candidate?.candidate) {
+        candidates++
         this.sendSignal({
           kind: 'candidate',
           candidate: event.candidate.candidate,
@@ -124,7 +133,9 @@ export class GuestSession {
       }
     }
     peer.onconnectionstatechange = () => {
-      if (peer.connectionState === 'failed') this.end('connection-failed')
+      if (peer.connectionState === 'failed') {
+        this.end(candidates === 0 ? 'browser-blocked' : 'connection-failed')
+      }
     }
 
     const offer = await peer.createOffer()
