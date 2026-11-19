@@ -4,12 +4,18 @@ mod audio;
 mod host;
 mod input;
 mod net;
+#[cfg(any(windows, test))]
+mod pc_keys;
 mod peer;
 mod platform;
 mod signaling;
+#[cfg(any(windows, test))]
+mod software_h264;
 mod stats;
 mod stun;
 mod video;
+#[cfg(any(windows, test))]
+mod xinput;
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -64,8 +70,8 @@ struct Args {
     #[arg(long, default_value_t = 0)]
     port: u16,
 
-    /// Keep sending guests' keys while the game window is in the background. Keys still go
-    /// to the game process only. Meant for testing host and guest on the same Mac.
+    /// Keep sending guests' keys while the game window is in the background. macOS only,
+    /// where keys go to the game process alone. Meant for testing host and guest on one Mac.
     #[arg(long)]
     ignore_focus: bool,
 
@@ -82,6 +88,11 @@ async fn main() -> Result<()> {
         .init();
     let args = Args::parse();
     platform::init();
+    if args.ignore_focus && !platform::KEYS_REACH_GAME_ONLY {
+        anyhow::bail!(
+            "--ignore-focus is unsafe on this system: keys would go to whatever window is in front"
+        );
+    }
 
     if args.list_windows {
         for window in list_windows()? {

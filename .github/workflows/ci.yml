@@ -32,8 +32,11 @@ jobs:
       - run: cargo test -p couchwarp-protocol
 
   host:
-    name: Host (Rust, macOS)
-    runs-on: macos-latest
+    name: Host (Rust, ${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable

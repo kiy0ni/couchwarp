@@ -162,6 +162,21 @@ impl InputRouter {
     }
 }
 
+/// Keys to release, then keys to press, to go from `held` to `wanted`.
+pub fn key_changes(held: &[u8], wanted: &[u8]) -> (Vec<u8>, Vec<u8>) {
+    let released = held
+        .iter()
+        .copied()
+        .filter(|key| !wanted.contains(key))
+        .collect();
+    let pressed = wanted
+        .iter()
+        .copied()
+        .filter(|key| !held.contains(key))
+        .collect();
+    (released, pressed)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -278,6 +293,15 @@ mod tests {
                 Action::SetKeys(vec![KEY_A, KEY_W])
             ]
         );
+    }
+
+    #[test]
+    fn key_changes_release_before_pressing() {
+        assert_eq!(
+            key_changes(&[KEY_W, KEY_A], &[KEY_A, LEFT_GUI]),
+            (vec![KEY_W], vec![LEFT_GUI])
+        );
+        assert_eq!(key_changes(&[], &[]), (vec![], vec![]));
     }
 
     #[test]

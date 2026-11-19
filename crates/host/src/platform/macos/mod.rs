@@ -19,8 +19,9 @@ use tracing::warn;
 
 use keyboard::KeyboardSink;
 
-/// Whether guests' controllers reach the game on this platform.
-pub const VIRTUAL_PADS: bool = false;
+/// Keys are posted to the game process alone, so they cannot reach another app even
+/// with the focus lock off.
+pub const KEYS_REACH_GAME_ONLY: bool = true;
 
 /// Command-line tools must touch CoreGraphics once before ScreenCaptureKit can run.
 pub fn init() {
@@ -70,6 +71,11 @@ impl InputSink {
             keyboard: KeyboardSink::new(game_pid),
             warned_about_pads: false,
         }
+    }
+
+    /// Whether guests' controllers reach the game. Never on macOS.
+    pub fn virtual_pads(&self) -> bool {
+        false
     }
 
     pub fn set_keys(&mut self, keys: &[u8]) {
