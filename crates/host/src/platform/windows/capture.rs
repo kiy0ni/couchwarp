@@ -6,7 +6,9 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow};
 use tokio::sync::mpsc;
-use windows_capture::capture::{CaptureControl, Context as CaptureContext, GraphicsCaptureApiHandler};
+use windows_capture::capture::{
+    CaptureControl, Context as CaptureContext, GraphicsCaptureApiHandler,
+};
 use windows_capture::frame::Frame;
 use windows_capture::graphics_capture_api::InternalCaptureControl;
 use windows_capture::settings::{
@@ -65,7 +67,9 @@ pub fn find_window(query: &str) -> Result<GameWindow> {
     let query = query.to_lowercase();
     list_windows()?
         .into_iter()
-        .filter(|w| w.title.to_lowercase().contains(&query) || w.app.to_lowercase().contains(&query))
+        .filter(|w| {
+            w.title.to_lowercase().contains(&query) || w.app.to_lowercase().contains(&query)
+        })
         .max_by_key(|w| i64::from(w.width) * i64::from(w.height))
         .with_context(|| format!("no window matches \"{query}\" (see --list-windows)"))
 }

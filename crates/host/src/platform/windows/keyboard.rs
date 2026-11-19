@@ -61,6 +61,9 @@ fn post(usage: u8, down: bool) {
     // SAFETY: one fully initialized keyboard input, with its exact size.
     let sent = unsafe { SendInput(&[input], size_of::<INPUT>() as i32) };
     if sent != 1 {
-        warn!(usage, "key not sent: Windows blocks input into windows run as administrator");
+        warn!(
+            usage,
+            "key not sent: Windows blocks input into windows run as administrator"
+        );
     }
 }

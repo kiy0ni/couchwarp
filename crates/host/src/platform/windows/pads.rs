@@ -53,7 +53,9 @@ impl PadSink {
     }
 
     pub fn set(&mut self, slot: u8, state: &GamepadState) {
-        let Some((client, bus)) = &self.service else { return };
+        let Some((client, bus)) = &self.service else {
+            return;
+        };
         if !self.pads.contains_key(&slot) {
             match plug_in(client, *bus) {
                 Ok(pad) => {
@@ -112,7 +114,12 @@ fn open_bus() -> Result<(ViiperClient, u32)> {
     let existing = client.bus_list().context("VIIPER bus list failed")?;
     let bus = match existing.buses.first() {
         Some(&bus) => bus,
-        None => client.bus_create(None).context("VIIPER bus creation failed")?.bus_id,
+        None => {
+            client
+                .bus_create(None)
+                .context("VIIPER bus creation failed")?
+                .bus_id
+        }
     };
     Ok((client, bus))
 }
