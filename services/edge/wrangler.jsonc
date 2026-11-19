@@ -16,11 +16,17 @@
     {
       "binding": "DB",
       "database_name": "couchwarp",
-      // Created with `wrangler d1 create couchwarp`; replace with the id it prints.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      // Created with `wrangler d1 create couchwarp --location weur`.
+      "database_id": "7b48a919-73f0-4405-a4a0-1c2614f397f9",
       "migrations_dir": "migrations"
     }
   ],
+  // Public settings. Secrets (sign-in, relay, admins) are set with `wrangler secret put`.
+  "vars": {
+    "PUBLIC_URL": "https://couchwarp.sachapastor34.workers.dev",
+    // "on" opens the public game list; keep it off until reports are handled.
+    "PUBLIC_ROOMS": "off"
+  },
   // The daily clean-up (src/cleanup.ts), at a quiet hour.
   "triggers": { "crons": ["17 4 * * *"] },
   "observability": { "enabled": true }
