@@ -62,7 +62,7 @@ Le clavier des invités est mis en pause dès que la fenêtre du jeu n'est plus 
 - **Enregistrement de l'écran** (Réglages Système > Confidentialité et sécurité), pour capturer la fenêtre ;
 - **Accessibilité**, pour envoyer les touches des invités au jeu.
 
-Sous Windows, aucune autorisation n'est demandée. Pour que les manettes des invités agissent sur le jeu, installe et lance [VIIPER](https://alia5.github.io/VIIPER/) (il crée les manettes Xbox virtuelles) : l'hôte le détecte au démarrage sur `127.0.0.1:3242` et l'annonce aux invités. Sans VIIPER, le clavier fonctionne et les manettes sont reçues sans agir. Pense aussi à lancer l'hôte avec les mêmes droits que le jeu : Windows bloque les touches envoyées à un jeu lancé en administrateur depuis un programme qui ne l'est pas.
+Sous Windows, aucune autorisation n'est demandée. Pour que les manettes des invités agissent sur le jeu, installe et lance [VIIPER](https://alia5.github.io/VIIPER/) (il crée les manettes virtuelles : Xbox 360 par défaut, DualShock 4 pour un invité qui choisit « PlayStation » dans son menu) : l'hôte le détecte au démarrage sur `127.0.0.1:3242` et l'annonce aux invités. Sans VIIPER, le clavier fonctionne et les manettes sont reçues sans agir. Pense aussi à lancer l'hôte avec les mêmes droits que le jeu : Windows bloque les touches envoyées à un jeu lancé en administrateur depuis un programme qui ne l'est pas.
 
 Pour les téléphones d'un même réseau, le client doit être servi en HTTPS (l'API Gamepad l'exige) : le plus simple est de déployer (`pnpm deploy`) ou de passer par un tunnel.
 
@@ -74,7 +74,6 @@ Pour les téléphones d'un même réseau, le client doit être servi en HTTPS (l
 - **Réseau** : l'hôte écoute sur une seule interface en IPv4. Sans clé TURN Cloudflare (voir `services/edge/.dev.vars.example`), un invité derrière un réseau très fermé ne peut pas se connecter.
 - **Son** : sur Mac, celui de l'application qui possède la fenêtre ; un jeu qui joue son son dans un processus à part (jeux dans un navigateur, applications Electron) arrive muet. Sous Windows, le son du jeu et de tous les processus qu'il a lancés est capturé.
 - **Navigateurs basés sur Firefox (Firefox, Zen)** : sur macOS, ils peuvent n'ouvrir aucune connexion WebRTC (autorisation « Réseau local »). L'invité voit alors un message qui le dit ; Chrome, Edge et Arc fonctionnent.
-- **Manette PlayStation** : l'invité peut la choisir, mais l'hôte crée encore des manettes Xbox dans tous les cas.
 - **Débit fixe** : la qualité ne s'adapte pas encore au réseau de chaque invité ; règle-la avec `--bitrate` (en Mbit/s).
 - **Fenêtre fermée** : si le jeu se ferme, l'hôte s'arrête et les invités voient « L'hôte a fermé la partie ». La relance automatique du jeu est prévue au jalon 1.
 

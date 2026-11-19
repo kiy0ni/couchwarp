@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Result, anyhow};
 use couchwarp_protocol::control::{GuestControl, HostControl};
 use couchwarp_protocol::room::{
-    GuestRole, Hotseat, HotseatMode, RoomSettings, RoomState, Visibility,
+    GuestRole, Hotseat, HotseatMode, PadType, RoomSettings, RoomState, Visibility,
 };
 use couchwarp_protocol::signal::{EdgeToHost, GuestId, HostToEdge, SignalPayload};
 use str0m::net::{Protocol, Receive};
@@ -100,6 +100,8 @@ pub struct Host {
     local_candidates: Vec<Candidate>,
     peers: Vec<Peer>,
     names: HashMap<GuestId, String>,
+    /// Which guest drives each player slot, to play their controller as the type they chose.
+    slot_owners: HashMap<u8, GuestId>,
     router: InputRouter,
     sink: InputSink,
     game_pid: i32,
@@ -131,6 +133,7 @@ impl Host {
             local_candidates,
             peers: Vec::new(),
             names: HashMap::new(),
+            slot_owners: HashMap::new(),
             router: InputRouter::new(!game.focus_lock || frontmost_pid() == Some(game.pid)),
             sink: InputSink::new(game.pid),
             game_pid: game.pid,
@@ -269,12 +272,19 @@ impl Host {
             match action {
                 Action::SlotAssigned { guest, pad, slot } => {
                     info!(guest, pad, slot, "controller takes a player slot");
+                    self.slot_owners.insert(slot, guest);
                     if let Some(peer) = self.peer(guest) {
                         peer.send_control(&HostControl::Slot { pad, slot });
                     }
                 }
-                Action::SetPad { slot, state } => self.sink.set_pad(slot, &state),
-                Action::ReleasePad { slot } => self.sink.release_pad(slot),
+                Action::SetPad { slot, state } => {
+                    let pad_type = self.pad_type(slot);
+                    self.sink.set_pad(slot, pad_type, &state);
+                }
+                Action::ReleasePad { slot } => {
+                    self.slot_owners.remove(&slot);
+                    self.sink.release_pad(slot);
+                }
                 Action::SetKeys(keys) => self.sink.set_keys(&keys),
                 Action::KeyboardPaused(paused) => {
                     info!(paused, "guest keyboards follow the game window focus");
@@ -424,6 +434,14 @@ impl Host {
             let actions = self.router.remove_guest(guest);
             self.carry_out(actions);
         }
+    }
+
+    /// The controller type the guest driving `slot` picked; Xbox until the room says.
+    fn pad_type(&self, slot: u8) -> PadType {
+        self.slot_owners
+            .get(&slot)
+            .and_then(|guest| self.room_state.as_ref()?.member(*guest))
+            .map_or(PadType::Xbox360, |member| member.pad_type)
     }
 
     fn peer(&mut self, guest: GuestId) -> Option<&mut Peer> {

@@ -4,6 +4,8 @@ mod account;
 mod audio;
 #[cfg(any(target_os = "macos", test))]
 mod avcc;
+#[cfg(any(windows, test))]
+mod ds4;
 mod host;
 mod input;
 mod net;
