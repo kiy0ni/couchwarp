@@ -48,6 +48,19 @@ const fr = {
     measuresSize: 'Résolution',
     measuresUnknown:
       'Ce navigateur ne donne pas l’heure de capture des images : latence image inconnue.',
+    controlsTitle: 'Commandes',
+    keyboardLabel: 'Clavier',
+    keyboardAsPad: 'Comme une manette',
+    keyboardAsKeys: 'Touches du jeu',
+    touchLabel: 'Manette tactile',
+    touchShow: 'Affichée',
+    touchHide: 'Masquée',
+    padsUnavailable:
+      'Cet hôte ne transmet pas les manettes au jeu (hôte Mac). Le clavier, lui, fonctionne.',
+    touchStick: 'Stick : pose le pouce et glisse',
+    keysMove: 'Stick gauche',
+    keysCamera: 'Stick droit',
+    keysDpad: 'Croix',
   },
   ended: {
     title: 'Partie terminée',
@@ -114,6 +127,19 @@ const en: Strings = {
     measuresSize: 'Resolution',
     measuresUnknown:
       'This browser does not report when frames were captured: picture latency unknown.',
+    controlsTitle: 'Controls',
+    keyboardLabel: 'Keyboard',
+    keyboardAsPad: 'As a controller',
+    keyboardAsKeys: 'Game keys',
+    touchLabel: 'Touch controller',
+    touchShow: 'Shown',
+    touchHide: 'Hidden',
+    padsUnavailable:
+      'This host does not pass controllers to the game (Mac host). The keyboard works.',
+    touchStick: 'Stick: rest your thumb and slide',
+    keysMove: 'Left stick',
+    keysCamera: 'Right stick',
+    keysDpad: 'D-pad',
   },
   ended: {
     title: 'Game over',

@@ -22,6 +22,12 @@ pub enum GuestControl {
     rename_all_fields = "camelCase"
 )]
 pub enum HostControl {
+    /// What this host can do. Sent once the connection opens.
+    HostInfo {
+        /// Whether controllers are played into the game. False on macOS hosts, where
+        /// keyboards still work but virtual controllers cannot exist.
+        virtual_pads: bool,
+    },
     /// Answer to [`GuestControl::Ping`]. `t1` is the host's Unix time in milliseconds.
     Pong { t0: f64, t1: f64 },
     /// Host Unix time, in milliseconds, of RTP timestamp 0 on the video track.

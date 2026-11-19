@@ -45,6 +45,8 @@ export function useStream(
   const [hasPicture, setHasPicture] = useState(false)
   const [slots, setSlots] = useState<ReadonlyMap<number, number>>(new Map())
   const [paused, setPaused] = useState(false)
+  /** Whether controllers reach the game. Unknown (null) until the host says. */
+  const [virtualPads, setVirtualPads] = useState<boolean | null>(null)
   const [measures, setMeasures] = useState(NO_MEASURES)
   const onEndRef = useRef(onEnd)
   useEffect(() => {
@@ -69,6 +71,9 @@ export function useStream(
       },
       onControl(message) {
         switch (message.type) {
+          case 'host-info':
+            setVirtualPads(message.virtualPads)
+            break
           case 'pong':
             clock.add(message.t0, message.t1, unixNow())
             break
@@ -142,5 +147,5 @@ export function useStream(
     })
   }, [])
 
-  return { session, hasPicture, slots, paused, measures, forgetPad }
+  return { session, hasPicture, slots, paused, virtualPads, measures, forgetPad }
 }

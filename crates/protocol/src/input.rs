@@ -17,6 +17,11 @@ use thiserror::Error;
 /// Most keys a guest can hold at once. More than any real keyboard reports.
 pub const MAX_KEYS: usize = 32;
 
+/// Pad numbers 0 to 3 are physical controllers. The two virtual pads a guest can drive
+/// without one come after them.
+pub const KEYBOARD_PAD: u8 = 4;
+pub const TOUCH_PAD: u8 = 5;
+
 const KIND_GAMEPAD: u8 = 1;
 const KIND_KEYBOARD: u8 = 2;
 const GAMEPAD_LEN: usize = 16;
@@ -57,7 +62,8 @@ impl Buttons {
 /// One controller of one guest. Stick Y axes follow the Gamepad API: positive is down.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct GamepadState {
-    /// Index of the controller on the guest's device, 0 to 3.
+    /// Controller on the guest's device: 0 to 3 for physical ones, then
+    /// [`KEYBOARD_PAD`] and [`TOUCH_PAD`].
     pub pad: u8,
     pub seq: u16,
     pub buttons: Buttons,

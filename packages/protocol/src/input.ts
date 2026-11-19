@@ -5,6 +5,10 @@
 
 export const MAX_KEYS = 32
 
+/** Pad numbers 0 to 3 are physical controllers; the virtual ones come after. */
+export const KEYBOARD_PAD = 4
+export const TOUCH_PAD = 5
+
 /** Bits of `GamepadPacket.buttons`, in W3C standard mapping order without the triggers. */
 export const Button = {
   a: 1 << 0,
@@ -26,7 +30,7 @@ export const Button = {
 
 export interface GamepadPacket {
   kind: 'gamepad'
-  /** Controller index on the guest's device, 0 to 3. */
+  /** 0 to 3 for physical controllers, then `KEYBOARD_PAD` and `TOUCH_PAD`. */
   pad: number
   seq: number
   buttons: number

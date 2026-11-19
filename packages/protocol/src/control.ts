@@ -8,6 +8,7 @@ import { isFiniteNumber, isInteger, parseObject } from './validate'
 export type GuestControl = { type: 'ping'; t0: number } | { type: 'pad-removed'; pad: number }
 
 export type HostControl =
+  | { type: 'host-info'; virtualPads: boolean }
   | { type: 'pong'; t0: number; t1: number }
   | { type: 'stream-clock'; epochMs: number }
   | { type: 'slot'; pad: number; slot: number }
@@ -16,6 +17,10 @@ export type HostControl =
 export function parseHostControl(text: string): HostControl | null {
   const message = parseObject(text)
   switch (message?.type) {
+    case 'host-info':
+      return typeof message.virtualPads === 'boolean'
+        ? { type: 'host-info', virtualPads: message.virtualPads }
+        : null
     case 'pong':
       return isFiniteNumber(message.t0) && isFiniteNumber(message.t1)
         ? { type: 'pong', t0: message.t0, t1: message.t1 }
@@ -25,7 +30,7 @@ export function parseHostControl(text: string): HostControl | null {
         ? { type: 'stream-clock', epochMs: message.epochMs }
         : null
     case 'slot':
-      return isInteger(message.pad, 0, 3) && isInteger(message.slot, 1, 8)
+      return isInteger(message.pad, 0, 5) && isInteger(message.slot, 1, 8)
         ? { type: 'slot', pad: message.pad, slot: message.slot }
         : null
     case 'input-paused':

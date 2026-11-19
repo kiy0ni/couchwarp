@@ -19,7 +19,7 @@ use tracing::{debug, info, warn};
 
 use crate::input::{Action, InputRouter};
 use crate::peer::{Peer, PeerEvent};
-use crate::platform::{InputSink, frontmost_pid};
+use crate::platform::{InputSink, VIRTUAL_PADS, frontmost_pid};
 use crate::signaling::Room;
 use crate::stats::FrameDelays;
 use crate::video::{EncodedFrame, StreamClock, unix_ms_now};
@@ -138,6 +138,9 @@ impl Host {
                 let epoch_ms = self.clock.epoch_unix_ms();
                 if let Some(peer) = self.peer(guest) {
                     info!(guest, name = %peer.name, "guest connected");
+                    peer.send_control(&HostControl::HostInfo {
+                        virtual_pads: VIRTUAL_PADS,
+                    });
                     peer.send_control(&HostControl::StreamClock { epoch_ms });
                     peer.send_control(&HostControl::InputPaused { paused });
                 }

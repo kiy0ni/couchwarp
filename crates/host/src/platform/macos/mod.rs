@@ -19,6 +19,9 @@ use tracing::warn;
 
 use keyboard::KeyboardSink;
 
+/// Whether guests' controllers reach the game on this platform.
+pub const VIRTUAL_PADS: bool = false;
+
 /// Command-line tools must touch CoreGraphics once before ScreenCaptureKit can run.
 pub fn init() {
     CGMainDisplayID();

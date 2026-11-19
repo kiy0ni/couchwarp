@@ -1,4 +1,5 @@
 import { Button, type GamepadPacket, nextSeq } from '@couchwarp/protocol'
+import { samePadState } from './pad-state'
 
 /** Most controllers one guest can bring. */
 export const MAX_PADS = 4
@@ -50,18 +51,6 @@ export function readGamepad(gamepad: Gamepad, pad: number): GamepadPacket {
   }
 }
 
-function sameState(a: GamepadPacket, b: GamepadPacket): boolean {
-  return (
-    a.buttons === b.buttons &&
-    a.leftStick[0] === b.leftStick[0] &&
-    a.leftStick[1] === b.leftStick[1] &&
-    a.rightStick[0] === b.rightStick[0] &&
-    a.rightStick[1] === b.rightStick[1] &&
-    a.leftTrigger === b.leftTrigger &&
-    a.rightTrigger === b.rightTrigger
-  )
-}
-
 interface Tracked {
   /** `Gamepad.index`, stable while the controller stays connected. */
   index: number
@@ -90,7 +79,7 @@ export class PadTracker {
       if (pad === undefined) continue
       const state = readGamepad(gamepad, pad)
       const tracked = this.pads[pad]
-      if (tracked && sameState(tracked.last, state) && now - tracked.sentAt < RESEND_MS) continue
+      if (tracked && samePadState(tracked.last, state) && now - tracked.sentAt < RESEND_MS) continue
       this.seq = nextSeq(this.seq)
       const packet = { ...state, seq: this.seq }
       this.pads[pad] = { index: gamepad.index, last: packet, sentAt: now }

@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import { KeyboardHelp } from '../components/KeyboardHelp'
 import { PlayerBadge } from '../components/PlayerBadge'
+import { TouchPad } from '../components/TouchPad'
 import { t } from '../i18n'
+import type { PadState } from '../lib/pad-state'
 import type { EndReason } from '../lib/session'
-import { useInputForwarding } from '../lib/use-input'
+import { useGamepads } from '../lib/use-gamepads'
+import { type KeyboardMode, useInputForwarding } from '../lib/use-input'
 import { type Measures, useStream } from '../lib/use-stream'
 
 const CHROME_IDLE_MS = 3000
@@ -45,7 +49,23 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
   const surface = useRef<HTMLElement>(null)
   const menu = useRef<HTMLDialogElement>(null)
   const stream = useStream(code, name, video, onEnd)
-  useInputForwarding(stream.session, surface, stream.forgetPad)
+  const gamepads = useGamepads()
+  const [touchScreen] = useState(() => matchMedia('(pointer: coarse)').matches)
+  const [keyboardChoice, setKeyboardChoice] = useState<KeyboardMode | null>(null)
+  const [touchWanted, setTouchWanted] = useState(true)
+  const touch = useRef<PadState | null>(null)
+
+  // Playing the keyboard as a controller only helps when the host can play controllers.
+  const keyboardMode = keyboardChoice ?? (stream.virtualPads ? 'pad' : 'keys')
+  const showTouch =
+    touchScreen && stream.virtualPads === true && gamepads.length === 0 && touchWanted
+  if (!showTouch) touch.current = null
+
+  useInputForwarding(stream.session, surface, {
+    keyboardMode,
+    touch,
+    onPadRemoved: stream.forgetPad,
+  })
   const [chromeVisible, wakeChrome] = useIdleChrome()
   const showChrome = chromeVisible || !stream.hasPicture || stream.paused
   const players = [...stream.slots.values()].sort((a, b) => a - b)
@@ -80,6 +100,8 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
         </p>
       )}
 
+      {showTouch && <TouchPad state={touch} />}
+
       <div className="play__bar">
         <ul className="play__players">
           {players.map((slot) => (
@@ -102,6 +124,34 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
       </div>
 
       <dialog ref={menu} className="menu" onClose={() => surface.current?.focus()}>
+        <h2 className="menu__title">{t.play.controlsTitle}</h2>
+        {stream.virtualPads === false && <p className="menu__note">{t.play.padsUnavailable}</p>}
+        {stream.virtualPads && (
+          <div className="menu__settings">
+            <Choice<KeyboardMode>
+              label={t.play.keyboardLabel}
+              value={keyboardMode}
+              options={[
+                ['pad', t.play.keyboardAsPad],
+                ['keys', t.play.keyboardAsKeys],
+              ]}
+              onChange={setKeyboardChoice}
+            />
+            {touchScreen && (
+              <Choice<'show' | 'hide'>
+                label={t.play.touchLabel}
+                value={touchWanted ? 'show' : 'hide'}
+                options={[
+                  ['show', t.play.touchShow],
+                  ['hide', t.play.touchHide],
+                ]}
+                onChange={(value) => setTouchWanted(value === 'show')}
+              />
+            )}
+          </div>
+        )}
+        {keyboardMode === 'pad' && <KeyboardHelp />}
+
         <h2 className="menu__title">{t.play.measuresTitle}</h2>
         <MeasuresList measures={stream.measures} />
         <div className="menu__actions">
@@ -126,6 +176,33 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
         </div>
       </dialog>
     </main>
+  )
+}
+
+interface ChoiceProps<T extends string> {
+  label: string
+  value: T
+  options: readonly (readonly [T, string])[]
+  onChange(value: T): void
+}
+
+/** A two-way switch as radio buttons, so arrows and screen readers work as usual. */
+function Choice<T extends string>({ label, value, options, onChange }: ChoiceProps<T>) {
+  return (
+    <fieldset className="choice">
+      <legend className="choice__label">{label}</legend>
+      {options.map(([option, text]) => (
+        <label key={option} className="choice__option">
+          <input
+            type="radio"
+            name={label}
+            checked={value === option}
+            onChange={() => onChange(option)}
+          />
+          {text}
+        </label>
+      ))}
+    </fieldset>
   )
 }
 
