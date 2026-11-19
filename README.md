@@ -2,7 +2,7 @@
 
 Jouer en multijoueur local à distance. L'hôte partage la fenêtre de son jeu, ses amis le rejoignent depuis un navigateur avec un code à six caractères, sans rien installer, et jouent avec leur manette ou leur clavier.
 
-Statut : **jalon 0a**. La chaîne complète fonctionne avec un hôte macOS : capture, encodage matériel, WebRTC, client web, clavier filtré. Le cahier des charges est dans [docs/CAHIER-DES-CHARGES.md](docs/CAHIER-DES-CHARGES.md), le fonctionnement technique dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Statut : **jalon 0a terminé, début du jalon 1**. La chaîne complète fonctionne avec un hôte macOS : image et son du jeu, encodage matériel, WebRTC, client web. Les invités jouent au clavier (touches du jeu ou clavier converti en manette), à la manette, ou avec une manette tactile sur téléphone. Le cahier des charges est dans [docs/CAHIER-DES-CHARGES.md](docs/CAHIER-DES-CHARGES.md), le fonctionnement technique dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Mesures du jalon 0a
 
@@ -48,7 +48,7 @@ Pour les téléphones d'un même réseau, le client doit être servi en HTTPS (l
 - **Manettes sur un hôte Mac** : macOS ne permet pas à une application de créer une manette virtuelle. Les manettes des invités reçoivent une place de joueur mais n'agissent pas sur le jeu. Elles fonctionneront avec l'hôte Windows (jalon 0b, via VIIPER).
 - **Hôte Windows et Linux** : pas encore écrits.
 - **Réseau** : l'hôte écoute sur une seule interface en IPv4. Sans clé TURN Cloudflare (voir `services/edge/.dev.vars.example`), un invité derrière un réseau très fermé ne peut pas se connecter.
-- **Son** : pas encore transmis.
+- **Son** : celui de l'application qui possède la fenêtre. Un jeu qui joue son son dans un processus à part (jeux dans un navigateur, applications Electron) arrive muet.
 - **Navigateurs basés sur Firefox (Firefox, Zen)** : sur macOS, ils peuvent n'ouvrir aucune connexion WebRTC (autorisation « Réseau local »). L'invité voit alors un message qui le dit ; Chrome, Edge et Arc fonctionnent.
 - **Fenêtre fermée** : si le jeu se ferme, l'hôte s'arrête et les invités voient « L'hôte a fermé la partie ». La relance automatique du jeu est prévue au jalon 1.
 

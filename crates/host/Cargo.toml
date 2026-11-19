@@ -15,6 +15,7 @@ anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 couchwarp-protocol = { path = "../protocol" }
 fastrand = "2"
+opus = "0.4"
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 qrcode = { version = "0.15", default-features = false }
 serde_json = "1"

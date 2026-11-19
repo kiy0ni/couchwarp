@@ -45,6 +45,8 @@ export function useStream(
   const [hasPicture, setHasPicture] = useState(false)
   const [slots, setSlots] = useState<ReadonlyMap<number, number>>(new Map())
   const [paused, setPaused] = useState(false)
+  /** The browser refused to start the sound without a click; the picture plays muted. */
+  const [soundBlocked, setSoundBlocked] = useState(false)
   /** Whether controllers reach the game. Unknown (null) until the host says. */
   const [virtualPads, setVirtualPads] = useState<boolean | null>(null)
   const [measures, setMeasures] = useState(NO_MEASURES)
@@ -63,11 +65,17 @@ export function useStream(
 
     const current = new GuestSession(code, name, {
       onConnected: startPinging,
-      onVideo(stream) {
+      onMedia(stream) {
         const element = video.current
         if (!element) return
         element.srcObject = stream
-        element.play().catch((error) => console.error('Video playback refused', error))
+        element.muted = false
+        element.play().catch(() => {
+          // Autoplay rules allow a muted start; the guest turns sound on with one click.
+          element.muted = true
+          setSoundBlocked(true)
+          element.play().catch((error) => console.error('Video playback refused', error))
+        })
       },
       onControl(message) {
         switch (message.type) {
@@ -139,6 +147,16 @@ export function useStream(
     }
   }, [code, name, video])
 
+  const enableSound = useCallback(() => {
+    const element = video.current
+    if (!element) return
+    element.muted = false
+    element
+      .play()
+      .then(() => setSoundBlocked(false))
+      .catch((error) => console.error('Sound still refused', error))
+  }, [video])
+
   const forgetPad = useCallback((pad: number) => {
     setSlots((previous) => {
       const next = new Map(previous)
@@ -147,5 +165,15 @@ export function useStream(
     })
   }, [])
 
-  return { session, hasPicture, slots, paused, virtualPads, measures, forgetPad }
+  return {
+    session,
+    hasPicture,
+    slots,
+    paused,
+    virtualPads,
+    soundBlocked,
+    enableSound,
+    measures,
+    forgetPad,
+  }
 }

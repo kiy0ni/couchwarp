@@ -80,14 +80,7 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
       onPointerMove={wakeChrome}
       onPointerDown={wakeChrome}
     >
-      <video
-        ref={video}
-        className="play__video"
-        muted
-        playsInline
-        autoPlay
-        disablePictureInPicture
-      />
+      <video ref={video} className="play__video" playsInline autoPlay disablePictureInPicture />
 
       {!stream.hasPicture && (
         <p className="play__notice" role="status">
@@ -110,6 +103,15 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
             </li>
           ))}
         </ul>
+        {stream.soundBlocked && (
+          <button
+            type="button"
+            className="button button--secondary button--small"
+            onClick={stream.enableSound}
+          >
+            {t.play.enableSound}
+          </button>
+        )}
         <p className="play__latency">
           <span className="play__latency-label">{t.play.latency}</span>
           <span className="num">{ms(stream.measures.median)}</span>

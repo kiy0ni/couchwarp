@@ -17,6 +17,7 @@ use str0m::{Candidate, Event, IceConnectionState, Input, Output, Rtc};
 use tokio::net::UdpSocket;
 use tracing::{debug, trace, warn};
 
+use crate::audio::AudioPacket;
 use crate::video::EncodedFrame;
 
 /// Constrained baseline H.264, the profile the encoder produces.
@@ -37,6 +38,7 @@ pub struct Peer {
     pub name: String,
     rtc: Rtc,
     video: Option<(Mid, Pt)>,
+    audio: Option<(Mid, Pt)>,
     control: Option<ChannelId>,
     input: Option<ChannelId>,
 }
@@ -52,6 +54,7 @@ impl Peer {
         let mut rtc = Rtc::builder()
             .clear_codecs()
             .enable_h264(true)
+            .enable_opus(true, false)
             .build(Instant::now());
         for candidate in local_candidates {
             rtc.add_local_candidate(candidate.clone());
@@ -66,6 +69,7 @@ impl Peer {
             name,
             rtc,
             video: None,
+            audio: None,
             control: None,
             input: None,
         };
@@ -129,6 +133,17 @@ impl Peer {
         }
     }
 
+    pub fn send_sound(&mut self, packet: &AudioPacket) {
+        let Some((mid, pt)) = self.audio else { return };
+        let Some(writer) = self.rtc.writer(mid) else {
+            return;
+        };
+        let rtp_time = MediaTime::new(packet.rtp_ticks, Frequency::FORTY_EIGHT_KHZ);
+        if let Err(error) = writer.write(pt, Instant::now(), rtp_time, packet.opus.clone()) {
+            warn!(guest = self.guest_id, %error, "sound not sent");
+        }
+    }
+
     pub fn send_control(&mut self, message: &HostControl) {
         let Some(mut channel) = self.control.and_then(|id| self.rtc.channel(id)) else {
             return;
@@ -149,6 +164,9 @@ impl Peer {
                         "the guest offered no constrained baseline H.264"
                     );
                 }
+            }
+            Event::MediaAdded(media) if media.kind == MediaKind::Audio => {
+                self.audio = self.pick_opus_payload(media.mid).map(|pt| (media.mid, pt));
             }
             Event::ChannelOpen(id, label) => match label.as_str() {
                 "control" => {
@@ -179,6 +197,14 @@ impl Peer {
                 Err(error) => debug!(guest = self.guest_id, %error, "control message dropped"),
             }
         }
+    }
+
+    fn pick_opus_payload(&mut self, mid: Mid) -> Option<Pt> {
+        let writer = self.rtc.writer(mid)?;
+        writer
+            .payload_params()
+            .find(|params| params.spec().codec == Codec::Opus)
+            .map(|params| params.pt())
     }
 
     fn pick_video_payload(&mut self, mid: Mid) -> Option<Pt> {

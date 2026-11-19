@@ -48,6 +48,7 @@ const fr = {
     measuresSize: 'Résolution',
     measuresUnknown:
       'Ce navigateur ne donne pas l’heure de capture des images : latence image inconnue.',
+    enableSound: 'Activer le son',
     controlsTitle: 'Commandes',
     keyboardLabel: 'Clavier',
     keyboardAsPad: 'Comme une manette',
@@ -127,6 +128,7 @@ const en: Strings = {
     measuresSize: 'Resolution',
     measuresUnknown:
       'This browser does not report when frames were captured: picture latency unknown.',
+    enableSound: 'Turn sound on',
     controlsTitle: 'Controls',
     keyboardLabel: 'Keyboard',
     keyboardAsPad: 'As a controller',

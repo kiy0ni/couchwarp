@@ -1,5 +1,6 @@
 //! Couchwarp host: shares one game window with guests who join from a browser.
 
+mod audio;
 mod host;
 mod input;
 mod net;
@@ -26,6 +27,8 @@ use platform::encoder::{Encoder, EncoderSettings};
 
 /// Frames waiting for the network. Beyond this the encoder drops instead of queuing.
 const FRAME_QUEUE: usize = 4;
+/// Sound packets waiting for the network: 80 ms.
+const SOUND_QUEUE: usize = 8;
 
 #[derive(Parser)]
 #[command(
@@ -117,8 +120,9 @@ async fn main() -> Result<()> {
         frame_tx,
         keyframe_wanted.clone(),
     )?);
+    let (sound_tx, sound) = mpsc::channel(SOUND_QUEUE);
     let (stopped_tx, capture_stopped) = mpsc::unbounded_channel();
-    let _capture = Capture::start(&window, size, args.fps, encoder, stopped_tx)?;
+    let _capture = Capture::start(&window, size, args.fps, encoder, sound_tx, stopped_tx)?;
     info!(
         width = size.0,
         height = size.1,
@@ -135,7 +139,7 @@ async fn main() -> Result<()> {
         keyframe_wanted,
         signal_out,
     )
-    .run(room, frames, capture_stopped)
+    .run(room, frames, sound, capture_stopped)
     .await
 }
 

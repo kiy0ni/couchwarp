@@ -37,9 +37,15 @@ Le serveur de salons ne voit passer que la négociation (offres SDP, candidats I
 
 File pleine (réseau en retard) : l'image est jetée plutôt que mise en attente, et la suivante est une image clé. La latence reste stable, au prix d'une image perdue.
 
+## Le son
+
+ScreenCaptureKit capture le son de l'application qui possède la fenêtre partagée (jamais celui de Couchwarp), en 48 kHz stéréo. `audio.rs` le découpe en paquets de 10 ms (deux fois plus courts que d'habitude, pour deux fois moins d'attente) et l'encode en Opus à 128 kbit/s. L'invité le lit dans le même élément `<video>` que l'image. Si le navigateur refuse de démarrer le son sans clic, l'image démarre en muet et un bouton « Activer le son » apparaît.
+
+Mesuré en local : image toujours à 24 ms en médiane avec le son actif (le navigateur ne retarde pas l'image pour la synchroniser), son à environ 80 ms dans le tampon du navigateur.
+
 ## Le parcours d'une touche
 
-1. Le navigateur lit les manettes toutes les 4 ms et le clavier à chaque événement, et envoie **l'état complet** de l'appareil (format binaire, `crates/protocol/src/input.rs`). Un état est renvoyé tous les 100 ms même sans changement : un paquet perdu ne laisse jamais une touche enfoncée.
+1. Le navigateur lit les manettes toutes les 4 ms et le clavier à chaque événement, et envoie **l'état complet** de l'appareil. Trois sources donnent une manette : les manettes physiques (numéros 0 à 3), le clavier joué comme une manette (4) et la manette tactile (5). Ces deux dernières ne prennent une place de joueur qu'au premier usage. Le clavier peut aussi être envoyé tel quel (« touches du jeu ») ; c'est le choix par défaut quand l'hôte annonce (`host-info`) qu'il ne sait pas jouer les manettes (format binaire, `crates/protocol/src/input.rs`). Un état est renvoyé tous les 100 ms même sans changement : un paquet perdu ne laisse jamais une touche enfoncée.
 2. L'hôte décode, écarte les paquets en retard (numéro de séquence sur 16 bits, qui reboucle), puis passe tout au routeur (`input/mod.rs`) :
    - chaque manette reçoit la première place libre de 1 à 8, annoncée à l'invité ;
    - le bouton Guide est retiré ;
@@ -60,4 +66,3 @@ Le protocole existe en Rust (`crates/protocol`) et en TypeScript (`packages/prot
 
 - Hôte Windows : capture Windows Graphics Capture, encodeur matériel (NVENC, AMF, Quick Sync), manettes, claviers et souris virtuels par VIIPER, verrou de focus sur `GetForegroundWindow`.
 - Mesure de latence entre deux réseaux différents, avec relai TURN.
-- Son du jeu (capture par processus, Opus).

@@ -21,7 +21,8 @@ export type EndReason =
 export interface SessionEvents {
   /** The control channel is open: the host can hear us. */
   onConnected(): void
-  onVideo(stream: MediaStream): void
+  /** Called once, with a stream that gains the sound track when it arrives. */
+  onMedia(stream: MediaStream): void
   onControl(message: HostControl): void
   /** Called once. The session is closed by then. */
   onEnd(reason: EndReason): void
@@ -40,6 +41,7 @@ export class GuestSession {
   private input: RTCDataChannel | null = null
   private control: RTCDataChannel | null = null
   private ended = false
+  private readonly media = new MediaStream()
 
   constructor(
     code: string,
@@ -113,11 +115,13 @@ export class GuestSession {
 
     const transceiver = peer.addTransceiver('video', { direction: 'recvonly' })
     preferBaselineH264(transceiver)
+    peer.addTransceiver('audio', { direction: 'recvonly' })
 
     peer.ontrack = (event) => {
-      // Play frames as soon as they are decoded instead of buffering for smoothness.
+      // Play frames and sound as soon as they are decoded instead of buffering for smoothness.
       event.receiver.jitterBufferTarget = 0
-      this.events.onVideo(event.streams[0] ?? new MediaStream([event.track]))
+      this.media.addTrack(event.track)
+      if (this.media.getTracks().length === 1) this.events.onMedia(this.media)
     }
     // No candidate at all means the browser itself has no network path for WebRTC
     // (blocked by a privacy setting or the system), not that the host is unreachable.

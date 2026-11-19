@@ -1,7 +1,7 @@
 //! Captures one window with ScreenCaptureKit and feeds every new frame to the encoder.
 //! Only the window is shared: notifications, the menu bar and other apps stay private.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result, anyhow};
 use objc2_core_media::{CMTime, CMTimeFlags};
@@ -13,6 +13,7 @@ use tokio::sync::mpsc;
 use tracing::warn;
 
 use super::encoder::Encoder;
+use crate::audio::{AudioEncoder, AudioPacket, SAMPLE_RATE, interleave};
 
 /// Windows smaller than this are palettes, tooltips and the like, never a game.
 const MIN_WINDOW_SIDE: f64 = 200.0;
@@ -97,12 +98,14 @@ impl SCStreamDelegateTrait for StopReporter {
 }
 
 impl Capture {
-    /// `stopped` receives the reason if capture ends on its own (the window closed).
+    /// Video goes to `encoder`, sound to `sound`. `stopped` receives the reason if capture
+    /// ends on its own (the window closed).
     pub fn start(
         window: &GameWindow,
         size: (u32, u32),
         fps: u32,
         encoder: Arc<Encoder>,
+        sound: mpsc::Sender<AudioPacket>,
         stopped: mpsc::UnboundedSender<String>,
     ) -> Result<Self> {
         let filter = SCContentFilter::create()
@@ -117,7 +120,12 @@ impl Capture {
             .with_minimum_frame_interval(&screencapturekit::cm::CMTime::new(1, fps as i32))
             // Few buffers in flight: a frame waiting in a queue is latency.
             .with_queue_depth(3)
-            .with_shows_cursor(true);
+            .with_shows_cursor(true)
+            // The sound of the shared window's app, never Couchwarp's own.
+            .with_captures_audio(true)
+            .with_sample_rate(SAMPLE_RATE as i32)
+            .with_channel_count(2)
+            .with_excludes_current_process_audio(true);
 
         let mut stream = SCStream::new_with_delegate(&filter, &config, StopReporter(stopped))?;
         stream.add_output_handler(
@@ -143,9 +151,55 @@ impl Capture {
             },
             SCStreamOutputType::Screen,
         )?;
+        let audio_encoder = Mutex::new(AudioEncoder::new()?);
+        stream.add_output_handler(
+            move |sample: CMSampleBuffer, kind: SCStreamOutputType| {
+                if kind != SCStreamOutputType::Audio {
+                    return;
+                }
+                let Some(samples) = interleaved_samples(&sample) else {
+                    return;
+                };
+                let packets = audio_encoder
+                    .lock()
+                    .expect("the audio encoder is only used from this handler")
+                    .push(&samples);
+                match packets {
+                    // A full queue means the network side is behind; late sound is useless.
+                    Ok(packets) => packets.into_iter().for_each(|packet| {
+                        let _ = sound.try_send(packet);
+                    }),
+                    Err(error) => warn!(%error, "sound not encoded"),
+                }
+            },
+            SCStreamOutputType::Audio,
+        )?;
         stream.start_capture()?;
         Ok(Self { stream })
     }
+}
+
+/// ScreenCaptureKit hands sound as 32-bit floats, usually one buffer per channel.
+fn interleaved_samples(sample: &CMSampleBuffer) -> Option<Vec<f32>> {
+    let list = sample.audio_buffer_list().ok()?;
+    let planes: Vec<Vec<f32>> = (&list)
+        .into_iter()
+        .map(|buffer| {
+            buffer
+                .data()
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|bytes| f32::from_ne_bytes(*bytes))
+                .collect()
+        })
+        .collect();
+    let first = list.get(0)?;
+    if planes.len() == 1 && first.number_channels == 2 {
+        return planes.into_iter().next();
+    }
+    let planes: Vec<&[f32]> = planes.iter().map(Vec::as_slice).collect();
+    Some(interleave(&planes))
 }
 
 impl Drop for Capture {

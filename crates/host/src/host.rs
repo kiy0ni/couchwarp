@@ -17,6 +17,7 @@ use tokio::sync::mpsc;
 use tokio::time::{MissedTickBehavior, interval, sleep_until};
 use tracing::{debug, info, warn};
 
+use crate::audio::AudioPacket;
 use crate::input::{Action, InputRouter};
 use crate::peer::{Peer, PeerEvent};
 use crate::platform::{InputSink, VIRTUAL_PADS, frontmost_pid};
@@ -74,6 +75,7 @@ impl Host {
         mut self,
         mut room: Room,
         mut frames: mpsc::Receiver<EncodedFrame>,
+        mut sound: mpsc::Receiver<AudioPacket>,
         mut capture_stopped: mpsc::UnboundedReceiver<String>,
     ) -> Result<()> {
         let mut buffer = vec![0u8; MAX_DATAGRAM];
@@ -85,6 +87,11 @@ impl Host {
             let deadline = self.drain();
             tokio::select! {
                 Some(frame) = frames.recv() => self.send_frame(&frame),
+                Some(packet) = sound.recv() => {
+                    for peer in &mut self.peers {
+                        peer.send_sound(&packet);
+                    }
+                }
                 message = room.incoming.recv(), if room_open => match message {
                     Some(message) => self.on_room_message(message),
                     None => {
