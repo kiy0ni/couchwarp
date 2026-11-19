@@ -50,9 +50,10 @@ pub fn list_windows() -> Result<Vec<GameWindow>> {
         .filter_map(|window| {
             let title = window.title().ok().filter(|title| !title.is_empty())?;
             let (width, height) = (window.width().ok()?, window.height().ok()?);
+            let pid = window.process_id().ok()? as i32;
             (width >= MIN_WINDOW_SIDE && height >= MIN_WINDOW_SIDE).then(|| GameWindow {
                 app: window.process_name().unwrap_or_default(),
-                pid: window.process_id().ok()? as i32,
+                pid,
                 title,
                 width,
                 height,

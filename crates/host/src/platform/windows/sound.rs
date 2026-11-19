@@ -50,7 +50,7 @@ fn capture(pid: u32, sound: &mpsc::Sender<AudioPacket>, stop: &AtomicBool) -> Re
     initialize_mta()
         .ok()
         .map_err(|error| anyhow!("COM setup failed: {error}"))?;
-    let format = WaveFormat::new(32, 32, &SampleType::Float, SAMPLE_RATE as usize, 2, None);
+    let format = WaveFormat::new(32, 32, SampleType::Float, SAMPLE_RATE as usize, 2, None);
     let mut client = AudioClient::new_application_loopback_client(pid, true)
         .context("cannot listen to the game's sound")?;
     let mode = StreamMode::EventsShared {
