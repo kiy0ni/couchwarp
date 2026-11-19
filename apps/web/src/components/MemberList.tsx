@@ -1,5 +1,9 @@
 import type { HostCommand, Member, RoomState } from '@couchwarp/protocol'
+import { useState } from 'react'
 import { t } from '../i18n'
+import { useAccount } from '../lib/account'
+import { askFriend } from '../lib/friends'
+import { Avatar } from './Avatar'
 
 /** Who looks at the list: the host (console), a moderator, or anyone else. */
 export type Viewer = 'host' | 'moderator' | 'guest'
@@ -10,10 +14,13 @@ interface Props {
   /** The guest looking at the list, to mark them and keep actions off themselves. */
   selfId?: number | null
   onCommand(command: HostCommand): void
+  onReport(member: Member): void
 }
 
 /** Everyone in the room, players first, with what the viewer may do to each. */
-export function MemberList({ room, viewer, selfId = null, onCommand }: Props) {
+export function MemberList({ room, viewer, selfId = null, onCommand, onReport }: Props) {
+  const { account } = useAccount()
+  const [asked, setAsked] = useState<ReadonlySet<string>>(new Set())
   if (room.members.length === 0) return <p className="menu__note">{t.room.nobody}</p>
   const seated = room.members.filter((member) => member.role !== 'spectator').length
   const seatsLeft = room.settings.maxPlayers - seated
@@ -25,7 +32,7 @@ export function MemberList({ room, viewer, selfId = null, onCommand }: Props) {
     <ul className="members">
       {ordered.map((member) => (
         <li key={member.id} className="members__item">
-          <Avatar member={member} />
+          <Avatar name={member.name} url={member.avatarUrl} />
           <span className="members__who">
             <span className="members__name">
               {member.name} {member.id === selfId && t.room.you}
@@ -39,6 +46,28 @@ export function MemberList({ room, viewer, selfId = null, onCommand }: Props) {
               seatsLeft={seatsLeft}
               onCommand={onCommand}
             />
+          )}
+          {member.id !== selfId && (
+            <span className="members__actions">
+              {account && member.userId && member.userId !== account.id && (
+                <button
+                  type="button"
+                  className="link-button"
+                  disabled={asked.has(member.userId)}
+                  onClick={() => {
+                    const userId = member.userId as string
+                    askFriend(userId)
+                      .then(() => setAsked((previous) => new Set(previous).add(userId)))
+                      .catch(console.error)
+                  }}
+                >
+                  {asked.has(member.userId) ? t.friends.added : t.friends.add}
+                </button>
+              )}
+              <button type="button" className="link-button" onClick={() => onReport(member)}>
+                {t.report.open}
+              </button>
+            </span>
           )}
         </li>
       ))}
@@ -126,15 +155,5 @@ function MemberActions({ member, viewer, seatsLeft, onCommand }: ActionsProps) {
         {t.room.ban}
       </button>
     </fieldset>
-  )
-}
-
-function Avatar({ member }: { member: Member }) {
-  return member.avatarUrl ? (
-    <img className="avatar" src={member.avatarUrl} alt="" width={32} height={32} />
-  ) : (
-    <span className="avatar" aria-hidden="true">
-      {member.name.charAt(0).toUpperCase()}
-    </span>
   )
 }

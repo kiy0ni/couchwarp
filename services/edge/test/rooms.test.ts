@@ -2,94 +2,10 @@ import { env } from 'cloudflare:test'
 import { exports } from 'cloudflare:workers'
 import { DEFAULT_SETTINGS, isRoomCode, normalizeRoomCode } from '@couchwarp/protocol'
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { RoomCard } from '../src/directory'
 import { cleanGuestName } from '../src/room'
 import { randomRoomCode } from '../src/room-code'
 import { MAX_MEMBERS } from '../src/room-model'
-
-type Message = { type: string } & Record<string, unknown>
-
-/** A test-side WebSocket that queues incoming messages until the test asks for them. */
-class Peer {
-  private readonly inbox: Message[] = []
-  private readonly waiting: { type: string; resolve: (message: Message) => void }[] = []
-  closeCode: number | null = null
-
-  constructor(readonly socket: WebSocket) {
-    socket.accept()
-    socket.addEventListener('message', (event) => {
-      if (typeof event.data !== 'string') return
-      const message = JSON.parse(event.data) as Message
-      const index = this.waiting.findIndex((waiter) => waiter.type === message.type)
-      const waiter = index === -1 ? undefined : this.waiting.splice(index, 1)[0]
-      if (waiter) waiter.resolve(message)
-      else this.inbox.push(message)
-    })
-    socket.addEventListener('close', (event) => {
-      this.closeCode = event.code
-    })
-  }
-
-  /** The next message of this type, skipping others (room states arrive often). */
-  next(type: string): Promise<Message> {
-    const index = this.inbox.findIndex((message) => message.type === type)
-    if (index !== -1) return Promise.resolve(this.inbox.splice(index, 1)[0] as Message)
-    return new Promise((resolve) => this.waiting.push({ type, resolve }))
-  }
-
-  /** The latest room state received so far, waiting for one if none came yet. */
-  async latestState(): Promise<Record<string, unknown>> {
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    const states = this.inbox.filter((message) => message.type === 'room-state')
-    const others = this.inbox.filter((message) => message.type !== 'room-state')
-    this.inbox.splice(0, this.inbox.length, ...others)
-    const last = states.at(-1) ?? (await this.next('room-state'))
-    return last.state as Record<string, unknown>
-  }
-
-  send(message: unknown): void {
-    this.socket.send(JSON.stringify(message))
-  }
-}
-
-const SITE = 'https://couchwarp.test'
-
-async function connect(path: string, headers: Record<string, string> = {}): Promise<Peer> {
-  const response = await exports.default.fetch(`${SITE}${path}`, {
-    headers: { Upgrade: 'websocket', ...headers },
-  })
-  expect(response.status).toBe(101)
-  if (!response.webSocket) throw new Error(`no WebSocket on ${path}`)
-  return new Peer(response.webSocket)
-}
-
-async function openRoom(headers: Record<string, string> = {}) {
-  const host = await connect('/api/host', headers)
-  const created = await host.next('room-created')
-  return { host, code: created.code as string, consoleKey: created.consoleKey as string }
-}
-
-function join(code: string, name: string, address = '203.0.113.1'): Promise<Peer> {
-  return connect(`/api/rooms/${code}/guest?name=${encodeURIComponent(name)}`, {
-    'CF-Connecting-IP': address,
-  })
-}
-
-async function joined(code: string, name: string, address?: string) {
-  const guest = await join(code, name, address)
-  const welcome = await guest.next('welcome')
-  return { guest, guestId: welcome.guestId as number }
-}
-
-async function listed(query = ''): Promise<RoomCard[]> {
-  const response = await exports.default.fetch(`${SITE}/api/rooms${query}`)
-  return (await response.json<{ rooms: RoomCard[] }>()).rooms
-}
-
-async function sha256(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
-}
+import { connect, join, joined, listed, openRoom, SITE, signIn } from './helpers'
 
 const offer = { kind: 'offer', sdp: 'v=0\r\n' }
 const answer = { kind: 'answer', sdp: 'v=0\r\n' }
@@ -278,18 +194,8 @@ describe('managing a room', () => {
 })
 
 /** A signed-in account for the host; returns its bearer token. */
-async function signedInHost(): Promise<string> {
-  const now = Date.now()
-  await env.DB.batch([
-    env.DB.prepare('DELETE FROM users WHERE id = ?').bind('host-1'),
-    env.DB.prepare(
-      'INSERT INTO users (id, display_name, age_confirmed_at, created_at) VALUES (?, ?, ?, ?)',
-    ).bind('host-1', 'Kiyo', now, now),
-    env.DB.prepare(
-      'INSERT INTO sessions (token_hash, user_id, kind, created_at, expires_at) VALUES (?, ?, ?, ?, ?)',
-    ).bind(await sha256('host-token'), 'host-1', 'host', now, now + 60_000),
-  ])
-  return 'host-token'
+function signedInHost(): Promise<string> {
+  return signIn('host-1', 'Kiyo')
 }
 
 describe('the public list', () => {

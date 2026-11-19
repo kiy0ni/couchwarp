@@ -5,6 +5,7 @@ import { Choice } from '../components/Choice'
 import { KeyboardHelp } from '../components/KeyboardHelp'
 import { MemberList } from '../components/MemberList'
 import { PlayerBadge } from '../components/PlayerBadge'
+import { ReportDialog, type ReportTarget } from '../components/ReportDialog'
 import { TouchPad } from '../components/TouchPad'
 import { t } from '../i18n'
 import { latencyQuality } from '../lib/latency'
@@ -81,6 +82,7 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
   const menu = useRef<HTMLDialogElement>(null)
   const chatDialog = useRef<HTMLDialogElement>(null)
   const [chatOpen, setChatOpen] = useState(false)
+  const [reporting, setReporting] = useState<ReportTarget | null>(null)
   const stream = useStream(code, name, video, onEnd)
   const { room, me, session } = stream
   const gamepads = useGamepads()
@@ -215,6 +217,8 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
         </button>
       </div>
 
+      <ReportDialog target={reporting} onClose={() => setReporting(null)} />
+
       <dialog
         ref={chatDialog}
         className="menu menu--chat"
@@ -297,6 +301,7 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
               viewer={me?.role === 'moderator' ? 'moderator' : 'guest'}
               selfId={me?.id ?? null}
               onCommand={(command) => session?.sendRoom(command)}
+              onReport={(member) => setReporting({ code, guestId: member.id, name: member.name })}
             />
           </>
         )}
@@ -318,6 +323,13 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
           </button>
           <button type="button" className="button button--secondary" onClick={onLeave}>
             {t.play.leave}
+          </button>
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setReporting({ code, guestId: null, name: '' })}
+          >
+            {t.report.openRoom}
           </button>
           <button type="button" className="link-button" onClick={() => menu.current?.close()}>
             {t.play.closeMenu}

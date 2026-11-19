@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Footer } from '../components/Footer'
 import { TopBar } from '../components/TopBar'
 import { t } from '../i18n'
 import { fetchRooms, type RoomCard, type RoomFilters } from '../lib/directory'
@@ -106,6 +107,7 @@ export function Browse() {
           </ul>
         )}
       </div>
+      <Footer />
     </main>
   )
 }

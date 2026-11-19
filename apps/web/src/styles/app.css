@@ -13,7 +13,7 @@
 .screen {
   min-height: 100dvh;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto 1fr auto;
   padding-inline: max(var(--gutter), env(safe-area-inset-left));
   padding-bottom: max(var(--space-xl), env(safe-area-inset-bottom));
 }
@@ -1254,4 +1254,82 @@ select.input {
 
 .panel > .link-button {
   align-self: center;
+}
+
+/* Footer: the legal links, quiet, at the bottom of pages that are not a game. */
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-lg);
+  padding-top: var(--space-xl);
+  font-size: var(--text-sm);
+}
+
+/* Legal pages: one readable column. */
+
+.legal {
+  justify-self: center;
+  width: min(40rem, 100%);
+  padding-top: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.legal__updated {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.legal__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  color: var(--color-ink-2);
+}
+
+.legal__section ul {
+  margin: 0;
+  padding-left: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+/* Reports and moderation. */
+
+textarea.input,
+.input--area {
+  height: auto;
+  min-height: 72px;
+  padding-block: var(--space-sm);
+  resize: vertical;
+  font: inherit;
+}
+
+.choice--column {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.report {
+  padding: var(--space-lg);
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-panel);
+}
+
+.report__details {
+  color: var(--color-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.members__role[data-online] {
+  color: var(--color-success);
+}
+
+.menu > .menu__title + .stack {
+  margin-top: var(--space-md);
 }

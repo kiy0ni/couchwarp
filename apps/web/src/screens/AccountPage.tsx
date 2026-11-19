@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Footer } from '../components/Footer'
 import { TopBar } from '../components/TopBar'
 import { t } from '../i18n'
 import {
@@ -39,6 +40,7 @@ export function AccountPage() {
       ) : (
         <Profile account={account} />
       )}
+      <Footer />
     </main>
   )
 }
@@ -187,6 +189,18 @@ function Profile({ account }: { account: Account }) {
           <button type="button" className="button button--secondary" onClick={signOut}>
             {t.account.signOut}
           </button>
+          {account.isAdmin && (
+            <a
+              className="button button--secondary"
+              href="/moderation"
+              onClick={(event) => {
+                event.preventDefault()
+                navigate('/moderation')
+              }}
+            >
+              {t.admin.link}
+            </a>
+          )}
         </div>
       </section>
 

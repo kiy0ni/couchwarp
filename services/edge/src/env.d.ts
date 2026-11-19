@@ -10,4 +10,6 @@ interface Env {
   DISCORD_CLIENT_SECRET?: string
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
+  /** Comma-separated account ids of the people who handle reports. */
+  ADMIN_USER_IDS?: string
 }

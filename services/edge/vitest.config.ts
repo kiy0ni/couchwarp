@@ -14,6 +14,7 @@ export default defineConfig(async () => {
             DISCORD_CLIENT_ID: 'discord-client',
             DISCORD_CLIENT_SECRET: 'discord-secret',
             PUBLIC_ROOMS: 'on',
+            ADMIN_USER_IDS: 'admin-1',
           },
         },
       }),

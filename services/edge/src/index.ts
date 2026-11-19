@@ -7,7 +7,12 @@
  * - `GET /api/rooms/:code/guest?name=` (WebSocket): joins a room as a guest.
  * - `GET /api/rooms/:code/console` (WebSocket): the host console, after an `auth` message.
  * - `GET /api/rooms/:code/thumbnail`: the latest picture of a public room.
+ * - `POST /api/rooms/:code/report`: reports, see `reports.ts`.
  * - `/api/auth/*`, `/api/me*`: accounts, see `auth/routes.ts`.
+ * - `/api/friends*`: friends and presence, see `friends.ts`.
+ * - `/api/admin/*`: report handling, for admins only.
+ *
+ * A daily cron trigger runs `cleanUp`.
  *
  * Every other path serves the web client (see `assets` in `wrangler.jsonc`).
  */
@@ -15,8 +20,11 @@
 import { isRoomCode, normalizeRoomCode } from '@couchwarp/protocol'
 import { handleAccounts } from './auth/routes'
 import { currentUser } from './auth/sessions'
+import { cleanUp } from './cleanup'
 import { list } from './directory'
+import { handleFriends } from './friends'
 import { json } from './http'
+import { handleAdmin, report } from './reports'
 import { ARRIVAL_HEADER, type Arrival } from './room'
 import { randomRoomCode } from './room-code'
 
@@ -28,17 +36,23 @@ const MAX_CODE_DRAWS = 5
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url)
-    const accounts = await handleAccounts(request, env)
-    if (accounts) return accounts
+    const handled =
+      (await handleAccounts(request, env)) ??
+      (await handleFriends(request, env)) ??
+      (await handleAdmin(request, env))
+    if (handled) return handled
     if (url.pathname === '/api/host') return openRoom(request, env)
     if (url.pathname === '/api/rooms') return listRooms(request, env)
 
-    const match = url.pathname.match(/^\/api\/rooms\/([^/]+)(?:\/(guest|console|thumbnail))?$/)
+    const match = url.pathname.match(
+      /^\/api\/rooms\/([^/]+)(?:\/(guest|console|thumbnail|report))?$/,
+    )
     if (!match?.[1]) return new Response('Not found', { status: 404 })
     const code = normalizeRoomCode(decodeURIComponent(match[1]))
     if (!isRoomCode(code)) return json({ open: false })
 
     const route = match[2] ?? 'info'
+    if (route === 'report') return report(request, env, code, await reporterHash(request))
     const room = env.ROOMS.getByName(code)
     if (route === 'info' || route === 'thumbnail') {
       return room.fetch(roomRequest(request, `${code}/${route}`))
@@ -48,7 +62,16 @@ export default {
     const arrival = await arrivalOf(request, env, code)
     return room.fetch(roomRequest(request, `${code}/guest${url.search}`, arrival))
   },
+
+  async scheduled(_controller, env): Promise<void> {
+    await cleanUp(env.DB, Date.now())
+  },
 } satisfies ExportedHandler<Env>
+
+/** Salted apart from room bans: only counts how often one place reports. */
+function reporterHash(request: Request): Promise<string> {
+  return sha256(`report:${request.headers.get('CF-Connecting-IP') ?? 'unknown'}`)
+}
 
 async function openRoom(request: Request, env: Env): Promise<Response> {
   if (!isWebSocketUpgrade(request)) return expectWebSocket()

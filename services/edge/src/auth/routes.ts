@@ -11,7 +11,9 @@
  * - `GET  /api/me/history`
  */
 
+import { friends } from '../friends'
 import { fromOurPages, json, problem, redirect, siteOrigin } from '../http'
+import { isAdmin } from '../reports'
 import { enabledProviders, exchangeCode, isProviderId, PROVIDERS, type Provider } from './providers'
 import {
   CLEARED_COOKIE,
@@ -191,7 +193,11 @@ async function identities(db: D1Database, userId: string) {
 async function me(request: Request, env: Env): Promise<Response> {
   const user = await currentUser(request, env.DB)
   if (!user) return problem(401, 'signed-out')
-  return json({ ...publicUser(user), identities: await identities(env.DB, user.id) })
+  return json({
+    ...publicUser(user),
+    identities: await identities(env.DB, user.id),
+    isAdmin: isAdmin(env, user),
+  })
 }
 
 function publicUser(user: User) {
@@ -229,6 +235,14 @@ async function exportAccount(env: Env, user: User): Promise<Response> {
     identities: await identities(env.DB, user.id),
     sessions: sessions.results,
     history: await history(env, user.id),
+    friends: await friends(env, user),
+    reportsSent: (
+      await env.DB.prepare(
+        'SELECT room_code, reason, details, created_at, decision FROM reports WHERE reporter_user_id = ?',
+      )
+        .bind(user.id)
+        .all()
+    ).results,
   }
   return json(body, 200, {
     'Content-Disposition': 'attachment; filename="couchwarp-compte.json"',
