@@ -26,6 +26,7 @@ use crate::peer::{Peer, PeerEvent};
 use crate::platform::{InputSink, frontmost_pid};
 use crate::signaling::{Room, RoomEvent};
 use crate::stats::FrameDelays;
+use crate::thumbnail::Thumbnails;
 use crate::video::{EncodedFrame, StreamClock, unix_ms_now};
 
 const FOCUS_CHECK: Duration = Duration::from_millis(100);
@@ -33,6 +34,12 @@ const IDLE_WAKE: Duration = Duration::from_millis(100);
 const MAX_DATAGRAM: usize = 2000;
 /// How long the last messages to the room server may take once the host stops.
 const FAREWELL: Duration = Duration::from_secs(2);
+
+/// The shared game: its process, and whether guest keys wait for its window to be in front.
+pub struct Game {
+    pub pid: i32,
+    pub focus_lock: bool,
+}
 
 /// Room settings chosen on the command line, applied over the room server's defaults.
 #[derive(Debug, Default, Clone)]
@@ -106,33 +113,35 @@ pub struct Host {
     room_state: Option<RoomState>,
     /// Applied once, over the first room state.
     settings_request: Option<SettingsRequest>,
+    thumbnails: Arc<Thumbnails>,
 }
 
 impl Host {
     pub fn new(
         socket: UdpSocket,
         local_candidates: Vec<Candidate>,
-        game_pid: i32,
-        focus_lock: bool,
+        game: Game,
         keyframe_wanted: Arc<AtomicBool>,
         signal_out: mpsc::UnboundedSender<HostToEdge>,
         settings_request: SettingsRequest,
+        thumbnails: Arc<Thumbnails>,
     ) -> Self {
         Self {
             socket,
             local_candidates,
             peers: Vec::new(),
             names: HashMap::new(),
-            router: InputRouter::new(!focus_lock || frontmost_pid() == Some(game_pid)),
-            sink: InputSink::new(game_pid),
-            game_pid,
-            focus_lock,
+            router: InputRouter::new(!game.focus_lock || frontmost_pid() == Some(game.pid)),
+            sink: InputSink::new(game.pid),
+            game_pid: game.pid,
+            focus_lock: game.focus_lock,
             clock: StreamClock::start(),
             keyframe_wanted,
             signal_out,
             delays: FrameDelays::default(),
             room_state: None,
             settings_request: (!settings_request.is_empty()).then_some(settings_request),
+            thumbnails,
         }
     }
 
@@ -309,6 +318,9 @@ impl Host {
                 warn!("room settings not sent, the room server is gone");
             }
         }
+        self.thumbnails.set_wanted(
+            state.settings.visibility == Visibility::Public && state.public_refused.is_none(),
+        );
         if let Some(refused) = state.public_refused
             && self.room_state.as_ref().and_then(|s| s.public_refused) != Some(refused)
         {

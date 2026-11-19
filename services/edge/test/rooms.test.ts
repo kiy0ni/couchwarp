@@ -2,6 +2,7 @@ import { env } from 'cloudflare:test'
 import { exports } from 'cloudflare:workers'
 import { DEFAULT_SETTINGS, isRoomCode, normalizeRoomCode } from '@couchwarp/protocol'
 import { beforeEach, describe, expect, it } from 'vitest'
+import type { RoomCard } from '../src/directory'
 import { cleanGuestName } from '../src/room'
 import { randomRoomCode } from '../src/room-code'
 import { MAX_MEMBERS } from '../src/room-model'
@@ -80,9 +81,9 @@ async function joined(code: string, name: string, address?: string) {
   return { guest, guestId: welcome.guestId as number }
 }
 
-async function listed(query = ''): Promise<{ code: string }[]> {
+async function listed(query = ''): Promise<RoomCard[]> {
   const response = await exports.default.fetch(`${SITE}/api/rooms${query}`)
-  return (await response.json<{ rooms: { code: string }[] }>()).rooms
+  return (await response.json<{ rooms: RoomCard[] }>()).rooms
 }
 
 async function sha256(text: string): Promise<string> {
@@ -276,6 +277,21 @@ describe('managing a room', () => {
   })
 })
 
+/** A signed-in account for the host; returns its bearer token. */
+async function signedInHost(): Promise<string> {
+  const now = Date.now()
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM users WHERE id = ?').bind('host-1'),
+    env.DB.prepare(
+      'INSERT INTO users (id, display_name, age_confirmed_at, created_at) VALUES (?, ?, ?, ?)',
+    ).bind('host-1', 'Kiyo', now, now),
+    env.DB.prepare(
+      'INSERT INTO sessions (token_hash, user_id, kind, created_at, expires_at) VALUES (?, ?, ?, ?, ?)',
+    ).bind(await sha256('host-token'), 'host-1', 'host', now, now + 60_000),
+  ])
+  return 'host-token'
+}
+
 describe('the public list', () => {
   it('keeps the room of a host without an account out of the list', async () => {
     const { host } = await openRoom()
@@ -285,17 +301,7 @@ describe('the public list', () => {
   })
 
   it('lists a signed-in host’s public room, filtered by game and free seats', async () => {
-    const now = Date.now()
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM users WHERE id = ?').bind('host-1'),
-      env.DB.prepare(
-        'INSERT INTO users (id, display_name, age_confirmed_at, created_at) VALUES (?, ?, ?, ?)',
-      ).bind('host-1', 'Kiyo', now, now),
-      env.DB.prepare(
-        'INSERT INTO sessions (token_hash, user_id, kind, created_at, expires_at) VALUES (?, ?, ?, ?, ?)',
-      ).bind(await sha256('host-token'), 'host-1', 'host', now, now + 60_000),
-    ])
-    const { host, code } = await openRoom({ Authorization: 'Bearer host-token' })
+    const { host, code } = await openRoom({ Authorization: `Bearer ${await signedInHost()}` })
     host.send({ type: 'configure', settings: publicSettings })
     await expect
       .poll(async () => (await listed('?game=overcooked&free=1')).map((room) => room.code))
@@ -303,14 +309,29 @@ describe('the public list', () => {
     expect(await listed('?game=smash')).toEqual([])
   })
 
-  it('serves the thumbnail the host sends', async () => {
-    const { host, code } = await openRoom()
-    const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3])
-    host.socket.send(jpeg)
+  it('shows the picture of a public room only, and only a JPEG', async () => {
+    const { host, code } = await openRoom({ Authorization: `Bearer ${await signedInHost()}` })
     const thumbnail = () => exports.default.fetch(`${SITE}/api/rooms/${code}/thumbnail`)
+    const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3])
+
+    host.socket.send(jpeg)
+    host.socket.send(new Uint8Array([0x3c, 0x73, 0x76, 0x67]))
+    await host.latestState()
+    expect((await thumbnail()).status).toBe(404)
+
+    host.send({ type: 'configure', settings: publicSettings })
+    await host.latestState()
+    host.socket.send(new Uint8Array([0x3c, 0x73, 0x76, 0x67]))
+    host.socket.send(jpeg)
     await expect.poll(async () => (await thumbnail()).status).toBe(200)
     const response = await thumbnail()
     expect(response.headers.get('Content-Type')).toBe('image/jpeg')
+    expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff')
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(jpeg)
+    const [card] = await listed()
+    expect(card?.thumbnailUrl).toBe(`/api/rooms/${code}/thumbnail`)
+
+    host.send({ type: 'configure', settings: { ...publicSettings, visibility: 'link' } })
+    await expect.poll(async () => (await thumbnail()).status).toBe(404)
   })
 })

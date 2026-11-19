@@ -7,6 +7,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tracing::{debug, warn};
 
@@ -19,6 +20,8 @@ pub struct Room {
     pub console_key: String,
     pub incoming: mpsc::UnboundedReceiver<RoomEvent>,
     pub outgoing: mpsc::UnboundedSender<HostToEdge>,
+    /// Pictures of the game for the public list, sent as binary messages.
+    pub thumbnails: mpsc::Sender<Vec<u8>>,
     /// Ends once every queued message has been sent, after the last sender is dropped.
     pub writer: JoinHandle<()>,
 }
@@ -32,10 +35,17 @@ pub enum RoomEvent {
     Lost,
 }
 
-/// `server` is the site address guests open, e.g. `https://couchwarp.example`.
-pub async fn open_room(server: &str) -> Result<Room> {
+/// `server` is the site address guests open, e.g. `https://couchwarp.example`. With a
+/// session `token`, the room belongs to that account.
+pub async fn open_room(server: &str, token: Option<&str>) -> Result<Room> {
     let url = websocket_url(server)?;
-    let (socket, _) = connect_async(&url)
+    let mut request = url.as_str().into_client_request()?;
+    if let Some(token) = token {
+        request
+            .headers_mut()
+            .insert("Authorization", format!("Bearer {token}").parse()?);
+    }
+    let (socket, _) = connect_async(request)
         .await
         .with_context(|| format!("cannot reach the room server at {url}"))?;
     let (mut sink, mut source) = socket.split();
@@ -84,10 +94,19 @@ pub async fn open_room(server: &str) -> Result<Room> {
     });
 
     let (outgoing, mut outgoing_rx) = mpsc::unbounded_channel::<HostToEdge>();
+    let (thumbnails, mut thumbnails_rx) = mpsc::channel::<Vec<u8>>(1);
     let writer = tokio::spawn(async move {
-        while let Some(message) = outgoing_rx.recv().await {
-            let json = serde_json::to_string(&message).expect("signal messages always serialize");
-            if let Err(error) = sink.send(Message::text(json)).await {
+        loop {
+            let message = tokio::select! {
+                message = outgoing_rx.recv() => match message {
+                    Some(message) => Message::text(
+                        serde_json::to_string(&message).expect("signal messages always serialize"),
+                    ),
+                    None => break,
+                },
+                Some(picture) = thumbnails_rx.recv() => Message::binary(picture),
+            };
+            if let Err(error) = sink.send(message).await {
                 warn!(%error, "message to the room server lost");
                 return;
             }
@@ -100,6 +119,7 @@ pub async fn open_room(server: &str) -> Result<Room> {
         console_key,
         incoming,
         outgoing,
+        thumbnails,
         writer,
     })
 }

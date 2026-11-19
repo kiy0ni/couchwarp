@@ -99,7 +99,7 @@ export class Room extends DurableObject<Env> {
     if (!model) {
       socket.close(1011, 'room gone')
     } else if (peer.role === 'host' && message instanceof ArrayBuffer) {
-      this.storeThumbnail(message)
+      await this.storeThumbnail(model, message)
     } else if (typeof message !== 'string') {
       socket.close(1003, 'text messages only')
     } else if (peer.role === 'host') {
@@ -412,19 +412,36 @@ export class Room extends DurableObject<Env> {
       .run()
   }
 
-  private storeThumbnail(bytes: ArrayBuffer): void {
-    if (bytes.byteLength > MAX_THUMBNAIL_BYTES) return
+  /** Kept only for a public room, and only if it is a JPEG of a sensible size. */
+  private async storeThumbnail(model: RoomModel, bytes: ArrayBuffer): Promise<void> {
+    if (bytes.byteLength > MAX_THUMBNAIL_BYTES || !isJpeg(bytes) || !this.isListed(model)) return
     this.ctx.storage.kv.put('thumbnail', bytes)
     const meta = this.meta()
-    if (!meta.hasThumbnail) this.ctx.storage.kv.put('meta', { ...meta, hasThumbnail: true })
+    if (!meta.hasThumbnail) {
+      this.ctx.storage.kv.put('meta', { ...meta, hasThumbnail: true })
+      // The list learns about the first picture now rather than at the next refresh.
+      await this.changed(model)
+    }
   }
 
+  /** A room that stops being public stops showing its picture at once. */
   private thumbnail(): Response {
+    const model = this.load()
     const bytes = this.ctx.storage.kv.get<ArrayBuffer>('thumbnail')
-    if (!bytes) return new Response('No thumbnail', { status: 404 })
+    if (!model || !bytes || !this.isListed(model)) {
+      return new Response('No thumbnail', { status: 404 })
+    }
     return new Response(bytes, {
-      headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=10' },
+      headers: {
+        'Content-Type': 'image/jpeg',
+        'Cache-Control': 'public, max-age=10',
+        'X-Content-Type-Options': 'nosniff',
+      },
     })
+  }
+
+  private isListed(model: RoomModel): boolean {
+    return model.effectiveVisibility(this.policy()) === 'public'
   }
 
   private async consoleKeyMatches(key: string): Promise<boolean> {
@@ -466,6 +483,12 @@ export class Room extends DurableObject<Env> {
   private guestSocket(guestId: GuestId): WebSocket | undefined {
     return this.ctx.getWebSockets(guestTag(guestId))[0]
   }
+}
+
+/** JPEG files start with a start-of-image marker followed by another marker. */
+function isJpeg(bytes: ArrayBuffer): boolean {
+  const head = new Uint8Array(bytes, 0, Math.min(3, bytes.byteLength))
+  return head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff
 }
 
 function pair(): [WebSocket, WebSocket] {

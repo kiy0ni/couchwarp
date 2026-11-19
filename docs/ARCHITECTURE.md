@@ -33,7 +33,8 @@ Le Durable Object du salon tient l'état complet (`RoomState` : réglages, membr
 - **Console** : une page web authentifiée par la clé du lien (`room-created` la donne à l'hôte). La clé est dans le fragment `#`, que le navigateur n'envoie jamais à un serveur ; le salon la compare par empreinte SHA-256.
 - **Bannissement** : par compte et par empreinte de l'adresse IP salée avec le code du salon. L'adresse elle-même n'est jamais stockée.
 - **Relais seul** : avec `relayOnly`, l'invité ne collecte que des candidats TURN, donc l'hôte et les autres invités ne voient jamais son adresse.
-- **Parties publiques** : un salon public est écrit dans la table `rooms` de D1 et rafraîchi chaque minute par une alarme ; une ligne de plus de deux minutes disparaît de la liste. Seul un hôte connecté à un compte peut lister sa partie.
+- **Parties publiques** : un salon public est écrit dans la table `rooms` de D1 et rafraîchi chaque minute par une alarme ; une ligne de plus de deux minutes disparaît de la liste. Seul un hôte connecté à un compte peut lister sa partie : `couchwarp-host login` passe par la page de connexion du site, qui renvoie un jeton de session sur une page locale de l'hôte (`127.0.0.1`, chemin aléatoire) ; l'hôte le présente ensuite en `Authorization: Bearer`.
+- **Aperçu** : tant que la partie est publique, la capture réduit une image toutes les 10 secondes à 320 pixels de large et l'envoie en JPEG, en message binaire, au salon. Le salon n'accepte qu'un JPEG de moins de 128 Ko et ne le sert que tant que la partie est publique.
 
 L'hôte applique ce qu'il reçoit dans son routeur d'entrées : un spectateur n'envoie rien au jeu, et le clavier d'un invité n'y arrive que si l'hôte l'a autorisé (`Permissions`).
 
@@ -93,8 +94,6 @@ Le protocole existe en Rust (`crates/protocol`) et en TypeScript (`packages/prot
 
 ## Prochaines étapes
 
-- Connexion de l'application hôte à un compte, pour les parties publiques.
-- Image de prévisualisation des parties publiques, envoyée par l'hôte.
 - Premier test de l'hôte Windows sur un vrai PC, avec VIIPER.
 - Encodeurs matériels sous Windows (NVENC, AMF, Quick Sync).
 - Débit adaptatif : la qualité suit l'estimation de bande passante de chaque invité.

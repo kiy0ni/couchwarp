@@ -42,14 +42,16 @@ Les réglages de départ peuvent aussi se donner à l'hôte :
 cargo run -p couchwarp-host -- --window "nom du jeu" --game "Overcooked 2" --players 4 --turn-minutes 5
 ```
 
-| Option | Effet |
-|---|---|
-| `--title` | Nom de la partie |
-| `--game` | Jeu affiché dans la liste publique |
-| `--players` | Places de joueur, de 1 à 8 ; les suivants regardent |
-| `--public` | Liste la partie dans « Parties publiques » (hôte connecté à un compte) |
-| `--relay-only` | Tout passe par le relais TURN : personne ne voit l'adresse IP des autres |
+| Option           | Effet                                                                             |
+| ---------------- | --------------------------------------------------------------------------------- |
+| `--title`        | Nom de la partie                                                                  |
+| `--game`         | Jeu affiché dans la liste publique                                                |
+| `--players`      | Places de joueur, de 1 à 8 ; les suivants regardent                               |
+| `--public`       | Liste la partie dans « Parties publiques » (hôte connecté à un compte)            |
+| `--relay-only`   | Tout passe par le relais TURN : personne ne voit l'adresse IP des autres          |
 | `--turn-minutes` | Tour par tour minuté : un spectateur en file prend une place toutes les N minutes |
+
+Pour lister une partie publiquement, l'hôte se connecte une fois à un compte : `cargo run -p couchwarp-host -- login` ouvre le navigateur (Discord par défaut, `--provider google` sinon) et garde la session dans le dossier de configuration de l'utilisateur, une par site. `logout` la termine. Une partie publique montre dans la liste une petite image du jeu, prise toutes les 10 secondes ; une partie privée n'en envoie aucune.
 
 Par défaut, un invité joue à la manette seulement : son clavier n'atteint le jeu que si l'hôte l'autorise dans la console. Ctrl+C ferme la partie pour tout le monde.
 
@@ -72,7 +74,6 @@ Pour les téléphones d'un même réseau, le client doit être servi en HTTPS (l
 - **Réseau** : l'hôte écoute sur une seule interface en IPv4. Sans clé TURN Cloudflare (voir `services/edge/.dev.vars.example`), un invité derrière un réseau très fermé ne peut pas se connecter.
 - **Son** : sur Mac, celui de l'application qui possède la fenêtre ; un jeu qui joue son son dans un processus à part (jeux dans un navigateur, applications Electron) arrive muet. Sous Windows, le son du jeu et de tous les processus qu'il a lancés est capturé.
 - **Navigateurs basés sur Firefox (Firefox, Zen)** : sur macOS, ils peuvent n'ouvrir aucune connexion WebRTC (autorisation « Réseau local »). L'invité voit alors un message qui le dit ; Chrome, Edge et Arc fonctionnent.
-- **Hôte sans compte** : l'application hôte ne sait pas encore se connecter à un compte, donc `--public` est refusé (la partie reste accessible par lien).
 - **Manette PlayStation** : l'invité peut la choisir, mais l'hôte crée encore des manettes Xbox dans tous les cas.
 - **Débit fixe** : la qualité ne s'adapte pas encore au réseau de chaque invité ; règle-la avec `--bitrate` (en Mbit/s).
 - **Fenêtre fermée** : si le jeu se ferme, l'hôte s'arrête et les invités voient « L'hôte a fermé la partie ». La relance automatique du jeu est prévue au jalon 1.

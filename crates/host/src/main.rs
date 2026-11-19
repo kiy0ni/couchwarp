@@ -1,5 +1,6 @@
 //! Couchwarp host: shares one game window with guests who join from a browser.
 
+mod account;
 mod audio;
 #[cfg(any(target_os = "macos", test))]
 mod avcc;
@@ -15,6 +16,7 @@ mod signaling;
 mod software_h264;
 mod stats;
 mod stun;
+mod thumbnail;
 mod video;
 #[cfg(any(windows, test))]
 mod xinput;
@@ -23,7 +25,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use qrcode::QrCode;
 use qrcode::render::unicode::Dense1x2;
 use tokio::sync::mpsc;
@@ -41,9 +43,13 @@ const SOUND_QUEUE: usize = 8;
 #[derive(Parser)]
 #[command(
     version,
-    about = "Share a game window with friends who join from a browser"
+    about = "Share a game window with friends who join from a browser",
+    subcommand_negates_reqs = true
 )]
 struct Args {
+    #[command(subcommand)]
+    action: Option<Action>,
+
     /// Part of the window title or application name to share
     #[arg(short, long, required_unless_present = "list_windows")]
     window: Option<String>,
@@ -53,7 +59,7 @@ struct Args {
     list_windows: bool,
 
     /// Address of the Couchwarp site, as guests open it
-    #[arg(long, default_value = "http://localhost:5173")]
+    #[arg(long, global = true, default_value = "http://localhost:5173")]
     server: String,
 
     /// Frames per second
@@ -106,6 +112,17 @@ struct Args {
     turn_minutes: Option<u32>,
 }
 
+#[derive(Subcommand)]
+enum Action {
+    /// Sign in, so your games carry your name and can be listed publicly
+    Login {
+        #[arg(long, value_enum, default_value = "discord")]
+        provider: account::Provider,
+    },
+    /// Sign out on this computer
+    Logout,
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -118,6 +135,27 @@ async fn main() -> Result<()> {
         anyhow::bail!(
             "--ignore-focus is unsafe on this system: keys would go to whatever window is in front"
         );
+    }
+
+    match args.action {
+        Some(Action::Login { provider }) => {
+            let name = account::sign_in(&args.server, provider)?;
+            println!("Signed in as {name}.");
+            return Ok(());
+        }
+        Some(Action::Logout) => {
+            let signed_out = account::sign_out(&args.server)?;
+            println!(
+                "{}",
+                if signed_out {
+                    "Signed out."
+                } else {
+                    "Not signed in."
+                }
+            );
+            return Ok(());
+        }
+        None => {}
     }
 
     if args.list_windows {
@@ -141,7 +179,13 @@ async fn main() -> Result<()> {
     let socket = tokio::net::UdpSocket::from_std(endpoint.socket)?;
     info!(address = %socket.local_addr()?, "listening for guests");
 
-    let room = signaling::open_room(&args.server).await?;
+    let token = session_token(&args.server);
+    if args.public && token.is_none() {
+        warn!(
+            "--public needs an account: run `couchwarp-host login` first; the game stays unlisted"
+        );
+    }
+    let room = signaling::open_room(&args.server, token.as_deref()).await?;
     print_invitation(&args.server, &room.code, &room.console_key);
 
     let (frame_tx, frames) = mpsc::channel(FRAME_QUEUE);
@@ -159,7 +203,16 @@ async fn main() -> Result<()> {
     )?);
     let (sound_tx, sound) = mpsc::channel(SOUND_QUEUE);
     let (stopped_tx, capture_stopped) = mpsc::unbounded_channel();
-    let _capture = Capture::start(&window, size, args.fps, encoder, sound_tx, stopped_tx)?;
+    let thumbnails = Arc::new(thumbnail::Thumbnails::new(room.thumbnails.clone()));
+    let _capture = Capture::start(
+        &window,
+        size,
+        args.fps,
+        encoder,
+        thumbnails.clone(),
+        sound_tx,
+        stopped_tx,
+    )?;
     info!(
         width = size.0,
         height = size.1,
@@ -179,14 +232,39 @@ async fn main() -> Result<()> {
     host::Host::new(
         socket,
         endpoint.candidates,
-        window.pid,
-        !args.ignore_focus,
+        host::Game {
+            pid: window.pid,
+            focus_lock: !args.ignore_focus,
+        },
         keyframe_wanted,
         signal_out,
         settings,
+        thumbnails,
     )
     .run(room, frames, sound, capture_stopped)
     .await
+}
+
+/// The saved session for `server`, if the server still accepts it.
+fn session_token(server: &str) -> Option<String> {
+    let token = account::token(server)?;
+    match account::display_name(server, &token) {
+        Ok(Some(name)) => {
+            info!(%name, "signed in");
+            Some(token)
+        }
+        Ok(None) => {
+            warn!("the saved session has expired: run `couchwarp-host login` to sign in again");
+            if let Err(error) = account::forget(server) {
+                warn!(%error, "could not forget the expired session");
+            }
+            None
+        }
+        Err(error) => {
+            warn!(%error, "could not check the saved session; trying it anyway");
+            Some(token)
+        }
+    }
 }
 
 fn print_invitation(server: &str, code: &str, console_key: &str) {
