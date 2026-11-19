@@ -9,6 +9,7 @@ pub mod encoder;
 mod keyboard;
 
 use couchwarp_protocol::input::GamepadState;
+use couchwarp_protocol::room::PadType;
 use objc2_core_foundation::{CFArray, CFDictionary, CFNumber, CFRetained, CFString, CFType};
 use objc2_core_graphics::{
     CGMainDisplayID, CGPreflightPostEventAccess, CGRequestPostEventAccess,
@@ -19,8 +20,9 @@ use tracing::warn;
 
 use keyboard::KeyboardSink;
 
-/// Whether guests' controllers reach the game on this platform.
-pub const VIRTUAL_PADS: bool = false;
+/// Keys are posted to the game process alone, so they cannot reach another app even
+/// with the focus lock off.
+pub const KEYS_REACH_GAME_ONLY: bool = true;
 
 /// Command-line tools must touch CoreGraphics once before ScreenCaptureKit can run.
 pub fn init() {
@@ -72,11 +74,16 @@ impl InputSink {
         }
     }
 
+    /// Whether guests' controllers reach the game. Never on macOS.
+    pub fn virtual_pads(&self) -> bool {
+        false
+    }
+
     pub fn set_keys(&mut self, keys: &[u8]) {
         self.keyboard.set_keys(keys);
     }
 
-    pub fn set_pad(&mut self, slot: u8, _state: &GamepadState) {
+    pub fn set_pad(&mut self, slot: u8, _pad_type: PadType, _state: &GamepadState) {
         if !self.warned_about_pads {
             self.warned_about_pads = true;
             warn!(

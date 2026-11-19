@@ -5,6 +5,7 @@ import {
   encodeInput,
   type InputPacket,
   nextSeq,
+  parseConsoleToEdge,
   parseEdgeToGuest,
   parseGuestToEdge,
   parseHostControl,
@@ -64,6 +65,10 @@ describe('signal messages', () => {
 
   it.each(signal.hostToEdge as object[])('parses host to edge %j', (message) => {
     expect(parseHostToEdge(JSON.stringify(message))).toEqual(message)
+  })
+
+  it.each(signal.consoleToEdge as object[])('parses console to edge %j', (message) => {
+    expect(parseConsoleToEdge(JSON.stringify(message))).toEqual(message)
   })
 
   it('rejects malformed messages', () => {

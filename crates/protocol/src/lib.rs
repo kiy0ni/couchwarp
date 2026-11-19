@@ -5,4 +5,5 @@
 
 pub mod control;
 pub mod input;
+pub mod room;
 pub mod signal;

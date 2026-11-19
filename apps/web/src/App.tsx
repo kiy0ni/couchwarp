@@ -1,15 +1,24 @@
 import { isRoomCode, normalizeRoomCode } from '@couchwarp/protocol'
 import { useCallback, useEffect, useState } from 'react'
+import { navigate, usePath } from './lib/router'
 import type { EndReason } from './lib/session'
+import { AccountPage } from './screens/AccountPage'
+import { Browse } from './screens/Browse'
+import { Console } from './screens/Console'
 import { Ended } from './screens/Ended'
 import { Home } from './screens/Home'
 import { Join } from './screens/Join'
 import { Play } from './screens/Play'
 
-/** A shared link is `/<code>`; anything else opens the code entry. */
-function codeFromPath(pathname: string): string | null {
-  const code = normalizeRoomCode(decodeURIComponent(pathname.slice(1)))
-  return isRoomCode(code) ? code : null
+/** A shared link is `/<code>`; the host console is `/<code>/console#key=…`. */
+function parsePath(pathname: string): { code: string | null; isConsole: boolean } {
+  const [first = '', second, ...rest] = pathname.slice(1).split('/')
+  const code = normalizeRoomCode(decodeURIComponent(first))
+  const isConsole = second === 'console' && rest.length === 0
+  if (!isRoomCode(code) || (second !== undefined && !isConsole)) {
+    return { code: null, isConsole: false }
+  }
+  return { code, isConsole }
 }
 
 type Stage =
@@ -18,27 +27,22 @@ type Stage =
   | { name: 'ended'; reason: EndReason }
 
 export function App() {
-  const [code, setCode] = useState(() => codeFromPath(location.pathname))
+  const path = usePath()
+  const { code, isConsole } = parsePath(path)
   const [stage, setStage] = useState<Stage>({ name: 'join' })
 
-  useEffect(() => {
-    const onPopState = () => {
-      setCode(codeFromPath(location.pathname))
-      setStage({ name: 'join' })
-    }
-    window.addEventListener('popstate', onPopState)
-    return () => window.removeEventListener('popstate', onPopState)
-  }, [])
+  // Every new page starts at the join step.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset on path change only
+  useEffect(() => setStage({ name: 'join' }), [path])
 
-  const goTo = useCallback((next: string | null) => {
-    history.pushState(null, '', next ? `/${next}` : '/')
-    setCode(next)
-    setStage({ name: 'join' })
-  }, [])
+  const goTo = useCallback((next: string | null) => navigate(next ? `/${next}` : '/'), [])
   const onEnd = useCallback((reason: EndReason) => setStage({ name: 'ended', reason }), [])
   const onClosed = useCallback(() => onEnd('room-not-found'), [onEnd])
 
+  if (path === '/compte') return <AccountPage />
+  if (path === '/parties') return <Browse />
   if (!code) return <Home onFound={goTo} />
+  if (isConsole && stage.name !== 'ended') return <Console code={code} onEnd={onEnd} />
   switch (stage.name) {
     case 'join':
       return (

@@ -26,7 +26,8 @@ use objc2_video_toolbox::{
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
-use crate::video::{EncodedFrame, append_annex_b, append_parameter_set, has_idr_slice};
+use crate::avcc::{append_annex_b, append_parameter_set, has_idr_slice};
+use crate::video::EncodedFrame;
 
 /// Keyframes come on request. This only bounds how long a damaged picture could last.
 const MAX_SECONDS_BETWEEN_KEYFRAMES: i32 = 60;

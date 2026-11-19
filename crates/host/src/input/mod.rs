@@ -1,5 +1,6 @@
 //! Decides what guests' input does on the host: which player slot each controller
-//! drives, which keys get pressed, and when the keyboard is held back.
+//! drives, which keys get pressed, and when the keyboard is held back. Spectators send
+//! nothing, and a guest's keyboard counts only once the host allows it.
 //!
 //! The router is pure: it turns packets and events into [`Action`]s, and the platform
 //! layer carries them out. Every rule about isolation lives here, where it is tested.
@@ -37,9 +38,17 @@ pub enum Action {
     KeyboardPaused(bool),
 }
 
+/// What a guest may send, from the room state. A guest not known yet may send nothing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Permissions {
+    pub pads: bool,
+    pub keyboard: bool,
+}
+
 pub struct InputRouter {
     /// Index `slot - 1` holds the guest controller driving that slot.
     slots: [Option<(GuestId, u8)>; SLOTS as usize],
+    permissions: HashMap<GuestId, Permissions>,
     pad_seqs: HashMap<(GuestId, u8), u16>,
     keyboards: HashMap<GuestId, (u16, Vec<u8>)>,
     game_focused: bool,
@@ -50,6 +59,7 @@ impl InputRouter {
     pub fn new(game_focused: bool) -> Self {
         Self {
             slots: [None; SLOTS as usize],
+            permissions: HashMap::new(),
             pad_seqs: HashMap::new(),
             keyboards: HashMap::new(),
             game_focused,
@@ -59,7 +69,10 @@ impl InputRouter {
 
     pub fn apply(&mut self, guest: GuestId, packet: InputPacket) -> Vec<Action> {
         let mut actions = Vec::new();
+        let allowed = self.permissions.get(&guest).copied().unwrap_or_default();
         match packet {
+            InputPacket::Gamepad(_) if !allowed.pads => {}
+            InputPacket::Keyboard(_) if !allowed.keyboard => {}
             InputPacket::Gamepad(mut state) => {
                 let key = (guest, state.pad);
                 if self.is_stale(self.pad_seqs.get(&key).copied(), state.seq) {
@@ -85,11 +98,32 @@ impl InputRouter {
         actions
     }
 
+    /// Applies what the room now allows `guest`, letting go of whatever it no longer may hold.
+    pub fn set_permissions(&mut self, guest: GuestId, permissions: Permissions) -> Vec<Action> {
+        let mut actions = Vec::new();
+        self.permissions.insert(guest, permissions);
+        if !permissions.pads {
+            self.pad_seqs.retain(|(owner, _), _| *owner != guest);
+            actions.extend(self.free_slots(|(owner, _)| owner == guest));
+        }
+        if !permissions.keyboard && self.keyboards.remove(&guest).is_some() {
+            self.update_keys(&mut actions);
+        }
+        actions
+    }
+
+    /// The guest left the room: its connection, slots, keys and permissions all go.
+    pub fn forget_guest(&mut self, guest: GuestId) -> Vec<Action> {
+        self.permissions.remove(&guest);
+        self.remove_guest(guest)
+    }
+
     pub fn remove_pad(&mut self, guest: GuestId, pad: u8) -> Vec<Action> {
         self.pad_seqs.remove(&(guest, pad));
         self.free_slots(|owner| owner == (guest, pad))
     }
 
+    /// The guest's connection is gone. Its permissions stay until it leaves the room.
     pub fn remove_guest(&mut self, guest: GuestId) -> Vec<Action> {
         self.pad_seqs.retain(|(owner, _), _| *owner != guest);
         let mut actions = self.free_slots(|(owner, _)| owner == guest);
@@ -162,6 +196,21 @@ impl InputRouter {
     }
 }
 
+/// Keys to release, then keys to press, to go from `held` to `wanted`.
+pub fn key_changes(held: &[u8], wanted: &[u8]) -> (Vec<u8>, Vec<u8>) {
+    let released = held
+        .iter()
+        .copied()
+        .filter(|key| !wanted.contains(key))
+        .collect();
+    let pressed = wanted
+        .iter()
+        .copied()
+        .filter(|key| !held.contains(key))
+        .collect();
+    (released, pressed)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,6 +236,20 @@ mod tests {
         })
     }
 
+    const EVERYTHING: Permissions = Permissions {
+        pads: true,
+        keyboard: true,
+    };
+
+    /// A router where guests 1 to 9 may send everything.
+    fn router(game_focused: bool) -> InputRouter {
+        let mut router = InputRouter::new(game_focused);
+        for guest in 1..=9 {
+            router.set_permissions(guest, EVERYTHING);
+        }
+        router
+    }
+
     fn slots_assigned(actions: &[Action]) -> Vec<u8> {
         actions
             .iter()
@@ -199,7 +262,7 @@ mod tests {
 
     #[test]
     fn controllers_take_the_lowest_free_slot() {
-        let mut router = InputRouter::new(true);
+        let mut router = router(true);
         assert_eq!(slots_assigned(&router.apply(1, pad(0, 1, Buttons::A))), [1]);
         assert_eq!(slots_assigned(&router.apply(2, pad(0, 1, Buttons::A))), [2]);
         assert_eq!(slots_assigned(&router.apply(2, pad(1, 2, Buttons::A))), [3]);
@@ -218,7 +281,7 @@ mod tests {
 
     #[test]
     fn a_ninth_controller_gets_nothing() {
-        let mut router = InputRouter::new(true);
+        let mut router = router(true);
         for guest in 1..=8 {
             router.apply(guest, pad(0, 1, Buttons::A));
         }
@@ -227,7 +290,7 @@ mod tests {
 
     #[test]
     fn late_packets_are_dropped() {
-        let mut router = InputRouter::new(true);
+        let mut router = router(true);
         router.apply(1, pad(0, 10, Buttons::A));
         assert_eq!(router.apply(1, pad(0, 9, Buttons::B)), []);
         assert_eq!(router.apply(1, pad(0, 10, Buttons::B)), []);
@@ -240,7 +303,7 @@ mod tests {
 
     #[test]
     fn the_guide_button_never_reaches_a_slot() {
-        let mut router = InputRouter::new(true);
+        let mut router = router(true);
         let actions = router.apply(1, pad(0, 1, Buttons(Buttons::A.0 | Buttons::GUIDE.0)));
         let Some(Action::SetPad { state, .. }) = actions.last() else {
             panic!("expected a pad state, got {actions:?}");
@@ -250,7 +313,7 @@ mod tests {
 
     #[test]
     fn keys_from_several_guests_are_merged_and_filtered() {
-        let mut router = InputRouter::new(true);
+        let mut router = router(true);
         router.apply(1, keys(1, &[KEY_W, LEFT_GUI]));
         assert_eq!(
             router.apply(2, keys(1, &[KEY_A, KEY_W])),
@@ -263,7 +326,7 @@ mod tests {
 
     #[test]
     fn losing_focus_releases_every_key_and_holds_new_ones_back() {
-        let mut router = InputRouter::new(true);
+        let mut router = router(true);
         router.apply(1, keys(1, &[KEY_W]));
         assert_eq!(
             router.set_game_focused(false),
@@ -281,12 +344,68 @@ mod tests {
     }
 
     #[test]
+    fn key_changes_release_before_pressing() {
+        assert_eq!(
+            key_changes(&[KEY_W, KEY_A], &[KEY_A, LEFT_GUI]),
+            (vec![KEY_W], vec![LEFT_GUI])
+        );
+        assert_eq!(key_changes(&[], &[]), (vec![], vec![]));
+    }
+
+    #[test]
     fn controllers_keep_working_without_focus() {
-        let mut router = InputRouter::new(false);
+        let mut router = router(false);
         let actions = router.apply(1, pad(0, 1, Buttons::A));
         assert!(matches!(
             actions.last(),
             Some(Action::SetPad { slot: 1, .. })
         ));
+    }
+
+    #[test]
+    fn unknown_guests_and_spectators_send_nothing() {
+        let mut router = InputRouter::new(true);
+        assert_eq!(router.apply(1, pad(0, 1, Buttons::A)), []);
+        router.set_permissions(1, Permissions::default());
+        assert_eq!(router.apply(1, keys(1, &[KEY_W])), []);
+    }
+
+    #[test]
+    fn the_keyboard_waits_for_the_host() {
+        let mut router = InputRouter::new(true);
+        router.set_permissions(
+            1,
+            Permissions {
+                pads: true,
+                keyboard: false,
+            },
+        );
+        assert_eq!(router.apply(1, keys(1, &[KEY_W])), []);
+        router.set_permissions(1, EVERYTHING);
+        assert_eq!(
+            router.apply(1, keys(2, &[KEY_W])),
+            [Action::SetKeys(vec![KEY_W])]
+        );
+    }
+
+    #[test]
+    fn taking_permissions_back_releases_what_was_held() {
+        let mut router = router(true);
+        router.apply(1, pad(0, 1, Buttons::A));
+        router.apply(1, keys(1, &[KEY_W]));
+        assert_eq!(
+            router.set_permissions(1, Permissions::default()),
+            [Action::ReleasePad { slot: 1 }, Action::SetKeys(vec![])]
+        );
+        assert_eq!(router.apply(1, pad(0, 2, Buttons::A)), []);
+    }
+
+    #[test]
+    fn a_dropped_connection_keeps_permissions_until_the_guest_leaves() {
+        let mut router = router(true);
+        router.remove_guest(1);
+        assert!(!slots_assigned(&router.apply(1, pad(0, 1, Buttons::A))).is_empty());
+        router.forget_guest(1);
+        assert_eq!(router.apply(1, pad(0, 2, Buttons::A)), []);
     }
 }

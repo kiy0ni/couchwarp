@@ -13,8 +13,11 @@ import { VirtualPad } from './virtual-pad'
  */
 const PAD_POLL_MS = 4
 
-/** `keys` sends the keyboard as is; `pad` plays it as a controller. */
-export type KeyboardMode = 'keys' | 'pad'
+/**
+ * `keys` sends the keyboard as is; `pad` plays it as a controller; `off` sends nothing,
+ * for spectators and for guests the host has not given the keyboard to.
+ */
+export type KeyboardMode = 'keys' | 'pad' | 'off'
 
 interface Options {
   keyboardMode: KeyboardMode
@@ -81,7 +84,8 @@ export function useInputForwarding(
     }, PAD_POLL_MS)
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.isComposing) return
+      // Typing in the chat or the menu stays there.
+      if (event.isComposing || event.target !== element || keyboardMode === 'off') return
       // Keys belong to the game: no page scrolling, no browser shortcuts.
       event.preventDefault()
       const now = performance.now()
@@ -90,6 +94,7 @@ export function useInputForwarding(
       else playKeys(now)
     }
     const onKeyUp = (event: KeyboardEvent) => {
+      if (event.target !== element || keyboardMode === 'off') return
       event.preventDefault()
       const now = performance.now()
       heldCodes.delete(event.code)

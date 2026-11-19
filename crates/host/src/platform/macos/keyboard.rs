@@ -5,6 +5,8 @@
 
 use objc2_core_graphics::{CGEvent, CGEventFlags, CGEventType};
 
+use crate::input::key_changes;
+
 pub struct KeyboardSink {
     pid: i32,
     held: Vec<u8>,
@@ -20,17 +22,7 @@ impl KeyboardSink {
 
     /// Presses and releases whatever differs between the keys held now and `keys`.
     pub fn set_keys(&mut self, keys: &[u8]) {
-        let released: Vec<u8> = self
-            .held
-            .iter()
-            .copied()
-            .filter(|k| !keys.contains(k))
-            .collect();
-        let pressed: Vec<u8> = keys
-            .iter()
-            .copied()
-            .filter(|k| !self.held.contains(k))
-            .collect();
+        let (released, pressed) = key_changes(&self.held, keys);
         self.held = keys.to_vec();
         for usage in released {
             self.post(usage, false);

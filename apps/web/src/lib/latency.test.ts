@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ClockSync, captureTime, LatencyWindow } from './latency'
+import { ClockSync, captureTime, LatencyWindow, latencyQuality } from './latency'
 
 describe('ClockSync', () => {
   it('estimates the offset from the fastest round trip', () => {
@@ -44,5 +44,13 @@ describe('LatencyWindow', () => {
     window.add(500, 0)
     window.add(20, 2000)
     expect(window.stats()).toEqual({ median: 20, p95: 20, frames: 1 })
+  })
+})
+
+describe('latencyQuality', () => {
+  it('grades the picture latency', () => {
+    expect(latencyQuality(28)).toBe('good')
+    expect(latencyQuality(60)).toBe('fair')
+    expect(latencyQuality(140)).toBe('poor')
   })
 })

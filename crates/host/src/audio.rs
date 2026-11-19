@@ -63,6 +63,7 @@ impl AudioEncoder {
     }
 }
 
+#[cfg(any(target_os = "macos", test))]
 /// Interleaves one buffer per channel (`[L L L] [R R R]`) into `[L R L R L R]`.
 /// A mono source is played on both sides.
 pub fn interleave(planes: &[&[f32]]) -> Vec<f32> {

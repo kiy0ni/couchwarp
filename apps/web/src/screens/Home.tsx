@@ -1,9 +1,10 @@
 import { ROOM_CODE_LENGTH } from '@couchwarp/protocol'
 import { type FormEvent, useState } from 'react'
 import { CodeEntry } from '../components/CodeEntry'
-import { Wordmark } from '../components/Wordmark'
+import { TopBar } from '../components/TopBar'
 import { t } from '../i18n'
 import { useGamepadNavigation } from '../lib/gamepad-nav'
+import { navigate } from '../lib/router'
 import { isRoomOpen } from '../lib/session'
 import { useGamepads } from '../lib/use-gamepads'
 
@@ -35,9 +36,7 @@ export function Home({ onFound }: { onFound(code: string): void }) {
 
   return (
     <main className="screen">
-      <header className="topbar">
-        <Wordmark />
-      </header>
+      <TopBar />
       <form className="panel" onSubmit={submit} noValidate>
         <h1 className="title">{t.home.title}</h1>
         <div className="field">
@@ -61,6 +60,16 @@ export function Home({ onFound }: { onFound(code: string): void }) {
         <button type="submit" className="button" disabled={status.kind === 'looking'}>
           {status.kind === 'looking' ? t.home.looking : t.home.join}
         </button>
+        <a
+          className="link-button"
+          href="/parties"
+          onClick={(event) => {
+            event.preventDefault()
+            navigate('/parties')
+          }}
+        >
+          {t.browse.link}
+        </a>
       </form>
     </main>
   )
