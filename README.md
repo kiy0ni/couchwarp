@@ -32,7 +32,9 @@ cargo run -p couchwarp-host -- --list-windows
 cargo run -p couchwarp-host -- --window "nom du jeu"
 ```
 
-L'hôte affiche le code de la partie, le lien et un QR code. Ouvre le lien dans un navigateur, choisis un pseudo, puis « Jouer ».
+L'hôte affiche le code de la partie, le lien et un QR code. Ouvre le lien dans Chrome, Edge ou Arc, choisis un pseudo, puis « Jouer ».
+
+Le clavier des invités est mis en pause dès que la fenêtre du jeu n'est plus au premier plan. Pour tester l'hôte et l'invité sur le même Mac, où le navigateur passe forcément devant le jeu, lance l'hôte avec `--ignore-focus` : les touches continuent d'aller au jeu, et à lui seul.
 
 À la première utilisation, macOS demande deux autorisations pour le terminal qui lance l'hôte :
 
@@ -47,6 +49,7 @@ Pour les téléphones d'un même réseau, le client doit être servi en HTTPS (l
 - **Hôte Windows et Linux** : pas encore écrits.
 - **Réseau** : l'hôte écoute sur une seule interface en IPv4. Sans clé TURN Cloudflare (voir `services/edge/.dev.vars.example`), un invité derrière un réseau très fermé ne peut pas se connecter.
 - **Son** : pas encore transmis.
+- **Navigateurs basés sur Firefox (Firefox, Zen)** : sur macOS, ils peuvent n'ouvrir aucune connexion WebRTC (autorisation « Réseau local »). L'invité voit alors un message qui le dit ; Chrome, Edge et Arc fonctionnent.
 - **Fenêtre fermée** : si le jeu se ferme, l'hôte s'arrête et les invités voient « L'hôte a fermé la partie ». La relance automatique du jeu est prévue au jalon 1.
 
 ## Vérifier

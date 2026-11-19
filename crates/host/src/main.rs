@@ -61,6 +61,11 @@ struct Args {
     #[arg(long, default_value_t = 0)]
     port: u16,
 
+    /// Keep sending guests' keys while the game window is in the background. Keys still go
+    /// to the game process only. Meant for testing host and guest on the same Mac.
+    #[arg(long)]
+    ignore_focus: bool,
+
     /// STUN server used to find this machine's public address
     #[arg(long, default_value = "stun.cloudflare.com:3478")]
     stun: String,
@@ -126,6 +131,7 @@ async fn main() -> Result<()> {
         socket,
         endpoint.candidates,
         window.pid,
+        !args.ignore_focus,
         keyframe_wanted,
         signal_out,
     )

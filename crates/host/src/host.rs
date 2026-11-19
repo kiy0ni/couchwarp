@@ -36,6 +36,8 @@ pub struct Host {
     router: InputRouter,
     sink: InputSink,
     game_pid: i32,
+    /// Hold guest keys back while the game window is not in front.
+    focus_lock: bool,
     clock: StreamClock,
     keyframe_wanted: Arc<AtomicBool>,
     signal_out: mpsc::UnboundedSender<HostToEdge>,
@@ -47,6 +49,7 @@ impl Host {
         socket: UdpSocket,
         local_candidates: Vec<Candidate>,
         game_pid: i32,
+        focus_lock: bool,
         keyframe_wanted: Arc<AtomicBool>,
         signal_out: mpsc::UnboundedSender<HostToEdge>,
     ) -> Self {
@@ -55,9 +58,10 @@ impl Host {
             local_candidates,
             peers: Vec::new(),
             names: HashMap::new(),
-            router: InputRouter::new(frontmost_pid() == Some(game_pid)),
+            router: InputRouter::new(!focus_lock || frontmost_pid() == Some(game_pid)),
             sink: InputSink::new(game_pid),
             game_pid,
+            focus_lock,
             clock: StreamClock::start(),
             keyframe_wanted,
             signal_out,
@@ -253,6 +257,9 @@ impl Host {
     }
 
     fn check_focus(&mut self) {
+        if !self.focus_lock {
+            return;
+        }
         let focused = frontmost_pid() == Some(self.game_pid);
         let actions = self.router.set_game_focused(focused);
         self.carry_out(actions);

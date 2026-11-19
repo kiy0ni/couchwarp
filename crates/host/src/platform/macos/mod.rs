@@ -9,8 +9,12 @@ pub mod encoder;
 mod keyboard;
 
 use couchwarp_protocol::input::GamepadState;
-use objc2_app_kit::NSWorkspace;
-use objc2_core_graphics::{CGMainDisplayID, CGPreflightPostEventAccess, CGRequestPostEventAccess};
+use objc2_core_foundation::{CFArray, CFDictionary, CFNumber, CFRetained, CFString, CFType};
+use objc2_core_graphics::{
+    CGMainDisplayID, CGPreflightPostEventAccess, CGRequestPostEventAccess,
+    CGWindowListCopyWindowInfo, CGWindowListOption, kCGNullWindowID, kCGWindowLayer,
+    kCGWindowOwnerPID,
+};
 use tracing::warn;
 
 use keyboard::KeyboardSink;
@@ -25,10 +29,30 @@ pub fn can_send_keys() -> bool {
     CGPreflightPostEventAccess() || CGRequestPostEventAccess()
 }
 
+/// The process that owns the frontmost window.
+///
+/// Read from the window list on every call. `NSWorkspace.frontmostApplication` would be
+/// simpler, but a command-line tool has no AppKit run loop to refresh it: it keeps
+/// answering whichever app was in front at launch.
 pub fn frontmost_pid() -> Option<i32> {
-    NSWorkspace::sharedWorkspace()
-        .frontmostApplication()
-        .map(|app| app.processIdentifier())
+    let windows = CGWindowListCopyWindowInfo(
+        CGWindowListOption::OptionOnScreenOnly | CGWindowListOption::ExcludeDesktopElements,
+        kCGNullWindowID,
+    )?;
+    // SAFETY: the window list is documented as an array of dictionaries keyed by strings.
+    let windows: CFRetained<CFArray<CFDictionary<CFString, CFType>>> =
+        unsafe { CFRetained::cast_unchecked(windows) };
+    // Front to back; layer 0 holds ordinary app windows, above it sit the menu bar,
+    // the Dock and other system overlays.
+    windows.iter().find_map(|window| {
+        // SAFETY: Core Graphics exports these keys as constant strings.
+        let (layer_key, pid_key) = unsafe { (kCGWindowLayer, kCGWindowOwnerPID) };
+        (number(&window, layer_key)? == 0).then(|| number(&window, pid_key))?
+    })
+}
+
+fn number(window: &CFDictionary<CFString, CFType>, key: &CFString) -> Option<i32> {
+    window.get(key)?.downcast::<CFNumber>().ok()?.as_i32()
 }
 
 /// Where guests' input ends up on this machine.
