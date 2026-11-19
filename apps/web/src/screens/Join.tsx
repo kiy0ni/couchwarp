@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { Wordmark } from '../components/Wordmark'
+import { TopBar } from '../components/TopBar'
 import { t } from '../i18n'
+import { useAccount } from '../lib/account'
 import { useGamepadNavigation } from '../lib/gamepad-nav'
 import { isRoomOpen } from '../lib/session'
 import { useGamepads } from '../lib/use-gamepads'
@@ -56,7 +57,12 @@ interface Props {
 }
 
 export function Join({ code, onPlay, onBack, onClosed }: Props) {
+  const { account } = useAccount()
   const [name, setName] = useState(savedName)
+  // A signed-in player starts with their account name, unless they typed another one before.
+  useEffect(() => {
+    if (account && !savedName()) setName(account.displayName)
+  }, [account])
   useEffect(() => {
     let current = true
     isRoomOpen(code)
@@ -84,12 +90,11 @@ export function Join({ code, onPlay, onBack, onClosed }: Props) {
 
   return (
     <main className="screen">
-      <header className="topbar">
-        <Wordmark />
+      <TopBar>
         <button type="button" className="link-button" onClick={onBack}>
           {t.join.back}
         </button>
-      </header>
+      </TopBar>
       <form className="panel" onSubmit={submit}>
         <h1 className="title">{t.join.title(code)}</h1>
         <div className="field">

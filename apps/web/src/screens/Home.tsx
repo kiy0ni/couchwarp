@@ -1,7 +1,7 @@
 import { ROOM_CODE_LENGTH } from '@couchwarp/protocol'
 import { type FormEvent, useState } from 'react'
 import { CodeEntry } from '../components/CodeEntry'
-import { Wordmark } from '../components/Wordmark'
+import { TopBar } from '../components/TopBar'
 import { t } from '../i18n'
 import { useGamepadNavigation } from '../lib/gamepad-nav'
 import { isRoomOpen } from '../lib/session'
@@ -35,9 +35,7 @@ export function Home({ onFound }: { onFound(code: string): void }) {
 
   return (
     <main className="screen">
-      <header className="topbar">
-        <Wordmark />
-      </header>
+      <TopBar />
       <form className="panel" onSubmit={submit} noValidate>
         <h1 className="title">{t.home.title}</h1>
         <div className="field">

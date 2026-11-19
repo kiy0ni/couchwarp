@@ -1,6 +1,43 @@
 import type { EndReason } from './lib/session'
 
 const fr = {
+  account: {
+    title: 'Ton compte',
+    loading: 'Chargement du compte…',
+    signIn: 'Se connecter',
+    signInTitle: 'Se connecter',
+    signInLead:
+      'Un compte garde tes amis et ton historique, et permet d’héberger en public. Il reste facultatif pour jouer.',
+    continueWith: (provider: string) => `Continuer avec ${provider}`,
+    noProviders:
+      'La connexion n’est pas encore configurée sur ce serveur. Tu peux jouer sans compte.',
+    legal:
+      'En te connectant, tu acceptes les conditions d’utilisation. Couchwarp ne garde que ton pseudo, ton avatar et les comptes que tu lies.',
+    ageTitle: 'Une dernière question',
+    ageLead: 'Couchwarp est réservé aux personnes de 13 ans ou plus. Quel âge as-tu ?',
+    ageYes: 'J’ai 13 ans ou plus',
+    ageNo: 'J’ai moins de 13 ans',
+    linkedTitle: 'Comptes liés',
+    link: 'Lier',
+    unlink: 'Délier',
+    unlinkRefused: 'Garde au moins un compte lié : c’est ta façon de te connecter.',
+    dataTitle: 'Tes données',
+    export: 'Télécharger mes données',
+    signOut: 'Se déconnecter',
+    deleteTitle: 'Supprimer le compte',
+    deleteLead:
+      'Ton compte, tes comptes liés et tes sessions sont effacés tout de suite. Rien ne peut être récupéré.',
+    deleteWord: 'SUPPRIMER',
+    deleteConfirmLabel: 'Tape SUPPRIMER pour confirmer',
+    deleteButton: 'Supprimer mon compte',
+    errors: {
+      expired: 'La connexion a pris trop de temps. Recommence.',
+      cancelled: 'Connexion annulée.',
+      banned: 'Ce compte est suspendu.',
+      'identity-in-use': 'Ce compte est déjà lié à un autre compte Couchwarp.',
+      'provider-error': 'La connexion n’a pas abouti. Réessaie dans un instant.',
+    },
+  },
   wordmark: 'Couchwarp, accueil',
   home: {
     title: 'Rejoindre une partie',
@@ -84,6 +121,42 @@ const fr = {
 type Strings = typeof fr
 
 const en: Strings = {
+  account: {
+    title: 'Your account',
+    loading: 'Loading your account…',
+    signIn: 'Sign in',
+    signInTitle: 'Sign in',
+    signInLead:
+      'An account keeps your friends and history, and lets you host in public. You can always play without one.',
+    continueWith: (provider) => `Continue with ${provider}`,
+    noProviders: 'Sign-in is not set up on this server yet. You can play without an account.',
+    legal:
+      'By signing in you accept the terms of use. Couchwarp only keeps your name, your avatar and the accounts you link.',
+    ageTitle: 'One last question',
+    ageLead: 'Couchwarp is for people aged 13 or over. How old are you?',
+    ageYes: 'I am 13 or over',
+    ageNo: 'I am under 13',
+    linkedTitle: 'Linked accounts',
+    link: 'Link',
+    unlink: 'Unlink',
+    unlinkRefused: 'Keep at least one linked account: it is how you sign in.',
+    dataTitle: 'Your data',
+    export: 'Download my data',
+    signOut: 'Sign out',
+    deleteTitle: 'Delete the account',
+    deleteLead:
+      'Your account, linked accounts and sessions are erased at once. Nothing can be recovered.',
+    deleteWord: 'DELETE',
+    deleteConfirmLabel: 'Type DELETE to confirm',
+    deleteButton: 'Delete my account',
+    errors: {
+      expired: 'Signing in took too long. Try again.',
+      cancelled: 'Sign-in cancelled.',
+      banned: 'This account is suspended.',
+      'identity-in-use': 'That account is already linked to another Couchwarp account.',
+      'provider-error': 'Sign-in did not go through. Try again in a moment.',
+    },
+  },
   wordmark: 'Couchwarp, home',
   home: {
     title: 'Join a game',

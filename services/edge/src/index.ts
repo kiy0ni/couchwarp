@@ -4,11 +4,13 @@
  * - `GET /api/host` (WebSocket): opens a new room and keeps the host connected to it.
  * - `GET /api/rooms/:code` : `{ open }`, so the join page can check a code before asking a name.
  * - `GET /api/rooms/:code/guest?name=` (WebSocket): joins a room as a guest.
+ * - `/api/auth/*`, `/api/me*`: accounts, see `auth/routes.ts`.
  *
  * Every other path serves the web client (see `assets` in `wrangler.jsonc`).
  */
 
 import { isRoomCode, normalizeRoomCode } from '@couchwarp/protocol'
+import { handleAccounts } from './auth/routes'
 import { randomRoomCode } from './room-code'
 
 export { Room } from './room'
@@ -19,6 +21,8 @@ const MAX_CODE_DRAWS = 5
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url)
+    const accounts = await handleAccounts(request, env)
+    if (accounts) return accounts
     if (url.pathname === '/api/host') return openRoom(request, env)
 
     const match = url.pathname.match(/^\/api\/rooms\/([^/]+)(\/guest)?$/)
