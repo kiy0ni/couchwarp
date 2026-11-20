@@ -104,12 +104,6 @@
   outline-offset: -4px;
 }
 
-.tabbar__item .count {
-  position: absolute;
-  top: 8px;
-  left: calc(50% + 6px);
-}
-
 .tabbar__label {
   max-width: 100%;
   overflow: hidden;
@@ -202,6 +196,12 @@
   font-size: var(--text-xs);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.tabbar__item .count {
+  position: absolute;
+  top: 8px;
+  left: calc(50% + 6px);
 }
 
 .sidebar__foot {
