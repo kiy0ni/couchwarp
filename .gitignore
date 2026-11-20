@@ -8,3 +8,5 @@ target/
 coverage/
 *.log
 .hallmark/
+# Signing keys (the updater's), kept out of the repository; a copy belongs in Bitwarden.
+.keys/

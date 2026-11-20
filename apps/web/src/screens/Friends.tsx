@@ -48,7 +48,7 @@ export function Friends() {
           <section className="card card--feature stack">
             <p className="card__text">{t.friends.signedOut}</p>
             <div className="actions">
-              <Link to="/parametres" className="button">
+              <Link to="/settings/account" className="button">
                 {t.account.signIn}
               </Link>
             </div>
@@ -235,7 +235,7 @@ function FriendRow({
           <button type="button" className="button" onClick={() => dialog.current?.close()}>
             {t.friends.done}
           </button>
-          <Link to={`/profil/${friend.userId}`} className="button button--secondary">
+          <Link to={`/profile/${friend.userId}`} className="button button--secondary">
             {t.profilePage.view}
           </Link>
           <ConfirmButton

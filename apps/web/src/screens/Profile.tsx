@@ -50,7 +50,7 @@ export function Profile({ userId }: { userId: string }) {
           <p className="muted">{t.profilePage.since(since.format(profile.memberSince))}</p>
           <div className="actions">
             {self ? (
-              <Link to="/parametres/compte" className="button button--secondary">
+              <Link to="/settings/account" className="button button--secondary">
                 {t.profilePage.edit}
               </Link>
             ) : (

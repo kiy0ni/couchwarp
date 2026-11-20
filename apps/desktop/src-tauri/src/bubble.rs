@@ -22,7 +22,7 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
     let site = app.state::<Site>().0.clone();
     let origin = site.origin();
     let mut page = site;
-    page.set_path("/bulle");
+    page.set_path("/bubble");
     let (x, y) = top_right(app, CLOSED.0);
     WebviewWindowBuilder::new(app, LABEL, WebviewUrl::External(page))
         .title("Couchwarp")

@@ -4,7 +4,7 @@
  * system browser. Everything here is unavailable, and never called, in a plain browser.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { Channel, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 
 /** Whether this page runs inside the desktop app. */
@@ -65,6 +65,17 @@ export interface StartRequest {
   stun: string
 }
 
+/** A newer version of the app, published and ready to install. */
+export interface AvailableUpdate {
+  version: string
+  notes: string | null
+}
+
+/** Where an install has got to; `total` is null when the server gave no size. */
+export type UpdateProgress =
+  | { step: 'downloading'; done: number; total: number | null }
+  | { step: 'installing' }
+
 export const desktop = {
   listWindows: () => invoke<WindowInfo[]>('list_windows'),
   /** A small picture as a `data:` address, or null when the window shows nothing. */
@@ -85,6 +96,16 @@ export const desktop = {
   inputAllowed: () => invoke<boolean>('input_allowed'),
   openPrivacySettings: (pane: 'screen' | 'input') =>
     invoke<void>('open_privacy_settings', { pane }),
+  /** The version the app found waiting, if any. Apps from before updates cannot answer. */
+  updateAvailable: () => invoke<AvailableUpdate | null>('update_available'),
+  onUpdate: (handler: (update: AvailableUpdate) => void) =>
+    listen<AvailableUpdate>('update', (event) => handler(event.payload)),
+  /** Downloads and installs the waiting version; the app then restarts into it. */
+  installUpdate: (onProgress: (progress: UpdateProgress) => void) => {
+    const channel = new Channel<UpdateProgress>()
+    channel.onmessage = onProgress
+    return invoke<void>('install_update', { onProgress: channel })
+  },
 }
 
 /** Gives this window the account the app signed in with. */

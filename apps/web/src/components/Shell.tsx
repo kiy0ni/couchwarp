@@ -9,6 +9,7 @@ import { navigate, usePath } from '../lib/router'
 import { Avatar } from './Avatar'
 import { Icon, type IconName } from './Icon'
 import { Link } from './Link'
+import { UpdateButton } from './UpdateButton'
 import { Wordmark } from './Wordmark'
 
 const REQUESTS_REFRESH_MS = 60_000
@@ -34,10 +35,10 @@ export function Shell({ children, onBack }: { children: ReactNode; onBack?: () =
 
   const destinations: Destination[] = [
     { to: '/', icon: 'home', label: t.nav.home, tone: 1 },
-    { to: '/parties', icon: 'rooms', label: t.nav.rooms, tone: 2 },
-    { to: '/heberger', icon: 'host', label: t.nav.host, tone: 3 },
-    { to: '/amis', icon: 'friends', label: t.nav.friends, tone: 4 },
-    { to: '/parametres', icon: 'settings', label: t.nav.settings, tone: 0 },
+    { to: '/rooms', icon: 'rooms', label: t.nav.rooms, tone: 2 },
+    { to: '/host', icon: 'host', label: t.nav.host, tone: 3 },
+    { to: '/friends', icon: 'friends', label: t.nav.friends, tone: 4 },
+    { to: '/settings', icon: 'settings', label: t.nav.settings, tone: 0 },
   ]
   const admin: Destination = { to: '/moderation', icon: 'shield', label: t.nav.moderation, tone: 0 }
   const current = (to: string) =>
@@ -80,8 +81,9 @@ export function Shell({ children, onBack }: { children: ReactNode; onBack?: () =
             <Wordmark />
           </span>
           <span className="topbar__end">
+            <UpdateButton />
             {requests > 0 && (
-              <Link to="/amis" className="topbar__requests">
+              <Link to="/friends" className="topbar__requests">
                 <Icon name="friends" size={18} />
                 <span className="count" aria-hidden="true">
                   {requests}
@@ -194,13 +196,13 @@ function AccountButton({ account }: { account: Account | null | undefined }) {
   if (account === undefined) return <span className="account-button" aria-hidden="true" />
   if (account === null) {
     return (
-      <Link to="/parametres/compte" className="button button--secondary button--small">
+      <Link to="/settings/account" className="button button--secondary button--small">
         {t.account.signIn}
       </Link>
     )
   }
   return (
-    <Link to="/parametres/compte" className="account-button" title={t.account.title}>
+    <Link to="/settings/account" className="account-button" title={t.account.title}>
       <Avatar name={account.displayName} url={account.avatarUrl} />
       <span className="account-button__name">{account.displayName}</span>
     </Link>

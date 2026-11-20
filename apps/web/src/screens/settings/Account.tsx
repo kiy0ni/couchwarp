@@ -488,7 +488,7 @@ function ProfileEditor({ account, onSignOut }: { account: Account; onSignOut(): 
           )}
           <Badges badges={account.badges} />
           <span className="profile__links">
-            <Link to={`/profil/${account.id}`} className="link-button">
+            <Link to={`/profile/${account.id}`} className="link-button">
               {t.profilePage.mine}
             </Link>
             <Link to="/badges" className="link-button">

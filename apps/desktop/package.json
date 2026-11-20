@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
+    "build:mac": "TAURI_SIGNING_PRIVATE_KEY=\"$PWD/../../.keys/couchwarp-updater.key\" TAURI_SIGNING_PRIVATE_KEY_PASSWORD='' tauri build --bundles app",
     "tauri": "tauri"
   },
   "devDependencies": {

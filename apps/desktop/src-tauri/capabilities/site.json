@@ -23,6 +23,8 @@
     "allow-input-allowed",
     "allow-open-privacy-settings",
     "allow-set-bubble-open",
-    "allow-show-main-window"
+    "allow-show-main-window",
+    "allow-update-available",
+    "allow-install-update"
   ]
 }

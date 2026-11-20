@@ -4,10 +4,12 @@
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use couchwarp_host::account::{self, Provider};
+use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
 
 use crate::Site;
 use crate::hosting::{Hosting, HostingState, StartRequest, WindowInfo, shareable_windows};
+use crate::updates::{Available, Progress, Updates};
 
 /// Blocking work (system calls, HTTPS requests) off the thread that draws the window.
 async fn blocking<T: Send + 'static>(
@@ -138,4 +140,18 @@ pub fn show_main_window(app: AppHandle) -> Result<(), String> {
     window.unminimize().map_err(|error| error.to_string())?;
     window.show().map_err(|error| error.to_string())?;
     window.set_focus().map_err(|error| error.to_string())
+}
+
+/// The version waiting to be installed, if the last look found one.
+#[tauri::command]
+pub fn update_available(updates: State<'_, Updates>) -> Option<Available> {
+    updates.available()
+}
+
+/// Downloads and installs the waiting version, then restarts the app into it.
+#[tauri::command]
+pub async fn install_update(app: AppHandle, on_progress: Channel<Progress>) -> Result<(), String> {
+    crate::updates::install(&app, on_progress)
+        .await
+        .map_err(|error| format!("{error:#}"))
 }

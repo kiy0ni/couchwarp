@@ -1,7 +1,16 @@
 name: Release
 
-# Builds the desktop app for Mac and Windows when a version tag is pushed, and attaches
-# the installers to a draft release. Publishing the release stays a manual step.
+# Builds the desktop app for Mac and Windows when a version tag (v1.2.3) is pushed, and
+# publishes a GitHub release with the installers, the update files and `latest.json`, the
+# manifest installed apps read (through the room server, see services/edge/src/updates.ts).
+#
+# Secrets:
+# - TAURI_SIGNING_PRIVATE_KEY: the updater key, made with `pnpm tauri signer generate`.
+#   Its public half is `plugins.updater.pubkey` in apps/desktop/src-tauri/tauri.conf.json.
+#   Without it the installers are still built, but not the update files.
+# - TAURI_SIGNING_PRIVATE_KEY_PASSWORD: only if the key has a password.
+#
+# The tag must match the version in tauri.conf.json, Cargo.toml and package.json.
 on:
   push:
     tags: ["v*"]
@@ -19,11 +28,14 @@ jobs:
         include:
           - name: macOS
             os: macos-latest
-            args: --target aarch64-apple-darwin
+            target: aarch64-apple-darwin
           - name: Windows
             os: windows-latest
-            args: ""
+            target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -33,15 +45,44 @@ jobs:
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
+          targets: ${{ matrix.target }}
       - run: pnpm install --frozen-lockfile
+
+      - name: Check the tag against the app version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          version=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match the app version $version"
+            exit 1
+          fi
+
+      # Update files must be signed; without the key, build the installers only.
+      - name: Choose what to build
+        id: build
+        shell: bash
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "args=--target ${{ matrix.target }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set: no update files this time"
+            echo '{"bundle":{"createUpdaterArtifacts":false}}' > apps/desktop/no-updater.json
+            echo "args=--target ${{ matrix.target }} --config no-updater.json" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
-          args: ${{ matrix.args }}
+          args: ${{ steps.build.outputs.args }}
           tagName: ${{ github.ref_name }}
           releaseName: Couchwarp ${{ github.ref_name }}
-          releaseDraft: true
+          releaseBody: Download the installer for your computer below. Installed apps update themselves.
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          # Windows updates with the same installer people download.
+          updaterJsonPreferNsis: true

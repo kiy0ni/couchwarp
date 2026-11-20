@@ -23,7 +23,10 @@ Le serveur de salons ne voit passer que la négociation (offres SDP, candidats I
 
 - lister les fenêtres et en prendre un aperçu ;
 - lancer et arrêter une session d'hôte, qui tourne sur son propre fil et prévient la page à chaque changement (`hosting`) ;
-- se connecter par le navigateur du système, comme l'hôte en ligne de commande. Le jeton obtenu est échangé contre le cookie du site (`POST /api/auth/app-session`), pour que la fenêtre soit connectée elle aussi.
+- se connecter par le navigateur du système, comme l'hôte en ligne de commande. Le jeton obtenu est échangé contre le cookie du site (`POST /api/auth/app-session`), pour que la fenêtre soit connectée elle aussi ;
+- se mettre à jour (`src/updates.rs`, extension `tauri-plugin-updater`). L'appli regarde 10 secondes après le démarrage puis toutes les 4 heures, et prévient la page (`update`), qui affiche un bouton vert dans la barre du haut. Le manifeste vient du site (`GET /api/updates/latest.json`), qui lit la dernière version publiée sur GitHub et renvoie vers ses fichiers : le dépôt peut rester privé. Chaque fichier est signé, et l'appli refuse ce que la clé publique de `tauri.conf.json` ne reconnaît pas.
+
+L'interface est en anglais par défaut, en français si le navigateur l'est ou si on le choisit dans les paramètres (`apps/web/src/i18n.ts` ; l'anglais sert de référence, une traduction manquante est une erreur de type). Les adresses des pages sont en anglais ; celles des versions précédentes, en français, redirigent (`lib/router.ts`).
 
 L'hôte est une bibliothèque (`crates/host/src/lib.rs`) : `session::run` prend une fenêtre, des réglages et un signal d'arrêt, et rend compte par des événements (salon ouvert, mesures, autorisations manquantes). La ligne de commande et l'application l'appellent de la même façon.
 

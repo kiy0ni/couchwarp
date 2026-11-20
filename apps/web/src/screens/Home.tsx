@@ -126,7 +126,7 @@ function ThisComputer() {
               : t.home.hostWeb}
         </p>
       </div>
-      <Link to="/heberger" className={live ? 'button button--secondary' : 'button'}>
+      <Link to="/host" className={live ? 'button button--secondary' : 'button'}>
         {live ? t.home.manage : isDesktop ? t.home.hostAction : t.home.downloadAction}
       </Link>
     </section>
@@ -178,7 +178,7 @@ function FriendsPlaying() {
       title={t.home.friendsTitle}
       actions={
         account && (
-          <Link to="/amis" className="link-button">
+          <Link to="/friends" className="link-button">
             {t.home.seeAll}
           </Link>
         )
@@ -187,7 +187,7 @@ function FriendsPlaying() {
       {account === null ? (
         <div className="card card--row">
           <p className="card__text">{t.friends.signedOut}</p>
-          <Link to="/parametres/compte" className="button button--secondary">
+          <Link to="/settings/account" className="button button--secondary">
             {t.account.signIn}
           </Link>
         </div>
@@ -227,7 +227,7 @@ function ControllersCard() {
     <section className="card">
       <header className="card__head">
         <h2 className="card__title">{t.home.controllersTitle}</h2>
-        <Link to="/parametres/manettes" className="link-button">
+        <Link to="/settings/controllers" className="link-button">
           {t.home.test}
         </Link>
       </header>
@@ -298,7 +298,7 @@ function PublicRooms() {
     <Section
       title={t.browse.title}
       actions={
-        <Link to="/parties" className="link-button">
+        <Link to="/rooms" className="link-button">
           {t.home.seeAll}
         </Link>
       }

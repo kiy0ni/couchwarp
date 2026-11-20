@@ -1,6 +1,7 @@
 //! Couchwarp for Mac and Windows. The window shows the Couchwarp site, the same pages as in
 //! a browser, so both stay in step with one deployment. The app adds what a browser cannot
-//! do: share a game window with guests, and sign in through the system browser.
+//! do: share a game window with guests, sign in through the system browser, and update
+//! itself from the app's releases.
 
 // No console window behind the app on Windows.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -9,6 +10,7 @@ mod awake;
 mod bubble;
 mod commands;
 mod hosting;
+mod updates;
 
 use tauri::utils::config::FrontendDist;
 use tauri::webview::{Color, WebviewWindowBuilder};
@@ -52,8 +54,10 @@ fn main() {
     let site_url = site(context.config());
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Site(site_url.clone()))
         .manage(hosting::Hosting::default())
+        .manage(updates::Updates::default())
         .invoke_handler(tauri::generate_handler![
             commands::list_windows,
             commands::window_preview,
@@ -68,6 +72,8 @@ fn main() {
             commands::open_privacy_settings,
             commands::set_bubble_open,
             commands::show_main_window,
+            commands::update_available,
+            commands::install_update,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -95,6 +101,7 @@ fn main() {
                 .title_bar_style(tauri::TitleBarStyle::Overlay)
                 .hidden_title(true);
             builder.build()?;
+            updates::watch(app.handle().clone());
             Ok(())
         })
         .build(context)

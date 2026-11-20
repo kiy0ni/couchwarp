@@ -10,9 +10,13 @@ interface Env {
   DISCORD_CLIENT_SECRET?: string
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
-  /** Where the desktop app installers are, shown on the Host page. */
+  /** Where the desktop app installers are, shown on the Host page. Default: the latest release. */
   DOWNLOAD_MAC_URL?: string
   DOWNLOAD_WINDOWS_URL?: string
+  /** The GitHub repository whose releases carry the desktop app, as `owner/name`. */
+  RELEASES_REPO?: string
+  /** A read-only GitHub token, needed while that repository is private. */
+  RELEASES_TOKEN?: string
   /** Comma-separated account ids of the people who handle reports. */
   ADMIN_USER_IDS?: string
 }

@@ -254,7 +254,7 @@ async function exportAccount(env: Env, user: User): Promise<Response> {
     ).results,
   }
   return json(body, 200, {
-    'Content-Disposition': 'attachment; filename="couchwarp-compte.json"',
+    'Content-Disposition': 'attachment; filename="couchwarp-account.json"',
   })
 }
 

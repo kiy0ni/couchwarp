@@ -283,7 +283,7 @@ function Setup({ lastError }: { lastError: string | null }) {
           <Section
             title={t.host.qualityTitle}
             actions={
-              <Link to="/parametres/hote" className="link-button">
+              <Link to="/settings/host" className="link-button">
                 {t.host.change}
               </Link>
             }

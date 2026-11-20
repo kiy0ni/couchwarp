@@ -1,7 +1,23 @@
 import type { EndReason } from './lib/session'
 
-const fr = {
+/**
+ * Every string the interface shows, in English (the reference and the default) and in
+ * French. `Strings` is the shape of the English set, so a French string missing or extra
+ * is a type error.
+ */
+
+const fr: Strings = {
   common: { cancel: 'Annuler' },
+  update: {
+    action: 'Mettre à jour',
+    hint: (version: string) =>
+      `Couchwarp ${version} est prête. L’installe et redémarre l’appli ; une partie hébergée s’arrête.`,
+    downloading: (percent: number) => `${percent} %`,
+    downloadingUnknown: 'Téléchargement…',
+    restarting: 'Redémarrage…',
+    retry: 'Réessayer',
+    failed: 'La mise à jour n’a pas pu s’installer. Vérifie ta connexion et réessaie.',
+  },
   bubble: {
     open: (code: string, guests: number) =>
       `Partie ${code}, ${guests === 0 ? 'personne' : guests === 1 ? '1 invité' : `${guests} invités`}. Ouvrir, ou glisser pour déplacer.`,
@@ -658,17 +674,27 @@ const fr = {
   },
 }
 
-type Strings = typeof fr
+type Strings = typeof en
 
-const en: Strings = {
+const en = {
   common: { cancel: 'Cancel' },
+  update: {
+    action: 'Update',
+    hint: (version: string) =>
+      `Couchwarp ${version} is ready. Installs it and restarts the app; a game you host ends.`,
+    downloading: (percent: number) => `${percent}%`,
+    downloadingUnknown: 'Downloading…',
+    restarting: 'Restarting…',
+    retry: 'Retry',
+    failed: 'The update could not be installed. Check your connection and try again.',
+  },
   bubble: {
-    open: (code, guests) =>
+    open: (code: string, guests: number) =>
       `Game ${code}, ${guests === 0 ? 'nobody' : guests === 1 ? '1 guest' : `${guests} guests`}. Open, or drag to move.`,
     allow: { keyboard: 'Allow the keyboard', mouse: 'Allow the mouse' },
     close: 'Shrink',
     copy: 'Copy the link',
-    stats: (fps, ms) => `${fps} fps, ${ms} ms`,
+    stats: (fps: string, ms: string) => `${fps} fps, ${ms} ms`,
     openApp: 'Open Couchwarp',
     stopQuestion: 'Stop for everyone?',
   },
@@ -725,11 +751,11 @@ const en: Strings = {
   },
   profilePage: {
     missing: 'This profile does not exist, or no longer does.',
-    since: (date) => `On Couchwarp since ${date}`,
+    since: (date: string) => `On Couchwarp since ${date}`,
     edit: 'Edit my profile',
     mine: 'See my profile',
     view: 'See the profile',
-    badges: (count) => (count === 0 ? 'Badges' : `Badges (${count})`),
+    badges: (count: number) => (count === 0 ? 'Badges' : `Badges (${count})`),
     allBadges: 'All badges',
     badgesLead:
       'They are earned by playing, hosting and making friends. Couchwarp works them out from what it keeps anyway.',
@@ -747,7 +773,7 @@ const en: Strings = {
     friends: 'Friends',
     settings: 'Settings',
     moderation: 'Moderation',
-    waiting: (count) => (count === 1 ? '1 request waiting' : `${count} requests waiting`),
+    waiting: (count: number) => (count === 1 ? '1 request waiting' : `${count} requests waiting`),
     accountHint: 'Account and settings',
     joinLabel: 'Game code or link',
     joinPlaceholder: 'Join with a code or a link',
@@ -803,7 +829,7 @@ const en: Strings = {
       padTypeHelp: 'The game shows this controller’s buttons. Needs a Windows host.',
       mouse: 'Mouse speed',
       mouseHelp: 'When the host allows your mouse.',
-      speed: (value) => `× ${value.toLocaleString('en')}`,
+      speed: (value: number) => `× ${value.toLocaleString('en')}`,
       bubble: 'Bubble position',
       bubbleHelp: 'Move it by dragging it during the game.',
       bubbleReset: 'Back to the top',
@@ -861,12 +887,12 @@ const en: Strings = {
     motion: 'Controller gyroscope',
     motionHelp:
       'To aim or steer by tilting a PlayStation or Switch controller. Needs a Windows host, and the PlayStation type in the menu.',
-    motionConnected: (names) => `Connected: ${names}.`,
+    motionConnected: (names: string) => `Connected: ${names}.`,
     motionUnsupported:
       'This browser cannot read controller gyroscopes. Use Chrome or Edge on a computer.',
     motionConnect: 'Connect a controller',
     motionFailed: 'The controller could not be connected.',
-    motionLive: (gyro) => `Gyroscope: ${gyro} degrees per second`,
+    motionLive: (gyro: string) => `Gyroscope: ${gyro} degrees per second`,
     phoneMotion: 'Phone gyroscope',
     phoneMotionHelp: 'With the touch controller, tilting the phone is like tilting a controller.',
     phoneMotionRefused: 'The phone refused access to its sensors.',
@@ -879,7 +905,7 @@ const en: Strings = {
     languages: { auto: 'Same as the system', fr: 'Français', en: 'English' },
     desktopApp: 'Couchwarp for desktop',
     webApp: 'Couchwarp in the browser',
-    version: (version) => `Version ${version}`,
+    version: (version: string) => `Version ${version}`,
     legalTitle: 'Terms and privacy',
     legalHelp: 'What Couchwarp keeps, for how long, and the community rules.',
   },
@@ -895,12 +921,12 @@ const en: Strings = {
     ],
     macNote: 'macOS 14 or later, Apple silicon.',
     windowsNote: 'Windows 10 or 11.',
-    download: (system) => `Download for ${system}`,
+    download: (system: string) => `Download for ${system}`,
     soon: 'Coming soon.',
     checking: 'Looking for the download…',
-    starting: (app) => `Opening the game with ${app}…`,
+    starting: (app: string) => `Opening the game with ${app}…`,
     windowGone: 'That window just closed. Pick another one.',
-    defaultTitle: (name) => `${name}’s game`,
+    defaultTitle: (name: string) => `${name}’s game`,
     roomTitle: 'The game',
     linkOnly:
       'Guests join with the code or the link. Public games are not open on this server yet.',
@@ -910,10 +936,10 @@ const en: Strings = {
       'Sign in to list the game publicly. Without an account, it stays open to the link.',
     qualityTitle: 'Picture',
     change: 'Change',
-    quality: (height, fps, mbps) =>
+    quality: (height: number, fps: number, mbps: number) =>
       `${height}p, ${fps} frames per second, up to ${mbps} Mbit/s. The picture adapts to each guest’s connection.`,
-    fps: (count) => `${count} fps`,
-    bitrate: (mbps) => `${mbps} Mbit/s`,
+    fps: (count: number) => `${count} fps`,
+    bitrate: (mbps: number) => `${mbps} Mbit/s`,
     start: 'Start the game',
     chooseFirst: 'Pick a window',
     windowTitle: 'Window to share',
@@ -924,7 +950,7 @@ const en: Strings = {
     openSettings: 'Open settings',
     noWindows: 'No window to share. Start the game, then refresh.',
     liveTitle: 'Game running',
-    sharing: (app, title) =>
+    sharing: (app: string, title: string) =>
       title && title !== app ? `Shared window: ${app}, ${title}` : `Shared window: ${app}`,
     stop: 'Stop the game',
     codeLabel: 'Game code',
@@ -932,14 +958,14 @@ const en: Strings = {
     statFps: 'Frames per second',
     statDelay: 'Host delay',
     statBitrate: 'Video bitrate',
-    ms: (value) => `${value} ms`,
-    mbps: (value) => `${value} Mbit/s`,
+    ms: (value: string) => `${value} ms`,
+    mbps: (value: string) => `${value} Mbit/s`,
     inputPermission:
       'Guests’ keyboards and mice cannot reach the game yet: allow Couchwarp in Accessibility.',
   },
   account: {
     inBrowser: 'Finish signing in in your browser, then come back here.',
-    signedInWith: (count) => (count > 1 ? `${count} linked accounts` : '1 linked account'),
+    signedInWith: (count: number) => (count > 1 ? `${count} linked accounts` : '1 linked account'),
     notLinked: 'Not linked',
     linkOnSite: 'Link it from the website',
     dataLead: 'Everything Couchwarp keeps about you, in one file.',
@@ -949,7 +975,7 @@ const en: Strings = {
     signInTitle: 'Sign in',
     signInLead:
       'An account keeps your friends and history, and lets you host in public. You can always play without one.',
-    continueWith: (provider) => `Continue with ${provider}`,
+    continueWith: (provider: string) => `Continue with ${provider}`,
     legal:
       'By signing in you accept the terms of use. Couchwarp only keeps your name, your avatar and the accounts you link.',
     ageTitle: 'One last question',
@@ -981,11 +1007,11 @@ const en: Strings = {
   },
   room: {
     chatTitle: 'Chat',
-    chatOpen: (unread) => (unread > 0 ? `Chat (${unread})` : 'Chat'),
+    chatOpen: (unread: number) => (unread > 0 ? `Chat (${unread})` : 'Chat'),
     chatLabel: 'Message',
     chatSend: 'Send',
     chatEmpty: 'No messages yet.',
-    chatHost: (name) => (name ? `${name} (host)` : 'The host'),
+    chatHost: (name: string) => (name ? `${name} (host)` : 'The host'),
     chatClose: 'Close chat',
     membersTitle: 'In the game',
     nobody: 'Nobody has joined yet.',
@@ -1002,12 +1028,12 @@ const en: Strings = {
       spectator: 'Sees the game and waits for a turn.',
     },
     noSeat: 'Every seat is taken: free one to let them play.',
-    canUse: (inputs) => `Can use: ${inputs}`,
+    canUse: (inputs: string) => `Can use: ${inputs}`,
     ban: 'Ban',
-    banConfirm: (name) => `Ban ${name}? They will not be able to come back to this game.`,
+    banConfirm: (name: string) => `Ban ${name}? They will not be able to come back to this game.`,
     mouseHint: 'Click the picture to play with the mouse. Escape lets it go.',
     watching: 'You are watching. Raise your hand to take a controller when a seat frees up.',
-    inLine: (position) =>
+    inLine: (position: number) =>
       position === 1 ? 'You play next.' : `You are number ${position} in line.`,
     raiseHand: 'Raise hand',
     lowerHand: 'Lower hand',
@@ -1084,14 +1110,14 @@ const en: Strings = {
     loading: 'Loading games…',
     empty: 'No public games right now. Join one with its code, or come back later.',
     failed: 'The list is not answering. Try again in a moment.',
-    hostedBy: (name) => `Hosted by ${name}`,
-    seats: (players, max) => `${players} of ${max} players`,
-    watching: (count) => (count === 1 ? '1 watching' : `${count} watching`),
+    hostedBy: (name: string) => `Hosted by ${name}`,
+    seats: (players: number, max: number) => `${players} of ${max} players`,
+    watching: (count: number) => (count === 1 ? '1 watching' : `${count} watching`),
     proximity: { near: 'Near you', region: 'Same continent', far: 'Far' },
-    join: (title) => `Join ${title}`,
+    join: (title: string) => `Join ${title}`,
   },
   report: {
-    title: (name) => `Report ${name}`,
+    title: (name: string) => `Report ${name}`,
     titleRoom: 'Report this game',
     open: 'Report',
     openRoom: 'Report the game',
@@ -1113,8 +1139,8 @@ const en: Strings = {
   },
   friends: {
     lead: 'See what your friends are playing and join them.',
-    playingTitle: (count) => `In a game (${count})`,
-    awayTitle: (count) => `Not in a game (${count})`,
+    playingTitle: (count: number) => `In a game (${count})`,
+    awayTitle: (count: number) => `Not in a game (${count})`,
     noIncoming: 'No request waiting.',
     addTitle: 'Add a friend',
     addLead: 'With their name and tag, like Kiyo#482913. They find it on their Friends page.',
@@ -1142,12 +1168,12 @@ const en: Strings = {
     add: 'Add friend',
     added: 'Request sent',
     offline: 'Not in a game',
-    playing: (title) => `Playing ${title}`,
-    hosting: (title) => `Hosting ${title}`,
+    playing: (title: string) => `Playing ${title}`,
+    hosting: (title: string) => `Hosting ${title}`,
     join: 'Join',
     manage: 'Manage',
     done: 'Done',
-    removeQuestion: (name) => `Remove ${name} from your friends?`,
+    removeQuestion: (name: string) => `Remove ${name} from your friends?`,
     permissionsLead:
       'What this friend may use as soon as they join one of your games. You can always change your mind during the game.',
     pad: 'Controller',
@@ -1163,9 +1189,9 @@ const en: Strings = {
     open: 'To handle',
     decided: 'Handled',
     none: 'No reports.',
-    room: (title, code) => `${title} (${code})`,
+    room: (title: string, code: string) => `${title} (${code})`,
     show: 'Show',
-    about: (name) => `About ${name}`,
+    about: (name: string) => `About ${name}`,
     aboutRoom: 'About the game',
     withAccount: 'account',
     noteLabel: 'Reason for the decision (shared on request)',
@@ -1186,7 +1212,7 @@ const en: Strings = {
   },
   wordmark: 'Couchwarp, home',
   home: {
-    greeting: (name) => `Hi ${name}`,
+    greeting: (name: string) => `Hi ${name}`,
     welcome: 'Welcome',
     lead: 'Join a game with its code, or host your own.',
     hostTitle: 'Host',
@@ -1201,7 +1227,7 @@ const en: Strings = {
     recentTitle: 'Your last games',
     rejoin: 'Go back',
     thisComputer: 'This computer',
-    liveNow: (code, guests) =>
+    liveNow: (code: string, guests: number) =>
       `Game running, code ${code}. ${guests === 0 ? 'Nobody has connected yet.' : guests === 1 ? '1 guest connected.' : `${guests} guests connected.`}`,
     manage: 'Manage the game',
     friendsTitle: 'Friends playing',
@@ -1219,7 +1245,7 @@ const en: Strings = {
     serverDown: 'The server is not answering. Try again in a moment.',
   },
   join: {
-    lead: (host, game) => {
+    lead: (host: string, game: string) => {
       const parts = [host && `Hosted by ${host}`, game && `Game: ${game}`].filter(Boolean)
       return parts.length > 0 ? `${parts.join('. ')}.` : 'The game is open.'
     },
@@ -1227,12 +1253,13 @@ const en: Strings = {
     addressHidden: 'Your IP address stays hidden: you go through Couchwarp’s relay.',
     addressSeen:
       'Direct connection: the host will be able to see your IP address, as in an online game between friends. Only join people you trust.',
-    seatFree: (count) => (count === 1 ? 'One player seat left.' : `${count} player seats left.`),
+    seatFree: (count: number) =>
+      count === 1 ? 'One player seat left.' : `${count} player seats left.`,
     full: 'Every seat is taken: you watch until your turn.',
     players: 'Players',
     spectators: 'Spectators',
     code: 'Code',
-    title: (code) => `Game ${code}`,
+    title: (code: string) => `Game ${code}`,
     nameLabel: 'Your name',
     nameHelp: 'The other players see it.',
     deviceTitle: 'Your device',
@@ -1247,7 +1274,7 @@ const en: Strings = {
   },
   play: {
     bubble: 'Game menu',
-    bubbleUnread: (count) =>
+    bubbleUnread: (count: number) =>
       count === 1 ? 'Game menu, 1 unread message' : `Game menu, ${count} unread messages`,
     slowConnection:
       'Slow connection: the picture arrives late. Move closer to the router or plug in a cable.',
@@ -1258,7 +1285,7 @@ const en: Strings = {
     closeMenu: 'Close menu',
     fullscreen: 'Full screen',
     leave: 'Leave the game',
-    player: (slot) => `Player ${slot}`,
+    player: (slot: number) => `Player ${slot}`,
     measuresTitle: 'Measures',
     measuresMedian: 'Picture latency, median',
     measuresP95: 'Picture latency, 95% of frames',
@@ -1300,7 +1327,7 @@ const en: Strings = {
       'browser-blocked':
         'Your browser opened no network connection for the video. Try Chrome, Edge or Arc, or allow it under System Settings > Privacy & Security > Local Network.',
       'server-unreachable': 'The server is not answering. Check your connection.',
-    },
+    } satisfies Record<EndReason, string>,
   },
 }
 
@@ -1331,10 +1358,17 @@ export function setLanguage(choice: LanguageChoice): void {
   location.reload()
 }
 
-export const lang =
+/**
+ * The language shown: the one picked in the settings, else French for a browser set to
+ * French, else English. Every other language falls back to English.
+ */
+export const lang: 'fr' | 'en' =
   chosenLanguage !== 'auto'
     ? chosenLanguage
-    : navigator.language.toLowerCase().startsWith('fr')
+    : (navigator.languages?.[0] ?? navigator.language).toLowerCase().startsWith('fr')
       ? 'fr'
       : 'en'
 export const t: Strings = lang === 'fr' ? fr : en
+
+// Screen readers and the browser's own translation read the page in the right language.
+if (typeof document !== 'undefined') document.documentElement.lang = lang

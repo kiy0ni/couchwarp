@@ -15,6 +15,8 @@ fn main() {
         "open_privacy_settings",
         "set_bubble_open",
         "show_main_window",
+        "update_available",
+        "install_update",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

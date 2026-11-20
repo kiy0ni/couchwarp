@@ -231,7 +231,7 @@ function MemberRow({ member, viewer, self, seatsLeft, onCommand, onReport }: Row
               </ConfirmButton>
             )}
             {member.userId && (
-              <Link to={`/profil/${member.userId}`} className="link-button">
+              <Link to={`/profile/${member.userId}`} className="link-button">
                 {t.profilePage.view}
               </Link>
             )}

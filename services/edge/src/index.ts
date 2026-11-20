@@ -14,7 +14,8 @@
  * - `/api/admin/*`: report handling, for admins only.
  * - `GET /api/games/lookup?q=`: a known game's title and cover, see `games.ts`.
  * - `GET /api/config`: what this server offers, `{ publicRooms, relay }`.
- * - `GET /api/downloads`: where to get the desktop app, `{ mac, windows }`, null until set.
+ * - `GET /api/downloads`: where to get the desktop app, `{ mac, windows }`, null without one.
+ * - `/api/updates/*`: the desktop app's update manifest and files, see `updates.ts`.
  *
  * A daily cron trigger runs `cleanUp`.
  *
@@ -29,11 +30,12 @@ import { cleanUp } from './cleanup'
 import { list } from './directory'
 import { handleFriends } from './friends'
 import { handleGames } from './games'
-import { json } from './http'
+import { json, siteOrigin } from './http'
 import { handleProfiles } from './profiles'
 import { handleAdmin, report } from './reports'
 import { ARRIVAL_HEADER, type Arrival } from './room'
 import { randomRoomCode } from './room-code'
+import { handleUpdates, releaseDownloads } from './updates'
 
 export { Room } from './room'
 
@@ -49,6 +51,7 @@ export default {
       (await handleAccounts(request, env)) ??
       (await handleFriends(request, env)) ??
       (await handleGames(request, env)) ??
+      (await handleUpdates(request, env, siteOrigin(request, env))) ??
       (await handleAdmin(request, env))
     if (handled) return handled
     if (url.pathname === '/api/host') return openRoom(request, env)
@@ -60,7 +63,11 @@ export default {
       })
     }
     if (url.pathname === '/api/downloads') {
-      return json({ mac: env.DOWNLOAD_MAC_URL ?? null, windows: env.DOWNLOAD_WINDOWS_URL ?? null })
+      const release = await releaseDownloads(env, siteOrigin(request, env), Date.now())
+      return json({
+        mac: env.DOWNLOAD_MAC_URL ?? release.mac,
+        windows: env.DOWNLOAD_WINDOWS_URL ?? release.windows,
+      })
     }
 
     const match = url.pathname.match(

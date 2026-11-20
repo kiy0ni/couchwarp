@@ -15,8 +15,18 @@
       "capabilities": ["site"]
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI1MTIxMjY0MUU0RTI0OUEKUldTYUpFNGVaQklTSlpuQVBMdWx6dzh6bkRqVjBJc3dlaWRxSnZUaXF1eC9iNXJ4WUgyTjBHVksK",
+      "endpoints": ["https://couchwarp.sachapastor34.workers.dev/api/updates/latest.json"],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": ["dmg", "app", "nsis"],
     "category": "Game",
     "shortDescription": "Play your PC games with friends who join from a browser",
@@ -31,6 +41,7 @@
     ],
     "macOS": {
       "minimumSystemVersion": "14.0",
+      "signingIdentity": "-",
       "infoPlist": "Info.plist"
     },
     "windows": {

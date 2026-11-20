@@ -17,17 +17,17 @@ type Tab = 'game' | 'host' | 'network' | 'shortcuts' | 'controllers' | 'account'
 
 /** The tabs, in order. Hosting and network settings only exist in the desktop app. */
 const TABS: readonly { id: Tab; path: string }[] = [
-  { id: 'game', path: '/parametres' },
+  { id: 'game', path: '/settings' },
   ...(isDesktop
     ? ([
-        { id: 'host', path: '/parametres/hote' },
-        { id: 'network', path: '/parametres/reseau' },
+        { id: 'host', path: '/settings/host' },
+        { id: 'network', path: '/settings/network' },
       ] as const)
     : []),
-  { id: 'shortcuts', path: '/parametres/raccourcis' },
-  { id: 'controllers', path: '/parametres/manettes' },
-  { id: 'account', path: '/parametres/compte' },
-  { id: 'app', path: '/parametres/application' },
+  { id: 'shortcuts', path: '/settings/shortcuts' },
+  { id: 'controllers', path: '/settings/controllers' },
+  { id: 'account', path: '/settings/account' },
+  { id: 'app', path: '/settings/app' },
 ]
 
 /** On a phone, the open tab scrolls into sight. */
@@ -306,7 +306,7 @@ function AppSettings() {
         <Select<LanguageChoice>
           id="app-language"
           value={language}
-          options={(['auto', 'fr', 'en'] as const).map((option) => [option, s.languages[option]])}
+          options={(['auto', 'en', 'fr'] as const).map((option) => [option, s.languages[option]])}
           onChange={(choice) => {
             setChoice(choice)
             setLanguage(choice)
@@ -318,17 +318,17 @@ function AppSettings() {
         help={version ? s.version(version) : location.host}
       >
         {!isDesktop && (
-          <Link to="/heberger" className="button button--secondary button--small">
+          <Link to="/host" className="button button--secondary button--small">
             {t.home.downloadAction}
           </Link>
         )}
       </Fixed>
       <Fixed title={s.legalTitle} help={s.legalHelp}>
         <span className="setting__links">
-          <Link to="/conditions" className="link-button">
+          <Link to="/terms" className="link-button">
             {t.footer.terms}
           </Link>
-          <Link to="/confidentialite" className="link-button">
+          <Link to="/privacy" className="link-button">
             {t.footer.privacy}
           </Link>
         </span>

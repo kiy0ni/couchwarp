@@ -90,6 +90,42 @@
   color: var(--color-ink-2);
 }
 
+/* Only there while a new version of the desktop app waits. Green, like a light that
+   says "ready", so it reads as good news rather than a warning. */
+.topbar__update {
+  min-height: 36px;
+  min-width: 44px;
+  padding: 0 var(--space-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2xs);
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-success);
+  color: var(--color-accent-ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+
+.topbar__update[data-failed] {
+  background: var(--color-warning);
+}
+
+.topbar__update:disabled {
+  cursor: progress;
+}
+
+@media (hover: hover) {
+  .topbar__update:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--color-success) 85%, var(--color-ink));
+  }
+}
+
 .account-button {
   min-height: 44px;
   min-width: 44px;
