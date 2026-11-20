@@ -1,11 +1,15 @@
 /**
  * Motion from the guest's side: the gyroscope and accelerometer of a PlayStation or
- * Nintendo controller read over WebHID (Chrome and Edge), or of the phone itself while the
- * touch controller plays. Values are turned into a DualShock 4's units, which the host
- * passes to its virtual DualShock 4.
+ * Nintendo controller, or of the phone itself while the touch controller plays. Values are
+ * turned into a DualShock 4's units, which the host passes to its virtual DualShock 4.
+ *
+ * Controllers' input reports come from WebHID in Chrome and Edge, and from the desktop app
+ * itself, whose web view has no WebHID (`apps/desktop/src-tauri/src/motion.rs`). Both are
+ * decoded here, the same way.
  */
 
-import { vendorProduct } from './controllers'
+import { type Family, familyOf, vendorProduct } from './controllers'
+import { desktop, isDesktop, type NativeReport } from './desktop'
 
 /** DualShock 4 units: about 16 per degree per second, 8192 per g. */
 const DS4_PER_DPS = 16.4
@@ -47,6 +51,29 @@ export function hidAvailable(): boolean {
   return 'hid' in navigator
 }
 
+/**
+ * The desktop app reads controllers on its own, with no button to press: started once,
+ * when a page first needs motion.
+ */
+let native: Promise<void> | null = null
+export function startNativeMotion(): Promise<void> {
+  native ??= desktop.watchControllers((report: NativeReport) =>
+    addReport(
+      report.vendorId,
+      report.productId,
+      report.reportId,
+      new DataView(Uint8Array.from(report.data).buffer),
+    ),
+  )
+  return native
+}
+
+/** Where controllers' motion comes from here: WebHID, the app, or nowhere. */
+export function motionSource(): 'webhid' | 'app' | null {
+  if (isDesktop) return 'app'
+  return hidAvailable() ? 'webhid' : null
+}
+
 function hid(): Hid | null {
   return hidAvailable() ? ((navigator as unknown as { hid: Hid }).hid ?? null) : null
 }
@@ -58,7 +85,20 @@ const key = (vendor: number, product: number) =>
 export function motionFor(gamepad: Gamepad, now: number): Motion | null {
   const ids = vendorProduct(gamepad.id)
   const found = ids ? readings.get(`${ids.vendor}:${ids.product}`) : undefined
-  return found && now - found.at < FRESH_MS ? found : null
+  if (found) return now - found.at < FRESH_MS ? found : null
+  // WebKit, in the Mac app, names a controller without its vendor and product: the only
+  // fresh reading of the same maker is taken, never a guess between two.
+  const vendor = FAMILY_VENDORS[familyOf(gamepad.id)]
+  if (ids || vendor === undefined) return null
+  const same = [...readings.entries()].filter(
+    ([id, reading]) => id.startsWith(`${vendor}:`) && now - reading.at < FRESH_MS,
+  )
+  return same.length === 1 ? (same[0]?.[1] ?? null) : null
+}
+
+const FAMILY_VENDORS: Partial<Record<Family, string>> = {
+  playstation: key(SONY, 0).slice(0, 4),
+  nintendo: key(NINTENDO, 0).slice(0, 4),
 }
 
 export function phoneMotion(now: number): Motion | null {
@@ -92,28 +132,38 @@ async function listen(device: HidDevice): Promise<void> {
 }
 
 function onReport({ device, reportId, data }: HidReport) {
-  const motion = parse(device, reportId, data)
+  addReport(device.vendorId, device.productId, reportId, data)
+}
+
+/** A controller's input report, from WebHID or from the app. */
+export function addReport(vendorId: number, productId: number, reportId: number, data: DataView) {
+  const motion = parse(vendorId, productId, reportId, data)
   if (!motion) return
-  readings.set(key(device.vendorId, device.productId), motion)
+  readings.set(key(vendorId, productId), motion)
   for (const listener of listeners) listener()
 }
 
-function parse(device: HidDevice, reportId: number, data: DataView): Motion | null {
+function parse(
+  vendorId: number,
+  productId: number,
+  reportId: number,
+  data: DataView,
+): Motion | null {
   const at = performance.now()
   const triple = (offset: number, scale: number): [number, number, number] => [
     data.getInt16(offset, true) * scale,
     data.getInt16(offset + 2, true) * scale,
     data.getInt16(offset + 4, true) * scale,
   ]
-  if (device.vendorId === SONY) {
+  if (vendorId === SONY) {
     // Offsets after the report id: USB report 1, Bluetooth report 0x11 (DS4) or 0x31.
-    const dualSense = DUALSENSE.has(device.productId)
+    const dualSense = DUALSENSE.has(productId)
     const base = dualSense ? 15 : 12
     const shift = reportId === 0x01 ? 0 : dualSense ? 1 : 2
     if (data.byteLength < base + shift + 12) return null
     return { gyro: triple(base + shift, 1), accel: triple(base + shift + 6, 1), at }
   }
-  if (device.vendorId === NINTENDO && reportId === 0x30 && data.byteLength >= 24) {
+  if (vendorId === NINTENDO && reportId === 0x30 && data.byteLength >= 24) {
     // Full mode: accelerometer then gyroscope, three samples; the first is enough.
     return { accel: triple(12, 2), gyro: triple(18, 1.15), at }
   }

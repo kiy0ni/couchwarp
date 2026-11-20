@@ -304,8 +304,8 @@ const fr: Strings = {
     motionConnected: (names: string) => `Connectées : ${names}.`,
     motionUnsupported:
       'Ce navigateur ne lit pas le gyroscope des manettes. Pour t’en servir, rejoins depuis Chrome ou Edge.',
-    motionUnsupportedApp:
-      'L’appli ne lit pas encore le gyroscope des manettes. Pour t’en servir comme invité, rejoins la partie depuis Chrome ou Edge : tout le reste de ta manette marche ici.',
+    motionApp:
+      'Branche une manette PlayStation ou Switch, en USB ou en Bluetooth : l’appli lit son gyroscope toute seule. Il faut un hôte Windows, et le type PlayStation dans le menu.',
     motionConnect: 'Connecter une manette',
     motionFailed: 'La manette n’a pas pu être connectée.',
     motionLive: (gyro: string) => `Gyroscope : ${gyro} degrés par seconde`,
@@ -1080,8 +1080,8 @@ const en = {
     motionConnected: (names: string) => `Connected: ${names}.`,
     motionUnsupported:
       'This browser cannot read controller gyroscopes. To use one, join from Chrome or Edge.',
-    motionUnsupportedApp:
-      'The app cannot read controller gyroscopes yet. To use one as a guest, join the game from Chrome or Edge: everything else on your controller works here.',
+    motionApp:
+      'Plug in a PlayStation or Switch controller, over USB or Bluetooth: the app reads its gyroscope on its own. It takes a Windows host, and the PlayStation type in the menu.',
     motionConnect: 'Connect a controller',
     motionFailed: 'The controller could not be connected.',
     motionLive: (gyro: string) => `Gyroscope: ${gyro} degrees per second`,

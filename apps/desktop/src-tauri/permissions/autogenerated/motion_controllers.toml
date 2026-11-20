@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-motion-controllers"
+description = "Enables the motion_controllers command without any pre-configured scope."
+commands.allow = ["motion_controllers"]
+
+[[permission]]
+identifier = "deny-motion-controllers"
+description = "Denies the motion_controllers command without any pre-configured scope."
+commands.deny = ["motion_controllers"]

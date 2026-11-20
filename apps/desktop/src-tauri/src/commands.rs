@@ -105,6 +105,19 @@ pub fn input_allowed() -> bool {
     couchwarp_host::platform::input_allowed()
 }
 
+/// Sends the page every PlayStation and Switch controller's input reports, for their
+/// motion sensors: the app's web view cannot read them itself.
+#[tauri::command]
+pub fn watch_controllers(on_report: Channel<crate::motion::Report>) {
+    crate::motion::watch(on_report);
+}
+
+/// The controllers whose motion the app reads now.
+#[tauri::command]
+pub fn motion_controllers() -> Vec<String> {
+    crate::motion::controllers()
+}
+
 /// Whether guests' controllers can play into games on this computer.
 #[tauri::command]
 pub async fn controller_support() -> Result<crate::controllers::Support, String> {

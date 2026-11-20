@@ -10,8 +10,9 @@ import { ReportDialog, type ReportTarget } from '../components/ReportDialog'
 import { TouchPad } from '../components/TouchPad'
 import { t } from '../i18n'
 import { placeMenu } from '../lib/bubble-menu'
+import { isDesktop } from '../lib/desktop'
 import { latencyQuality } from '../lib/latency'
-import { startPhoneMotion, stopPhoneMotion } from '../lib/motion'
+import { startNativeMotion, startPhoneMotion, stopPhoneMotion } from '../lib/motion'
 import type { PadState } from '../lib/pad-state'
 import { preferences, usePreferences } from '../lib/preferences'
 import type { EndReason } from '../lib/session'
@@ -148,6 +149,10 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
     onShortcut,
   })
   const notices = useChatNotices(stream.chat, chatOpen, me?.id ?? null)
+  // In the app, controllers' gyroscopes are read by the app itself.
+  useEffect(() => {
+    if (isDesktop) startNativeMotion().catch(console.error)
+  }, [])
   // The phone's gyroscope, while its touch controller plays.
   useEffect(() => {
     if (!showTouch || !prefs.phoneMotion) return

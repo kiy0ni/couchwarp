@@ -11,6 +11,7 @@ mod bubble;
 mod commands;
 mod controllers;
 mod hosting;
+mod motion;
 mod updates;
 
 use tauri::utils::config::FrontendDist;
@@ -71,6 +72,8 @@ fn main() {
             commands::save_session,
             commands::input_allowed,
             commands::restart_app,
+            commands::watch_controllers,
+            commands::motion_controllers,
             commands::controller_support,
             commands::install_controller_support,
             commands::repair_permission,
