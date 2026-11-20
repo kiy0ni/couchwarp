@@ -10,12 +10,11 @@ const fr: Strings = {
   common: { cancel: 'Annuler' },
   login: {
     welcome: 'Content de te revoir',
-    welcomeLead: 'Connecte-toi pour héberger, retrouver tes amis et tes parties.',
+    welcomeLead: 'Connecte-toi pour rejoindre une partie, héberger et retrouver tes amis.',
     createTitle: 'Créer un compte',
     createLead: 'Il te suit sur l’appli et sur le site. Tes invités, eux, n’en ont pas besoin.',
     appNeedsAccount:
       'L’appli a besoin d’un compte : il garde tes amis et porte ton nom dans tes parties.',
-    guest: 'Rejoindre une partie sans compte',
     artTitle: 'Le canapé, à distance.',
     artLead:
       'Tu partages la fenêtre de ton jeu. Tes amis le rejoignent depuis leur navigateur, avec leur manette.',
@@ -400,15 +399,7 @@ const fr: Strings = {
     dataLead: 'Tout ce que Couchwarp garde sur toi, dans un fichier.',
     title: 'Ton compte',
     loading: 'Chargement du compte…',
-    signIn: 'Se connecter',
-    signInTitle: 'Se connecter',
-    signInLead:
-      'Un compte garde tes amis et ton historique, et permet d’héberger en public. Il reste facultatif pour jouer.',
     continueWith: (provider: string) => `Continuer avec ${provider}`,
-    legal:
-      'En te connectant, tu acceptes les conditions d’utilisation. Couchwarp ne garde que ton pseudo, ton avatar et les comptes que tu lies.',
-    ageTitle: 'Une dernière question',
-    ageLead: 'Couchwarp est réservé aux personnes de 13 ans ou plus. Quel âge as-tu ?',
     ageYes: 'J’ai 13 ans ou plus',
     ageNo: 'J’ai moins de 13 ans',
     linkedTitle: 'Comptes liés',
@@ -595,7 +586,6 @@ const fr: Strings = {
       failed: 'La demande n’est pas partie. Réessaie.',
     },
     title: 'Amis',
-    signedOut: 'Connecte-toi pour retrouver tes amis et voir à quoi ils jouent.',
     empty:
       'Pas encore d’amis. Ajoute-les avec leur tag, ou depuis la liste des joueurs d’une partie.',
     incomingTitle: 'Demandes reçues',
@@ -787,12 +777,11 @@ const en = {
   common: { cancel: 'Cancel' },
   login: {
     welcome: 'Good to see you again',
-    welcomeLead: 'Sign in to host, and to find your friends and your games.',
+    welcomeLead: 'Sign in to join a game, host one and find your friends.',
     createTitle: 'Create an account',
     createLead: 'It follows you on the app and on the site. Your guests do not need one.',
     appNeedsAccount:
       'The app needs an account: it keeps your friends and puts your name on your games.',
-    guest: 'Join a game without an account',
     artTitle: 'The couch, at a distance.',
     artLead:
       'You share your game’s window. Your friends join from their browser, with their controller.',
@@ -1173,15 +1162,7 @@ const en = {
     dataLead: 'Everything Couchwarp keeps about you, in one file.',
     title: 'Your account',
     loading: 'Loading your account…',
-    signIn: 'Sign in',
-    signInTitle: 'Sign in',
-    signInLead:
-      'An account keeps your friends and history, and lets you host in public. You can always play without one.',
     continueWith: (provider: string) => `Continue with ${provider}`,
-    legal:
-      'By signing in you accept the terms of use. Couchwarp only keeps your name, your avatar and the accounts you link.',
-    ageTitle: 'One last question',
-    ageLead: 'Couchwarp is for people aged 13 or over. How old are you?',
     ageYes: 'I am 13 or over',
     ageNo: 'I am under 13',
     linkedTitle: 'Linked accounts',
@@ -1366,7 +1347,6 @@ const en = {
       failed: 'The request did not go through. Try again.',
     },
     title: 'Friends',
-    signedOut: 'Sign in to find your friends and see what they play.',
     empty: 'No friends yet. Add them with their tag, or from a game’s player list.',
     incomingTitle: 'Requests received',
     outgoingTitle: 'Requests sent',

@@ -10,7 +10,7 @@ import { PlayerBadge } from '../components/PlayerBadge'
 import { RoomCard } from '../components/RoomCard'
 import { Shell } from '../components/Shell'
 import { t } from '../i18n'
-import { signInPath, useAccount } from '../lib/account'
+import { useAccount } from '../lib/account'
 import { desktop, type HostingState, isDesktop } from '../lib/desktop'
 import { fetchRooms, type RoomCard as Room } from '../lib/directory'
 import { type Friend, fetchFriends } from '../lib/friends'
@@ -198,14 +198,7 @@ function FriendsPlaying() {
         )
       }
     >
-      {account === null ? (
-        <div className="card card--row">
-          <p className="card__text">{t.friends.signedOut}</p>
-          <Link to={signInPath()} className="button button--secondary">
-            {t.account.signIn}
-          </Link>
-        </div>
-      ) : friends !== null && playing.length === 0 ? (
+      {friends !== null && playing.length === 0 ? (
         <p className="muted">{friends.length === 0 ? t.friends.empty : t.home.nobodyPlaying}</p>
       ) : (
         <ul className="friend-cards">

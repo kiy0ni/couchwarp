@@ -55,11 +55,12 @@ export function App() {
   if (path === '/bubble' && isDesktop) return <HostBubble />
   if (path === '/terms') return <Legal page="terms" />
   if (path === '/privacy') return <Legal page="privacy" />
-  // The app opens on the sign-in page; a browser lets guests play without an account.
-  if (isDesktop && account === undefined) return <div className="splash" aria-busy="true" />
-  if (isDesktop && account === null) return <Login mode={loginMode ?? 'signin'} />
+  // Everything else needs an account: the sign-in page stands in front, at the address
+  // asked for, which shows once signed in (a game's link included).
+  if (account === undefined) return <div className="splash" aria-busy="true" />
+  if (account === null) return <Login mode={loginMode ?? 'signin'} />
   // A new account made with Discord or Google answers the age question once.
-  if (account && !account.ageConfirmed && !code) return <Login mode="signin" />
+  if (!account.ageConfirmed) return <Login mode="signin" />
   if (loginMode) return <Login mode={loginMode} />
 
   // Addresses of earlier versions are already rewritten by `usePath`.

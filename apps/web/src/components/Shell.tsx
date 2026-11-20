@@ -1,7 +1,7 @@
 import { isRoomCode, normalizeRoomCode } from '@couchwarp/protocol'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { t } from '../i18n'
-import { type Account, signInPath, useAccount } from '../lib/account'
+import { type Account, useAccount } from '../lib/account'
 import { isDesktop, system } from '../lib/desktop'
 import { fetchFriends } from '../lib/friends'
 import { useGamepadNavigation } from '../lib/gamepad-nav'
@@ -193,14 +193,8 @@ export function codeFrom(text: string): string | null {
 }
 
 function AccountButton({ account }: { account: Account | null | undefined }) {
-  if (account === undefined) return <span className="account-button" aria-hidden="true" />
-  if (account === null) {
-    return (
-      <Link to={signInPath()} className="button button--secondary button--small">
-        {t.account.signIn}
-      </Link>
-    )
-  }
+  // The pages behind the sign-in screen always have an account; only while it loads not.
+  if (!account) return <span className="account-button" aria-hidden="true" />
   return (
     <Link to="/settings/account" className="account-button" title={t.account.title}>
       <Avatar name={account.displayName} url={account.avatarUrl} />

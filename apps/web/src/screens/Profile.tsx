@@ -5,7 +5,7 @@ import { Link } from '../components/Link'
 import { Page, Section } from '../components/Page'
 import { Shell } from '../components/Shell'
 import { lang, t } from '../i18n'
-import { signInPath, useAccount } from '../lib/account'
+import { useAccount } from '../lib/account'
 import { askFriend, fullTag } from '../lib/friends'
 import { type Badge, fetchProfile, type PublicProfile } from '../lib/profile'
 import { navigate } from '../lib/router'
@@ -50,7 +50,7 @@ export function Profile({ userId }: { userId: string }) {
           <p className="muted">{t.profilePage.since(since.format(profile.memberSince))}</p>
           <div className="actions">
             {self ? (
-              <Link to={signInPath()} className="button button--secondary">
+              <Link to="/settings/account" className="button button--secondary">
                 {t.profilePage.edit}
               </Link>
             ) : (
