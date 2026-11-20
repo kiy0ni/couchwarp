@@ -62,8 +62,8 @@ impl Thumbnails {
         self.send(jpeg(&rgb, width, height));
     }
 
-    /// Takes a picture from a BGRA frame with packed rows, as Windows captures.
-    #[cfg(any(windows, test))]
+    /// Takes a picture from a BGRA frame with packed rows, as Windows and X11 capture.
+    #[cfg(any(windows, target_os = "linux", test))]
     pub fn send_bgra(&self, bgra: &[u8], width: usize, height: usize) {
         self.send(picture_from_bgra(bgra, width, height));
     }

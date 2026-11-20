@@ -1,4 +1,5 @@
-//! USB HID usages (keyboard page) to PC set 1 scancodes, the codes Windows games read.
+//! USB HID usages (keyboard page) to PC set 1 scancodes, the codes Windows games read,
+//! and to Linux key codes, which follow set 1 except for the extended keys.
 
 /// A scancode, and whether it needs the `0xE0` extended prefix.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,6 +87,36 @@ pub fn scancode(usage: u8) -> Option<Scancode> {
     }
 }
 
+/// The Linux key code (`KEY_*` in `input-event-codes.h`) for a HID usage. Plain set 1
+/// scancodes are the Linux codes themselves; extended ones have codes of their own.
+#[cfg(any(target_os = "linux", test))]
+pub fn linux_keycode(usage: u8) -> Option<u16> {
+    let key = scancode(usage)?;
+    if !key.extended {
+        return Some(key.code);
+    }
+    Some(match key.code {
+        0x1c => 96,  // KEY_KPENTER
+        0x1d => 97,  // KEY_RIGHTCTRL
+        0x35 => 98,  // KEY_KPSLASH
+        0x38 => 100, // KEY_RIGHTALT
+        0x47 => 102, // KEY_HOME
+        0x48 => 103, // KEY_UP
+        0x49 => 104, // KEY_PAGEUP
+        0x4b => 105, // KEY_LEFT
+        0x4d => 106, // KEY_RIGHT
+        0x4f => 107, // KEY_END
+        0x50 => 108, // KEY_DOWN
+        0x51 => 109, // KEY_PAGEDOWN
+        0x52 => 110, // KEY_INSERT
+        0x53 => 111, // KEY_DELETE
+        0x5b => 125, // KEY_LEFTMETA
+        0x5c => 126, // KEY_RIGHTMETA
+        0x5d => 127, // KEY_COMPOSE
+        _ => return None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -104,5 +135,27 @@ mod tests {
         assert_eq!(scancode(0x5c), plain(0x4b)); // Keypad 4
         assert_eq!(scancode(0xe6), extended(0x38)); // Right Alt
         assert_eq!(scancode(0x46), None); // Print Screen is never sent
+    }
+
+    #[test]
+    fn maps_keys_to_linux_codes() {
+        // Reference: linux/input-event-codes.h.
+        assert_eq!(linux_keycode(0x04), Some(30)); // KEY_A
+        assert_eq!(linux_keycode(0x29), Some(1)); // KEY_ESC
+        assert_eq!(linux_keycode(0x45), Some(88)); // KEY_F12
+        assert_eq!(linux_keycode(0x5c), Some(75)); // KEY_KP4
+        assert_eq!(linux_keycode(0x52), Some(103)); // KEY_UP
+        assert_eq!(linux_keycode(0x58), Some(96)); // KEY_KPENTER
+        assert_eq!(linux_keycode(0xe4), Some(97)); // KEY_RIGHTCTRL
+        assert_eq!(linux_keycode(0xe3), Some(125)); // KEY_LEFTMETA
+        assert_eq!(linux_keycode(0x46), None);
+        // Every key Windows can type, Linux can type too.
+        for usage in 0..=u8::MAX {
+            assert_eq!(
+                scancode(usage).is_some(),
+                linux_keycode(usage).is_some(),
+                "{usage:#x}"
+            );
+        }
     }
 }

@@ -2,7 +2,7 @@
 //! encoders land), VIIPER virtual controllers, SendInput for keys, WASAPI for sound.
 
 pub mod capture;
-pub mod encoder;
+pub use super::openh264 as encoder;
 mod keyboard;
 mod mouse;
 mod pads;
