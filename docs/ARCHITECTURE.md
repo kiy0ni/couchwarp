@@ -17,7 +17,7 @@
 
 Le serveur de salons ne voit passer que la négociation (offres SDP, candidats ICE). L'image, les manettes et le clavier vont directement de l'invité à l'hôte.
 
-## L'application pour Mac et Windows
+## L'application pour Mac, Windows et Linux
 
 `apps/desktop` est une application Tauri. Sa fenêtre affiche le site lui-même (en ligne, ou `localhost:5173` en développement) : les pages sont les mêmes que dans un navigateur, et une seule mise en ligne les met à jour partout. Ce que le navigateur ne sait pas faire passe par des commandes Rust, que seules les pages du site peuvent appeler (`capabilities/site.json`) :
 
@@ -59,17 +59,17 @@ L'hôte applique ce qu'il reçoit dans son routeur d'entrées : un spectateur n'
 
 Le dossier `crates/host/src/platform` contient un module par système, qui exposent les mêmes noms. Le reste de l'hôte ne sait pas sur quel système il tourne.
 
-|                       | macOS                                                  | Windows                                                                  |
-| --------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ |
-| Capture de la fenêtre | ScreenCaptureKit, NV12, mise à l'échelle               | Windows Graphics Capture, BGRA, taille de la fenêtre, sans bordure jaune |
-| Encodage H.264        | VideoToolbox matériel, contrôle de débit basse latence | OpenH264 logiciel (le matériel viendra par Media Foundation)             |
-| Son                   | ScreenCaptureKit, application de la fenêtre            | WASAPI process loopback, jeu et processus enfants                        |
-| Clavier               | CGEvent envoyé au seul processus du jeu                | SendInput par scancodes                                                  |
-| Manettes              | impossibles (aucune manette virtuelle autorisée)       | VIIPER, une manette Xbox 360 virtuelle par place                         |
-| Premier plan          | liste des fenêtres à l'écran                           | `GetForegroundWindow`                                                    |
-| Cryptographie WebRTC  | aws-lc                                                 | CNG de Windows                                                           |
+|                       | macOS                                                  | Windows                                                                  | Linux                                                                |
+| --------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| Capture de la fenêtre | ScreenCaptureKit, NV12, mise à l'échelle               | Windows Graphics Capture, BGRA, taille de la fenêtre, sans bordure jaune | X11 (`GetImage`, x11rb), BGRA ; XWayland sous Wayland                |
+| Encodage H.264        | VideoToolbox matériel, contrôle de débit basse latence | OpenH264 logiciel (le matériel viendra par Media Foundation)             | OpenH264 logiciel, le même que sous Windows (`platform/openh264.rs`) |
+| Son                   | ScreenCaptureKit, application de la fenêtre            | WASAPI process loopback, jeu et processus enfants                        | `parec --monitor-stream`, flux du jeu et de ses processus enfants    |
+| Clavier et souris     | CGEvent envoyé au seul processus du jeu                | SendInput par scancodes                                                  | un clavier-souris virtuel `uinput`                                   |
+| Manettes              | impossibles (aucune manette virtuelle autorisée)       | VIIPER, une manette Xbox 360 virtuelle par place                         | `uinput`, une manette Xbox 360 par place, comme le pilote `xpad`     |
+| Premier plan          | liste des fenêtres à l'écran                           | `GetForegroundWindow`                                                    | `_NET_ACTIVE_WINDOW` et `_NET_WM_PID`                                |
+| Cryptographie WebRTC  | aws-lc                                                 | CNG de Windows                                                           | aws-lc                                                               |
 
-Les tables de traduction (touche HID vers code de touche Mac, vers scancode PC, état de manette vers rapport Xbox) sont des fonctions pures, testées sur tous les systèmes.
+Les tables de traduction (touche HID vers code de touche Mac, vers scancode PC, vers code Linux, état de manette vers rapport Xbox ou événements Linux) et la lecture de `pactl` sont des fonctions pures, testées sur tous les systèmes. La capture Linux a en plus un test qui ouvre une fenêtre sur un serveur X virtuel (Xvfb) en intégration continue.
 
 ## Le parcours d'une image
 
@@ -103,7 +103,9 @@ Mesuré en local : image toujours à 24 ms en médiane avec le son actif (le nav
 
 ## La souris
 
-Le paquet souris porte le mouvement relatif depuis le paquet précédent, la molette, et l'état complet des boutons. Le routeur ne le laisse passer que si l'hôte a autorisé la souris de l'invité et que le jeu est au premier plan. Les boutons de tous les invités sont réunis, comme les touches. Sur Mac, les événements sont postés au seul processus du jeu, avec un pointeur virtuel gardé dans sa fenêtre. Sous Windows, SendInput déplace le vrai curseur : il est confiné à la fenêtre du jeu (`ClipCursor`) et libéré dès que le jeu passe derrière.
+Le paquet souris porte le mouvement relatif depuis le paquet précédent, la molette, et l'état complet des boutons. Le routeur ne le laisse passer que si l'hôte a autorisé la souris de l'invité et que le jeu est au premier plan. Les boutons de tous les invités sont réunis, comme les touches. Sur Mac, les événements sont postés au seul processus du jeu, avec un pointeur virtuel gardé dans sa fenêtre. Sous Windows, SendInput déplace le vrai curseur : il est confiné à la fenêtre du jeu (`ClipCursor`) et libéré dès que le jeu passe derrière. Sous Linux, la souris virtuelle `uinput` déplace aussi le vrai curseur, sans confinement pour l'instant ; ses boutons sont relâchés dès que le jeu passe derrière.
+
+La pastille de l'invité ouvre son menu juste à côté d'elle : vers le bas si elle est dans la moitié haute de l'écran, vers le haut sinon, centré sur elle sans dépasser les bords (`apps/web/src/lib/bubble-menu.ts`). Celle de l'hôte, une petite fenêtre au-dessus du jeu, fait de même à l'échelle de l'écran (`apps/desktop/src-tauri/src/bubble.rs`) et remet la pastille dans le coin d'où le panneau s'est ouvert.
 
 ## La qualité qui s'adapte
 
@@ -136,8 +138,7 @@ Le protocole existe en Rust (`crates/protocol`) et en TypeScript (`packages/prot
 
 ## Prochaines étapes
 
-- Premier test de l'hôte Windows sur un vrai PC, avec VIIPER, la souris et la manette PlayStation.
-- Encodeurs matériels sous Windows (NVENC, AMF, Quick Sync).
+- Premier test de l'hôte Windows sur un vrai PC, avec VIIPER, la souris et la manette PlayStation ; premier test de l'hôte Linux sur un vrai bureau.
+- Encodeurs matériels sous Windows (NVENC, AMF, Quick Sync) et Linux (VA-API) ; capture Linux par mémoire partagée (MIT-SHM) ou par le portail de partage d'écran pour les fenêtres Wayland natives.
 - Signature des applications (certificat Apple, certificat Windows) pour éviter les avertissements à l'installation.
-- Mise à jour automatique de l'application (le site, lui, est toujours à jour).
 - Mesure de latence entre deux réseaux différents, avec relai TURN, une fois le site en ligne.

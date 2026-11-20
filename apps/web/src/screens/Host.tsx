@@ -23,22 +23,43 @@ export function Host() {
 interface Downloads {
   mac: string | null
   windows: string | null
+  /** The AppImage, which updates itself; the `.deb` package beside it. */
+  linux: string | null
+  linuxDeb: string | null
 }
+
+const NO_DOWNLOADS: Downloads = { mac: null, windows: null, linux: null, linuxDeb: null }
 
 function GetTheApp() {
   const [downloads, setDownloads] = useState<Downloads | null>(null)
   useEffect(() => {
     fetch('/api/downloads')
-      .then((response) => response.json() as Promise<Downloads>)
-      .then(setDownloads)
-      .catch(() => setDownloads({ mac: null, windows: null }))
+      .then((response) => response.json() as Promise<Partial<Downloads>>)
+      .then((found) => setDownloads({ ...NO_DOWNLOADS, ...found }))
+      .catch(() => setDownloads(NO_DOWNLOADS))
   }, [])
   const platforms = [
-    { id: 'mac', name: 'macOS', note: t.host.macNote, url: downloads?.mac ?? null },
-    { id: 'windows', name: 'Windows', note: t.host.windowsNote, url: downloads?.windows ?? null },
-  ] as const
+    { id: 'mac', name: 'macOS', note: t.host.macNote, url: downloads?.mac ?? null, extra: null },
+    {
+      id: 'windows',
+      name: 'Windows',
+      note: t.host.windowsNote,
+      url: downloads?.windows ?? null,
+      extra: null,
+    },
+    {
+      id: 'linux',
+      name: 'Linux',
+      note: t.host.linuxNote,
+      url: downloads?.linux ?? null,
+      extra: downloads?.linuxDeb ? { label: t.host.debPackage, url: downloads.linuxDeb } : null,
+    },
+  ]
   // The visitor's own system first.
-  const ordered = system === 'windows' ? [...platforms].reverse() : platforms
+  const ordered = [
+    ...platforms.filter((platform) => platform.id === system),
+    ...platforms.filter((platform) => platform.id !== system),
+  ]
   return (
     <Page title={t.host.title} lead={t.host.webLead} width="narrow">
       <ol className="steps">
@@ -66,6 +87,11 @@ function GetTheApp() {
               </a>
             ) : (
               <p className="muted">{downloads ? t.host.soon : t.host.checking}</p>
+            )}
+            {platform.extra && (
+              <a className="link-button" href={platform.extra.url}>
+                {platform.extra.label}
+              </a>
             )}
           </section>
         ))}
@@ -458,16 +484,16 @@ function Live({ state }: { state: Extract<HostingState, { state: 'live' }> }) {
       </div>
       {!inputAllowed && (
         <div className="notice" data-tone="warning">
-          <p>{t.host.inputPermission}</p>
+          <p>{system === 'linux' ? t.host.inputPermissionLinux : t.host.inputPermission}</p>
           <button
             type="button"
             className="button button--small button--secondary"
             onClick={() => {
-              desktop.openPrivacySettings('input').catch(console.error)
+              if (system === 'mac') desktop.openPrivacySettings('input').catch(console.error)
               desktop.inputAllowed().then(setInputAllowed).catch(console.error)
             }}
           >
-            {t.host.openSettings}
+            {system === 'mac' ? t.host.openSettings : t.host.checkAgain}
           </button>
         </div>
       )}

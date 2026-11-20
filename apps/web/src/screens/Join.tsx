@@ -44,8 +44,17 @@ function saveName(name: string): void {
 function useVideoSupport(): VideoSupport {
   const [support, setSupport] = useState<VideoSupport>('checking')
   useEffect(() => {
-    navigator.mediaCapabilities
-      .decodingInfo({ type: 'webrtc', video: STREAM_FORMAT })
+    // Older browsers have no Media Capabilities API, or no `webrtc` type in it: the
+    // stream still plays, just without the hint.
+    const check = navigator.mediaCapabilities?.decodingInfo({
+      type: 'webrtc',
+      video: STREAM_FORMAT,
+    })
+    if (!check) {
+      setSupport('software')
+      return
+    }
+    check
       .then((info) => setSupport(info.powerEfficient ? 'hardware' : 'software'))
       .catch(() => setSupport('software'))
   }, [])

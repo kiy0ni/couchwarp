@@ -11,11 +11,13 @@ import { listen } from '@tauri-apps/api/event'
 export const isDesktop = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
 /** Which system the visitor is on, to offer the right download and draw the right window. */
-export const system: 'mac' | 'windows' | 'other' = /Mac/.test(navigator.userAgent)
+export const system: 'mac' | 'windows' | 'linux' | 'other' = /Mac/.test(navigator.userAgent)
   ? 'mac'
   : /Windows/.test(navigator.userAgent)
     ? 'windows'
-    : 'other'
+    : /Linux/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent)
+      ? 'linux'
+      : 'other'
 
 export interface WindowInfo {
   id: string

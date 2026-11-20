@@ -9,6 +9,7 @@ import { PlayerBadge } from '../components/PlayerBadge'
 import { ReportDialog, type ReportTarget } from '../components/ReportDialog'
 import { TouchPad } from '../components/TouchPad'
 import { t } from '../i18n'
+import { placeMenu } from '../lib/bubble-menu'
 import { latencyQuality } from '../lib/latency'
 import { startPhoneMotion, stopPhoneMotion } from '../lib/motion'
 import type { PadState } from '../lib/pad-state'
@@ -99,7 +100,20 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
 
   const mouseAllowed = playing && (me?.mouse ?? false)
   const [pointerLocked, setPointerLocked] = useState(false)
-  const openMenu = useCallback(() => menu.current?.showModal(), [])
+  /** From the bubble, the menu unfolds next to it; from a shortcut, it opens centred. */
+  const openMenu = useCallback((bubble?: DOMRect) => {
+    const dialog = menu.current
+    if (!dialog) return
+    delete dialog.dataset.direction
+    dialog.showModal()
+    if (!bubble) return
+    const screen = { width: window.innerWidth, height: window.innerHeight }
+    const place = placeMenu(bubble, screen, dialog.offsetWidth)
+    dialog.style.setProperty('--menu-left', `${place.left}px`)
+    dialog.style.setProperty('--menu-offset', `${place.offset}px`)
+    dialog.style.setProperty('--menu-room', `${place.maxHeight}px`)
+    dialog.dataset.direction = place.direction
+  }, [])
   const openChat = useCallback(() => {
     chatDialog.current?.showModal()
     setChatOpen(true)

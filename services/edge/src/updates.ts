@@ -103,18 +103,27 @@ async function manifest(env: Env, origin: string, now: number): Promise<Manifest
   return { ...original, platforms }
 }
 
+export interface Downloads {
+  mac: string | null
+  windows: string | null
+  /** The AppImage, which updates itself, and the `.deb` package for Debian and Ubuntu. */
+  linux: string | null
+  linuxDeb: string | null
+}
+
 /** Installer links for the Host page, from the latest release, or null when it has none. */
-export async function releaseDownloads(
-  env: Env,
-  origin: string,
-  now: number,
-): Promise<{ mac: string | null; windows: string | null }> {
+export async function releaseDownloads(env: Env, origin: string, now: number): Promise<Downloads> {
   const release = await latestRelease(env, now)
   const find = (suffix: string) => {
     const asset = release?.assets.find((candidate) => candidate.name.endsWith(suffix))
     return asset ? assetLink(origin, asset) : null
   }
-  return { mac: find('.dmg'), windows: find('-setup.exe') }
+  return {
+    mac: find('.dmg'),
+    windows: find('-setup.exe'),
+    linux: find('.AppImage'),
+    linuxDeb: find('.deb'),
+  }
 }
 
 export async function handleUpdates(

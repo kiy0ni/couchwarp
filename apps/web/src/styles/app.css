@@ -351,6 +351,22 @@
   background: color-mix(in oklab, var(--color-shade) 70%, transparent);
 }
 
+/* Opened from the bubble: next to it, below or above (see lib/bubble-menu.ts). */
+.menu[data-direction] {
+  inset: auto;
+  margin: 0;
+  left: var(--menu-left);
+  max-height: min(var(--menu-room), 40rem);
+}
+
+.menu[data-direction="down"] {
+  top: var(--menu-offset);
+}
+
+.menu[data-direction="up"] {
+  bottom: var(--menu-offset);
+}
+
 .menu__title {
   font-size: var(--text-lg);
 }

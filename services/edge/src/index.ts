@@ -14,7 +14,8 @@
  * - `/api/admin/*`: report handling, for admins only.
  * - `GET /api/games/lookup?q=`: a known game's title and cover, see `games.ts`.
  * - `GET /api/config`: what this server offers, `{ publicRooms, relay }`.
- * - `GET /api/downloads`: where to get the desktop app, `{ mac, windows }`, null without one.
+ * - `GET /api/downloads`: where to get the desktop app, `{ mac, windows, linux, linuxDeb }`,
+ *   null without one.
  * - `/api/updates/*`: the desktop app's update manifest and files, see `updates.ts`.
  *
  * A daily cron trigger runs `cleanUp`.
@@ -65,6 +66,7 @@ export default {
     if (url.pathname === '/api/downloads') {
       const release = await releaseDownloads(env, siteOrigin(request, env), Date.now())
       return json({
+        ...release,
         mac: env.DOWNLOAD_MAC_URL ?? release.mac,
         windows: env.DOWNLOAD_WINDOWS_URL ?? release.windows,
       })

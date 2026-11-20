@@ -213,7 +213,9 @@ function roomSocketUrl(code: string, name: string): string {
  * decodes in hardware. Retransmission codecs (RTX) are kept for lost packets.
  */
 function preferBaselineH264(transceiver: RTCRtpTransceiver): void {
-  const codecs = RTCRtpReceiver.getCapabilities('video')?.codecs ?? []
+  // Older Firefox and Safari cannot choose codecs; they negotiate H.264 on their own.
+  if (typeof transceiver.setCodecPreferences !== 'function') return
+  const codecs = RTCRtpReceiver.getCapabilities?.('video')?.codecs ?? []
   const baseline = codecs.filter(
     (codec) =>
       codec.mimeType === 'video/H264' &&

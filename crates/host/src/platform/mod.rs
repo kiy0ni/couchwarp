@@ -11,7 +11,14 @@ mod windows;
 #[cfg(windows)]
 pub use windows::*;
 
-#[cfg(not(any(target_os = "macos", windows)))]
-compile_error!(
-    "the host runs on macOS and Windows; Linux is on the roadmap (docs/ARCHITECTURE.md)"
-);
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "linux")]
+pub use linux::*;
+
+/// The software encoder Windows and Linux share, as `platform::encoder` there.
+#[cfg(any(windows, target_os = "linux"))]
+pub mod openh264;
+
+#[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
+compile_error!("the host runs on macOS, Windows and Linux");

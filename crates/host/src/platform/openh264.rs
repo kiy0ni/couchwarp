@@ -1,5 +1,5 @@
-//! H.264 for the Windows host: OpenH264 in software for now. The hardware encoders
-//! (NVENC, AMF, Quick Sync through Media Foundation) are the next step.
+//! H.264 for the Windows and Linux hosts: OpenH264 in software for now. The hardware
+//! encoders (NVENC, AMF, Quick Sync; VA-API on Linux) are the next step.
 
 use std::sync::Mutex;
 use std::time::Instant;

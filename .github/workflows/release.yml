@@ -1,8 +1,10 @@
 name: Release
 
-# Builds the desktop app for Mac and Windows when a version tag (v1.2.3) is pushed, and
-# publishes a GitHub release with the installers, the update files and `latest.json`, the
-# manifest installed apps read (through the room server, see services/edge/src/updates.ts).
+# Builds the desktop app for Mac, Windows and Linux when a version tag (v1.2.3) is pushed,
+# and publishes a GitHub release with the installers, the update files and `latest.json`,
+# the manifest installed apps read (through the room server, see
+# services/edge/src/updates.ts). On Linux, the AppImage updates itself; the .deb is updated
+# by installing the next one.
 #
 # Secrets:
 # - TAURI_SIGNING_PRIVATE_KEY: the updater key, made with `pnpm tauri signer generate`.
@@ -29,9 +31,16 @@ jobs:
           - name: macOS
             os: macos-latest
             target: aarch64-apple-darwin
+            bundles: app,dmg
           - name: Windows
             os: windows-latest
             target: x86_64-pc-windows-msvc
+            bundles: nsis
+          # The oldest supported Ubuntu, so the AppImage runs on as many systems as can be.
+          - name: Linux
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: deb,appimage
     runs-on: ${{ matrix.os }}
     env:
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -46,6 +55,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
       - run: pnpm install --frozen-lockfile
 
       - name: Check the tag against the app version
@@ -63,13 +76,13 @@ jobs:
         id: build
         shell: bash
         run: |
-          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "args=--target ${{ matrix.target }}" >> "$GITHUB_OUTPUT"
-          else
+          args="--target ${{ matrix.target }} --bundles ${{ matrix.bundles }}"
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
             echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set: no update files this time"
             echo '{"bundle":{"createUpdaterArtifacts":false}}' > apps/desktop/no-updater.json
-            echo "args=--target ${{ matrix.target }} --config no-updater.json" >> "$GITHUB_OUTPUT"
+            args="$args --config no-updater.json"
           fi
+          echo "args=$args" >> "$GITHUB_OUTPUT"
 
       - uses: tauri-apps/tauri-action@v0
         env:
@@ -83,6 +96,43 @@ jobs:
           releaseBody: Download the installer for your computer below. Installed apps update themselves.
           releaseDraft: false
           prerelease: false
-          includeUpdaterJson: true
+          # Written once every build is in (below): builds running side by side would
+          # each overwrite the others' entries.
+          includeUpdaterJson: false
+
+  manifest:
+    name: Update manifest
+    needs: desktop
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Write latest.json from the signed update files
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.sig' --dir sigs
+          names=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
+          platforms='{}'
+          add() {
+            local file
+            file=$(grep -E "$2" <<<"$names" | head -n1 || true)
+            if [ -z "$file" ] || [ ! -f "sigs/$file.sig" ]; then
+              echo "::warning::no signed update for $1"
+              return
+            fi
+            platforms=$(jq --arg key "$1" --arg sig "$(cat "sigs/$file.sig")" --arg url "$base/$file" \
+              '. + {($key): {signature: $sig, url: $url}}' <<<"$platforms")
+          }
+          add darwin-aarch64 '\.app\.tar\.gz$'
           # Windows updates with the same installer people download.
-          updaterJsonPreferNsis: true
+          add windows-x86_64 '-setup\.exe$'
+          add linux-x86_64 '\.AppImage$'
+          jq -n --arg version "${TAG#v}" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg notes "Couchwarp $TAG" --argjson platforms "$platforms" \
+            '{version: $version, notes: $notes, pub_date: $date, platforms: $platforms}' > latest.json
+          cat latest.json
+          gh release upload "$TAG" latest.json --clobber --repo "$GITHUB_REPOSITORY"
