@@ -139,8 +139,10 @@ fn forward(
         }
         let whole = filled - filled % 4;
         let samples: Vec<f32> = bytes[..whole]
-            .chunks_exact(4)
-            .map(|sample| f32::from_le_bytes([sample[0], sample[1], sample[2], sample[3]]))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|sample| f32::from_le_bytes(*sample))
             .collect();
         bytes.copy_within(whole..filled, 0);
         filled -= whole;

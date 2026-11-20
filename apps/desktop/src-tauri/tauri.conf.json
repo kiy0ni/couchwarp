@@ -27,7 +27,7 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
-    "targets": ["dmg", "app", "nsis"],
+    "targets": ["dmg", "app", "nsis", "deb", "appimage"],
     "category": "Game",
     "shortDescription": "Play your PC games with friends who join from a browser",
     "publisher": "Sacha Pastor",
@@ -47,6 +47,11 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser"
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": ["pulseaudio-utils"]
       }
     }
   }

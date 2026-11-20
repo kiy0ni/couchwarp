@@ -78,7 +78,9 @@ L'application montre le site écrit dans `apps/desktop/src-tauri/tauri.conf.json
 
 1. Monte la version au même numéro dans `apps/desktop/src-tauri/tauri.conf.json`, `apps/desktop/src-tauri/Cargo.toml` et `apps/desktop/package.json`.
 2. Pousse l'étiquette : `git tag v0.1.1 && git push origin v0.1.1`.
-3. GitHub Actions (`.github/workflows/release.yml`) construit l'appli Mac (Apple Silicon) et Windows, puis publie la version GitHub avec le `.dmg`, l'installateur `.exe`, les fichiers de mise à jour signés et `latest.json`. Le travail échoue si l'étiquette ne correspond pas à la version.
+3. GitHub Actions (`.github/workflows/release.yml`) construit l'appli Mac (Apple Silicon), Windows et Linux (x86-64, sur Ubuntu 22.04), puis publie la version GitHub avec le `.dmg`, l'installateur `.exe`, l'`.AppImage`, le `.deb`, les fichiers de mise à jour signés et `latest.json`. Ce manifeste est écrit en dernier, une fois les trois constructions finies, à partir des signatures publiées. Le travail échoue si l'étiquette ne correspond pas à la version.
+
+Sous Linux, l'AppImage se met à jour toute seule ; le `.deb` se met à jour en installant le suivant.
 
 Les applis installées regardent au démarrage puis toutes les 4 heures. Quand une version est sortie, un bouton vert « Mettre à jour » apparaît en haut à droite : un clic télécharge, installe et redémarre.
 

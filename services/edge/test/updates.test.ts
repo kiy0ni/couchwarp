@@ -13,6 +13,9 @@ const RELEASE = {
     { id: 12, name: 'Couchwarp_aarch64.app.tar.gz' },
     { id: 13, name: 'Couchwarp_0.2.0_x64-setup.exe' },
     { id: 14, name: 'Couchwarp_0.2.0_aarch64.dmg' },
+    { id: 15, name: 'Couchwarp_0.2.0_amd64.AppImage' },
+    { id: 16, name: 'Couchwarp_0.2.0_amd64.AppImage.sig' },
+    { id: 17, name: 'Couchwarp_0.2.0_amd64.deb' },
   ],
 }
 
@@ -23,6 +26,7 @@ const MANIFEST = {
   platforms: {
     'darwin-aarch64': { signature: 'sig-mac', url: `${DOWNLOAD}/Couchwarp_aarch64.app.tar.gz` },
     'windows-x86_64': { signature: 'sig-win', url: `${DOWNLOAD}/Couchwarp_0.2.0_x64-setup.exe` },
+    'linux-x86_64': { signature: 'sig-linux', url: `${DOWNLOAD}/Couchwarp_0.2.0_amd64.AppImage` },
   },
 }
 
@@ -64,6 +68,7 @@ describe('desktop app updates', () => {
       url: `${SITE}/api/updates/assets/12`,
     })
     expect(manifest.platforms['windows-x86_64']?.url).toBe(`${SITE}/api/updates/assets/13`)
+    expect(manifest.platforms['linux-x86_64']?.url).toBe(`${SITE}/api/updates/assets/15`)
   })
 
   it('redirect a file of the latest release, and nothing else', async () => {
@@ -84,9 +89,12 @@ describe('desktop app updates', () => {
   it('offer the release installers on the Host page', async () => {
     github()
     const downloads = await (await get('/api/downloads')).json()
+    // The AppImage itself, not its signature beside it.
     expect(downloads).toEqual({
       mac: `${SITE}/api/updates/assets/14`,
       windows: `${SITE}/api/updates/assets/13`,
+      linux: `${SITE}/api/updates/assets/15`,
+      linuxDeb: `${SITE}/api/updates/assets/17`,
     })
   })
 })

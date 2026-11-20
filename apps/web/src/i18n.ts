@@ -255,6 +255,8 @@ const fr: Strings = {
     ],
     macNote: 'macOS 14 ou plus récent, puce Apple.',
     windowsNote: 'Windows 10 ou 11.',
+    linuxNote: 'PC x86-64. Partage les fenêtres X11 et XWayland, où tournent Steam et Proton.',
+    debPackage: 'Ou le paquet .deb (Debian, Ubuntu)',
     download: (system: string) => `Télécharger pour ${system}`,
     soon: 'Bientôt disponible.',
     checking: 'Recherche du téléchargement…',
@@ -297,6 +299,9 @@ const fr: Strings = {
     mbps: (value: string) => `${value} Mbit/s`,
     inputPermission:
       'Les claviers et souris des invités n’atteignent pas encore le jeu : autorise Couchwarp dans Accessibilité.',
+    inputPermissionLinux:
+      'Les touches, souris et manettes des invités n’atteignent pas le jeu : Couchwarp a besoin d’accéder à /dev/uinput. Installe le paquet steam-devices de ton système (ou la règle du guide), puis vérifie à nouveau.',
+    checkAgain: 'Vérifier à nouveau',
   },
   account: {
     inBrowser: 'Termine la connexion dans ton navigateur, puis reviens ici.',
@@ -921,6 +926,8 @@ const en = {
     ],
     macNote: 'macOS 14 or later, Apple silicon.',
     windowsNote: 'Windows 10 or 11.',
+    linuxNote: 'x86-64 PC. Shares X11 and XWayland windows, where Steam and Proton run.',
+    debPackage: 'Or the .deb package (Debian, Ubuntu)',
     download: (system: string) => `Download for ${system}`,
     soon: 'Coming soon.',
     checking: 'Looking for the download…',
@@ -962,6 +969,9 @@ const en = {
     mbps: (value: string) => `${value} Mbit/s`,
     inputPermission:
       'Guests’ keyboards and mice cannot reach the game yet: allow Couchwarp in Accessibility.',
+    inputPermissionLinux:
+      'Guests’ keys, mice and controllers cannot reach the game: Couchwarp needs access to /dev/uinput. Install your system’s steam-devices package (or the rule in the guide), then check again.',
+    checkAgain: 'Check again',
   },
   account: {
     inBrowser: 'Finish signing in in your browser, then come back here.',
