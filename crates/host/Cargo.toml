@@ -37,7 +37,8 @@ objc2-core-graphics = "0.3"
 objc2-core-media = "0.3"
 objc2-core-video = "0.3"
 objc2-video-toolbox = "0.3"
-screencapturekit = "11"
+# Single-frame capture for window previews needs macOS 14.
+screencapturekit = { version = "11", features = ["macos_14_0"] }
 str0m = { version = "0.25", default-features = false, features = ["aws-lc-rs"] }
 
 [dev-dependencies]

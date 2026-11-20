@@ -6,6 +6,7 @@
  * - `GET  /api/auth/:provider/start?client=web|host&return_to=…&link=1`
  * - `GET  /api/auth/:provider/callback`
  * - `POST /api/auth/logout`
+ * - `POST /api/auth/app-session`: a browser session for the desktop app's window
  * - `GET  /api/me`, `DELETE /api/me`, `GET /api/me/export`, `POST /api/me/age`
  * - `DELETE /api/me/identities/:provider`
  * - `GET  /api/me/history`
@@ -284,6 +285,7 @@ export async function handleAccounts(request: Request, env: Env): Promise<Respon
   }
 
   if (pathname === '/api/me' && method === 'GET') return me(request, env)
+  if (pathname === '/api/auth/app-session' && method === 'POST') return appSession(request, env)
   if (!pathname.startsWith('/api/me') && pathname !== '/api/auth/logout') return null
 
   if (method !== 'GET' && !fromOurPages(request, env)) return problem(403, 'cross-site')
@@ -305,4 +307,20 @@ export async function handleAccounts(request: Request, env: Env): Promise<Respon
   const identity = pathname.match(/^\/api\/me\/identities\/([a-z]+)$/)
   if (identity?.[1] && method === 'DELETE') return unlink(env, user, identity[1])
   return problem(404, 'not-found')
+}
+
+/**
+ * The desktop app signs in through the system browser, like the host on the command line,
+ * and gets a bearer token. Its window shows this site, so it trades that token for the
+ * site's own cookie.
+ */
+async function appSession(request: Request, env: Env): Promise<Response> {
+  if (!fromOurPages(request, env)) return problem(403, 'cross-site')
+  if (!request.headers.get('Authorization')) return problem(401, 'signed-out')
+  const user = await currentUser(request, env.DB)
+  if (!user) return problem(401, 'signed-out')
+  const session = await createSession(env.DB, user.id, 'web')
+  return json({ signedIn: true }, 200, {
+    'Set-Cookie': sessionCookie(session.token, session.maxAgeSeconds),
+  })
 }

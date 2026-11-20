@@ -1,0 +1,25 @@
+{
+  "$schema": "../gen/schemas/remote-schema.json",
+  "identifier": "site",
+  "description": "What the Couchwarp site may ask the app, from its own address only.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["https://couchwarp.sachapastor34.workers.dev/*", "http://localhost:5173/*"]
+  },
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-start-dragging",
+    "core:app:allow-version",
+    "allow-list-windows",
+    "allow-window-preview",
+    "allow-hosting-state",
+    "allow-start-hosting",
+    "allow-stop-hosting",
+    "allow-saved-session",
+    "allow-sign-in",
+    "allow-sign-out",
+    "allow-input-allowed",
+    "allow-open-privacy-settings"
+  ]
+}

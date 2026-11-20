@@ -18,7 +18,7 @@ use tracing::warn;
 /// How long the browser has to come back from the sign-in page.
 const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(300);
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Provider {
     Discord,
     Google,
@@ -34,8 +34,9 @@ impl Provider {
 }
 
 /// Opens the sign-in page in the browser, waits for it to come back to a page served here
-/// on loopback, and keeps the token it carries.
-pub fn sign_in(server: &str, provider: Provider) -> Result<String> {
+/// on loopback, and keeps the token it carries. `show_link` gets the page's address, for
+/// when no browser opens. Returns the account's name.
+pub fn sign_in(server: &str, provider: Provider, show_link: impl FnOnce(&str)) -> Result<String> {
     let listener = TcpListener::bind("127.0.0.1:0").context("cannot open a local port")?;
     // A random path, so only the sign-in that this run started is accepted.
     let nonce = format!("{:016x}", fastrand::u64(..));
@@ -47,7 +48,7 @@ pub fn sign_in(server: &str, provider: Provider) -> Result<String> {
         encode(&return_to)
     );
 
-    println!("Opening the browser to sign in. If it does not open, visit:\n  {start}\n");
+    show_link(&start);
     if let Err(error) = open_browser(&start) {
         warn!(%error, "could not open the browser");
     }
@@ -149,7 +150,7 @@ fn answer(stream: TcpStream, nonce: &str) -> Option<Result<String, String>> {
     });
     let body = match &outcome {
         Some(Ok(_)) => "Couchwarp is signed in. You can close this tab.",
-        Some(Err(_)) => "Sign-in did not go through. Go back to the terminal.",
+        Some(Err(_)) => "Sign-in did not go through. Go back to Couchwarp.",
         None => "Nothing here.",
     };
     let status = if mine { "200 OK" } else { "404 Not Found" };

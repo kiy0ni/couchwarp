@@ -1,0 +1,1084 @@
+/* The app around the pages: a sidebar from a laptop, a tab bar on a phone, and the
+ * blocks pages are built from (cards, lists, stats). The game itself is in app.css. */
+
+.shell {
+  --sidebar-width: 248px;
+  --tabbar-height: 64px;
+  --page-width: 75rem;
+  --page-narrow: 46rem;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+}
+
+.skip-link {
+  position: absolute;
+  top: var(--space-xs);
+  left: var(--space-xs);
+  z-index: var(--z-modal);
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  border-radius: var(--radius-control);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus-visible {
+  transform: none;
+}
+
+.shell__main {
+  min-width: 0;
+  padding: var(--space-lg) max(var(--space-md), env(safe-area-inset-right))
+    calc(var(--tabbar-height) + var(--space-xl) + env(safe-area-inset-bottom))
+    max(var(--space-md), env(safe-area-inset-left));
+}
+
+.shell__main:focus {
+  outline: none;
+}
+
+/* Sidebar: hidden on a phone, where the tab bar takes over. */
+
+.sidebar {
+  display: none;
+}
+
+.mobilebar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  min-height: 56px;
+  padding: env(safe-area-inset-top) max(var(--space-md), env(safe-area-inset-right)) 0
+    max(var(--space-md), env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  background: color-mix(in oklab, var(--color-paper) 92%, transparent);
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+}
+
+.tabbar {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: var(--z-sticky);
+  min-height: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  background: var(--color-paper-2);
+  border-top: var(--rule-hair) solid var(--color-rule);
+}
+
+.tabbar__item {
+  position: relative;
+  min-height: var(--tabbar-height);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3xs);
+  color: var(--color-muted);
+  text-decoration: none;
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.tabbar__item[aria-current="page"] {
+  color: var(--color-ink);
+}
+
+.tabbar__item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 28px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--color-ink);
+}
+
+.tabbar__item:focus-visible {
+  outline-offset: -4px;
+}
+
+.tabbar__item .count {
+  position: absolute;
+  top: 8px;
+  left: calc(50% + 6px);
+}
+
+.tabbar__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 60rem) {
+  .shell {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .mobilebar,
+  .tabbar {
+    display: none;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    padding: var(--space-lg) var(--space-sm) var(--space-md);
+    background: var(--color-paper-2);
+    border-right: var(--rule-hair) solid var(--color-rule);
+    overflow-y: auto;
+  }
+
+  .shell__main {
+    padding: var(--space-xl) clamp(var(--space-lg), 4vw, var(--space-2xl)) var(--space-2xl);
+  }
+}
+
+/* In the Mac app the page runs under the title bar: room for the window buttons. */
+.shell[data-system="mac"] .sidebar {
+  padding-top: 52px;
+}
+
+.sidebar__brand {
+  padding-inline: var(--space-sm);
+}
+
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.nav-item {
+  min-height: 44px;
+  padding-inline: var(--space-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  border-radius: var(--radius-control);
+  color: var(--color-ink-2);
+  text-decoration: none;
+  font-weight: 500;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .nav-item:hover {
+    background: var(--color-paper-3);
+    color: var(--color-ink);
+  }
+}
+
+.nav-item[aria-current="page"] {
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+}
+
+.nav-item__label {
+  flex: 1;
+}
+
+.count {
+  min-width: 20px;
+  height: 20px;
+  padding-inline: 6px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-p1);
+  color: var(--color-accent-ink);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar__foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.sidebar__foot > .button {
+  width: 100%;
+}
+
+.sidebar__legal {
+  padding-inline: var(--space-sm);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-md);
+  font-size: var(--text-xs);
+}
+
+.sidebar__legal a {
+  color: var(--color-muted);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .sidebar__legal a:hover {
+    color: var(--color-ink);
+    text-decoration: underline;
+  }
+}
+
+.account-button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: var(--space-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  border-radius: var(--radius-control);
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  a.account-button:hover {
+    background: var(--color-paper-3);
+  }
+}
+
+.account-button__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.account-button__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.account-button__hint {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+
+/* A page: its title and actions, then blocks. */
+
+.page {
+  width: min(var(--page-width), 100%);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.page[data-width="narrow"] {
+  width: min(var(--page-narrow), 100%);
+}
+
+.page__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-md) var(--space-lg);
+}
+
+.page__heading {
+  min-width: 0;
+  flex: 1 1 24rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.page__title {
+  font-family: var(--font-display);
+  font-size: clamp(var(--text-xl), 1.2rem + 1.4vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.page__lead {
+  max-width: 60ch;
+  color: var(--color-ink-2);
+}
+
+.page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.section {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.section__head {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.section__title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--color-muted);
+}
+
+/* Cards: one surface per block, never one inside another. */
+
+.card {
+  min-width: 0;
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-panel);
+}
+
+.card--feature {
+  padding: clamp(var(--space-lg), 3vw, var(--space-xl));
+}
+
+.card--danger {
+  border-color: color-mix(in oklab, var(--color-error) 45%, var(--color-rule));
+}
+
+.card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.card__title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.card--feature > .card__title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.card__text {
+  color: var(--color-ink-2);
+}
+
+.card > .button {
+  align-self: flex-start;
+}
+
+.join-card .button {
+  align-self: stretch;
+}
+
+.stack--loose {
+  gap: var(--space-lg);
+}
+
+.button--large {
+  min-height: 56px;
+  font-size: var(--text-lg);
+}
+
+.button .icon,
+.link-button .icon {
+  flex: none;
+  margin-right: var(--space-xs);
+}
+
+.code {
+  font-family: var(--font-code);
+  letter-spacing: 0.08em;
+}
+
+/* Home: what to do now on the left, friends and devices on the right. */
+
+.dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+.dashboard__main,
+.dashboard__side {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.dashboard__side {
+  gap: var(--space-lg);
+}
+
+@media (min-width: 72rem) {
+  .dashboard {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+  }
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+@media (min-width: 52rem) {
+  .columns {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: var(--space-xl);
+  }
+}
+
+/* Lists: rows on one surface, separated by hairlines. */
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-panel);
+}
+
+.list__item {
+  min-height: 60px;
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-md);
+}
+
+.list__item + .list__item {
+  border-top: var(--rule-hair) solid var(--color-rule);
+}
+
+.list__main {
+  min-width: 0;
+  flex: 1 1 12rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.list__title {
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+
+a.list__title {
+  color: var(--color-ink);
+}
+
+.list__detail {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.people {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.people--card {
+  gap: 0;
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-panel);
+}
+
+.people__item {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.people--card .people__item {
+  padding: var(--space-sm) var(--space-md);
+}
+
+.people--card .people__item + .people__item {
+  border-top: var(--rule-hair) solid var(--color-rule);
+}
+
+.people__who {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.people__name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.people__status {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.people__status[data-online] {
+  color: var(--color-success);
+}
+
+.people__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+/* Stats: a few numbers side by side. */
+
+.stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+  gap: var(--space-sm);
+}
+
+.stats__item {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-3xs);
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-panel);
+}
+
+.stats dt {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.stats dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.stats dd.code {
+  font-family: var(--font-code);
+  font-weight: 600;
+}
+
+/* Notices: something to fix or know, in its tone, always with words. */
+
+.notice {
+  padding: var(--space-md);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-control);
+  border: var(--rule-hair) solid var(--notice-color, var(--color-rule));
+  background: color-mix(
+    in oklab,
+    var(--notice-color, var(--color-paper-3)) 10%,
+    var(--color-paper)
+  );
+}
+
+.notice[data-tone="error"] {
+  --notice-color: var(--color-error);
+}
+
+.notice[data-tone="warning"] {
+  --notice-color: var(--color-warning);
+}
+
+.notice > p {
+  flex: 1 1 20rem;
+}
+
+/* Public games: one bar of filters. */
+
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm) var(--space-md);
+  align-items: end;
+  padding: var(--space-md);
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-panel);
+}
+
+@media (min-width: 44rem) {
+  .toolbar {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  }
+}
+
+.toolbar__check {
+  padding-top: 0;
+  align-items: center;
+  font-size: var(--text-sm);
+}
+
+.empty {
+  align-items: flex-start;
+}
+
+/* Host page in a browser: three steps, then the downloads. */
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.steps__item {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: start;
+}
+
+.steps__number {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-paper-3);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.steps__title {
+  display: block;
+  font-weight: 600;
+}
+
+.steps__text {
+  display: block;
+  color: var(--color-ink-2);
+}
+
+.downloads {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+  gap: var(--space-lg);
+}
+
+/* Host page in the app: the windows to pick from, the settings beside them. */
+
+.host-setup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+@media (min-width: 72rem) {
+  .host-setup {
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 24rem);
+  }
+}
+
+.host-setup__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.host-setup__side > .button {
+  width: 100%;
+}
+
+.windows {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr));
+  gap: var(--space-md);
+}
+
+.window-choice {
+  min-width: 0;
+  padding: var(--space-xs) var(--space-xs) var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-panel);
+  cursor: pointer;
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .window-choice:hover {
+    border-color: var(--color-field-edge);
+  }
+}
+
+.window-choice[data-chosen] {
+  border-color: var(--color-ink);
+  box-shadow: inset 0 0 0 1px var(--color-ink);
+}
+
+.window-choice:has(input:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.window-choice__picture {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  margin-bottom: var(--space-xs);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: var(--color-shade);
+}
+
+.window-choice__picture img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.window-choice__blank {
+  padding: var(--space-sm);
+  color: var(--color-muted);
+  font-family: var(--font-display);
+  font-weight: 600;
+  text-align: center;
+}
+
+.window-choice__app,
+.window-choice__title {
+  padding-inline: var(--space-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.window-choice__app {
+  font-weight: 600;
+}
+
+.window-choice__title {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+/* The game running: the code, big, then the numbers. */
+
+.live {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-lg);
+}
+
+@media (min-width: 64rem) {
+  .live {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .live .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.live__code {
+  font-family: var(--font-code);
+  font-size: clamp(2.5rem, 2rem + 3vw, 4rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+}
+
+.manager {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.manager__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+@media (min-width: 64rem) {
+  .manager__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Settings: tabs on the left from a laptop, scrolling across on a phone. */
+
+.settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+@media (min-width: 56rem) {
+  .settings {
+    grid-template-columns: 13rem minmax(0, 1fr);
+    gap: var(--space-xl);
+  }
+}
+
+.settings__body {
+  min-width: 0;
+  max-width: 48rem;
+}
+
+/* Two by two on a phone, so every tab shows without scrolling. */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2xs);
+}
+
+@media (min-width: 56rem) {
+  .tabs {
+    position: sticky;
+    top: var(--space-xl);
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tabs__item {
+  flex: none;
+  min-height: 44px;
+  padding-inline: var(--space-sm) var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  border-radius: var(--radius-control);
+  background: var(--color-paper-2);
+  color: var(--color-ink-2);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+@media (min-width: 56rem) {
+  .tabs__item {
+    background: none;
+  }
+}
+
+@media (hover: hover) {
+  .tabs__item:hover {
+    background: var(--color-paper-2);
+    color: var(--color-ink);
+  }
+}
+
+.tabs__item[aria-current="page"] {
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.profile {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.profile__picture {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-paper-3);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.profile__who {
+  min-width: 0;
+  flex: 1 1 12rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.profile__name {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* The controller test: sticks on the sides, buttons in the middle. */
+
+.pad-tester__who {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.pad-tester__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: var(--space-lg);
+}
+
+@media (min-width: 40rem) {
+  .pad-tester__body {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}
+
+.pad-tester__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-xs);
+}
+
+.pad-key {
+  min-width: 44px;
+  height: 36px;
+  padding-inline: var(--space-xs);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: var(--color-paper-3);
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.pad-key[data-pressed] {
+  background: var(--color-p2);
+  color: var(--color-accent-ink);
+}
+
+.pad-trigger {
+  position: relative;
+  width: 100%;
+  max-width: 14rem;
+  height: 28px;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: var(--color-paper-3);
+}
+
+.pad-trigger__label {
+  position: absolute;
+  inset: 0 auto 0 var(--space-sm);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.pad-trigger__fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left;
+  background: color-mix(in oklab, var(--color-p2) 60%, transparent);
+}
+
+.stick {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.stick__well {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-shade);
+  border: var(--rule-hair) solid var(--color-rule);
+}
+
+/* The dot moves by its own size: a full tilt puts it at the edge of the well. */
+.stick__dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-ink);
+}
+
+/* Join: a controller found, with the light it gets. */
+
+.checks__pad {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+/* The keyboard layout on its own card needs no space above it. */
+.card > .keyhelp {
+  margin: 0;
+}
+
+/* Legal pages: one readable column. */
+
+.legal {
+  gap: var(--space-lg);
+}

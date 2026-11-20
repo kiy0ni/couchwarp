@@ -12,21 +12,26 @@ use objc2_core_video::{
 };
 use screencapturekit::SCFrameStatus;
 use screencapturekit::prelude::*;
+use screencapturekit::screenshot_manager::{CGImageExt, SCScreenshotManager};
 use screencapturekit::stream::configuration::PixelFormat;
 use tokio::sync::mpsc;
 use tracing::warn;
 
 use super::encoder::Encoder;
 use crate::audio::{AudioEncoder, AudioPacket, SAMPLE_RATE, interleave};
-use crate::thumbnail::{Nv12, Thumbnails};
+use crate::thumbnail::{Nv12, Thumbnails, picture_from_bgra};
 
 /// Windows smaller than this are palettes, tooltips and the like, never a game.
 const MIN_WINDOW_SIDE: f64 = 200.0;
+/// Previews are drawn this tall, then scaled down to the room list's picture size.
+const PREVIEW_HEIGHT: u32 = 360;
 /// Apple Silicon Macs draw two pixels per point.
 const PIXELS_PER_POINT: f64 = 2.0;
 
 pub struct GameWindow {
     window: SCWindow,
+    /// Stays the same while the window exists, to pick it again from a list.
+    pub id: u64,
     pub title: String,
     pub app: String,
     pub pid: i32,
@@ -43,12 +48,28 @@ impl GameWindow {
         let even = |side: f64| (side as u32) & !1;
         (even(width), even(height))
     }
+
+    /// A small JPEG of the window as it is now, to recognise it in a list. Needs macOS 14.
+    pub fn preview(&self) -> Result<Vec<u8>> {
+        let filter = SCContentFilter::create()
+            .with_window(&self.window)
+            .build()?;
+        let (width, height) = self.stream_size(PREVIEW_HEIGHT);
+        let config = SCStreamConfiguration::new()
+            .with_width(width)
+            .with_height(height)
+            .with_scales_to_fit(true)
+            .with_pixel_format(PixelFormat::BGRA)
+            .with_shows_cursor(false);
+        let image = SCScreenshotManager::capture_image(&filter, &config)?;
+        picture_from_bgra(&image.bgra_data()?, image.width(), image.height())
+    }
 }
 
 pub fn list_windows() -> Result<Vec<GameWindow>> {
     let content = SCShareableContent::get().map_err(|error| {
         anyhow!(
-            "cannot list windows ({error}). Allow this terminal in System Settings > \
+            "cannot list windows ({error}). Allow this app in System Settings > \
              Privacy & Security > Screen & System Audio Recording, then restart it"
         )
     })?;
@@ -61,6 +82,7 @@ pub fn list_windows() -> Result<Vec<GameWindow>> {
             let frame = window.frame();
             (frame.size.width >= MIN_WINDOW_SIDE && frame.size.height >= MIN_WINDOW_SIDE).then(
                 || GameWindow {
+                    id: u64::from(window.window_id()),
                     title: window.title().unwrap_or_default(),
                     app: app.application_name(),
                     pid: app.process_id(),

@@ -1,23 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Footer } from '../components/Footer'
-import { TopBar } from '../components/TopBar'
+import { Page } from '../components/Page'
+import { RoomCard } from '../components/RoomCard'
+import { Shell } from '../components/Shell'
 import { t } from '../i18n'
-import { fetchRooms, type RoomCard, type RoomFilters } from '../lib/directory'
-import { useGamepadNavigation } from '../lib/gamepad-nav'
+import { fetchRooms, type RoomCard as Room, type RoomFilters } from '../lib/directory'
 import { navigate } from '../lib/router'
 
 const REFRESH_MS = 30_000
 /** Wait for a pause in typing before asking the server. */
 const TYPING_MS = 300
-const LIGHTS = 4
 
-type Listing = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; rooms: RoomCard[] }
+type Listing = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; rooms: Room[] }
 
 /** Public rooms, refreshed every half minute, filtered by game, region and free seats. */
 export function Browse() {
   const [filters, setFilters] = useState<RoomFilters>({ game: '', continent: '', freeSeats: false })
   const [listing, setListing] = useState<Listing>({ kind: 'loading' })
-  useGamepadNavigation(true, () => navigate('/'))
 
   useEffect(() => {
     const abort = new AbortController()
@@ -42,11 +40,9 @@ export function Browse() {
     setFilters((previous) => ({ ...previous, ...patch }))
 
   return (
-    <main className="screen">
-      <TopBar />
-      <div className="browse">
-        <h1 className="title">{t.browse.title}</h1>
-        <form className="browse__filters" onSubmit={(event) => event.preventDefault()}>
+    <Shell onBack={() => navigate('/')}>
+      <Page title={t.browse.title} lead={t.browse.lead}>
+        <form className="toolbar" onSubmit={(event) => event.preventDefault()}>
           <div className="field">
             <label className="field__label" htmlFor="filter-game">
               {t.browse.gameLabel}
@@ -78,7 +74,7 @@ export function Browse() {
               ))}
             </select>
           </div>
-          <label className="check browse__free">
+          <label className="check toolbar__check">
             <input
               type="checkbox"
               checked={filters.freeSeats}
@@ -89,88 +85,27 @@ export function Browse() {
         </form>
 
         {listing.kind === 'loading' && (
-          <p className="panel__lead" role="status">
+          <p className="muted" role="status">
             {t.browse.loading}
           </p>
         )}
-        {listing.kind === 'failed' && <p className="panel__lead">{t.browse.failed}</p>}
+        {listing.kind === 'failed' && <p className="muted">{t.browse.failed}</p>}
         {listing.kind === 'ready' && listing.rooms.length === 0 && (
-          <p className="panel__lead">{t.browse.empty}</p>
+          <section className="card card--feature empty">
+            <h2 className="card__title">{t.browse.emptyTitle}</h2>
+            <p className="card__text">{t.browse.empty}</p>
+          </section>
         )}
         {listing.kind === 'ready' && listing.rooms.length > 0 && (
           <ul className="rooms">
             {listing.rooms.map((room) => (
               <li key={room.code}>
-                <Card room={room} />
+                <RoomCard room={room} />
               </li>
             ))}
           </ul>
         )}
-      </div>
-      <Footer />
-    </main>
-  )
-}
-
-function Card({ room }: { room: RoomCard }) {
-  const free = Math.max(0, room.maxPlayers - room.players)
-  return (
-    <a
-      className="room-card"
-      href={`/${room.code}`}
-      aria-label={t.browse.join(room.title)}
-      onClick={(event) => {
-        event.preventDefault()
-        navigate(`/${room.code}`)
-      }}
-    >
-      <span className="room-card__picture">
-        {room.thumbnailUrl ? (
-          <img src={room.thumbnailUrl} alt="" loading="lazy" width={320} height={180} />
-        ) : (
-          <span className="room-card__blank" aria-hidden="true">
-            {room.game || room.title}
-          </span>
-        )}
-        <span className="room-card__proximity" data-proximity={room.proximity}>
-          {t.browse.proximity[room.proximity]}
-        </span>
-      </span>
-      <span className="room-card__body">
-        <span className="room-card__title">{room.title}</span>
-        {room.game && <span className="room-card__game">{room.game}</span>}
-        <span className="room-card__host">{t.browse.hostedBy(room.hostName)}</span>
-        <span className="room-card__seats">
-          <span className="seats" aria-hidden="true">
-            {room.avatars.map((avatar, index) => (
-              <Seat
-                // biome-ignore lint/suspicious/noArrayIndexKey: seats have no identity but their place
-                key={index}
-                player={index + 1}
-                avatar={avatar}
-              />
-            ))}
-            {Array.from({ length: free }, (_, index) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: empty seats are interchangeable
-              <i key={`free-${index}`} className="seats__free" />
-            ))}
-          </span>
-          <span>{t.browse.seats(room.players, room.maxPlayers)}</span>
-          {room.spectators > 0 && (
-            <span className="room-card__watching">{t.browse.watching(room.spectators)}</span>
-          )}
-        </span>
-      </span>
-    </a>
-  )
-}
-
-/** An occupied seat: the player's avatar, ringed in the colour of their light. */
-function Seat({ player, avatar }: { player: number; avatar: string | null }) {
-  const light = ((player - 1) % LIGHTS) + 1
-  return avatar ? (
-    <img className="seats__taken" data-player={light} src={avatar} alt="" width={24} height={24} />
-  ) : (
-    <i className="seats__taken" data-player={light} />
+      </Page>
+    </Shell>
   )
 }

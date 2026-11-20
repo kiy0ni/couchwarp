@@ -1,46 +1,21 @@
-//! Couchwarp host: shares one game window with guests who join from a browser.
+//! Couchwarp host on the command line: shares one game window with guests who join from
+//! a browser. The desktop app (`apps/desktop`) does the same with a window to click in.
 
-mod account;
-mod audio;
-#[cfg(any(target_os = "macos", test))]
-mod avcc;
-mod bitrate;
-#[cfg(any(windows, test))]
-mod ds4;
-mod host;
-mod input;
-mod net;
-#[cfg(any(windows, test))]
-mod pc_keys;
-mod peer;
-mod platform;
-mod signaling;
-#[cfg(any(windows, test))]
-mod software_h264;
-mod stats;
-mod stun;
-mod thumbnail;
-mod video;
-#[cfg(any(windows, test))]
-mod xinput;
-
-use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use couchwarp_host::platform::capture::{find_window, list_windows};
+use couchwarp_host::session::{self, Event, Options};
+use couchwarp_host::{SettingsRequest, account, platform};
 use qrcode::QrCode;
 use qrcode::render::unicode::Dense1x2;
 use tokio::sync::mpsc;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
-use platform::capture::{Capture, find_window, list_windows};
-use platform::encoder::{Encoder, EncoderSettings};
-
-/// Frames waiting for the network. Beyond this the encoder drops instead of queuing.
-const FRAME_QUEUE: usize = 4;
-/// Sound packets waiting for the network: 80 ms.
-const SOUND_QUEUE: usize = 8;
+/// How often the stream's numbers are logged.
+const STATS_EVERY: Duration = Duration::from_secs(10);
 
 #[derive(Parser)]
 #[command(
@@ -133,15 +108,12 @@ async fn main() -> Result<()> {
         .init();
     let args = Args::parse();
     platform::init();
-    if args.ignore_focus && !platform::KEYS_REACH_GAME_ONLY {
-        anyhow::bail!(
-            "--ignore-focus is unsafe on this system: keys would go to whatever window is in front"
-        );
-    }
 
     match args.action {
         Some(Action::Login { provider }) => {
-            let name = account::sign_in(&args.server, provider)?;
+            let name = account::sign_in(&args.server, provider, |link| {
+                println!("Opening the browser to sign in. If it does not open, visit:\n  {link}\n");
+            })?;
             println!("Signed in as {name}.");
             return Ok(());
         }
@@ -168,105 +140,62 @@ async fn main() -> Result<()> {
     }
 
     let window = find_window(args.window.as_deref().unwrap_or_default())?;
-    info!(app = %window.app, title = %window.title, "sharing this window");
-    if !platform::can_send_keys() {
-        warn!(
-            "keyboard input disabled: allow this terminal in System Settings > Privacy & \
-             Security > Accessibility, then restart it"
-        );
-    }
-
-    let endpoint = net::open_endpoint(args.port, &args.stun)?;
-    endpoint.socket.set_nonblocking(true)?;
-    let socket = tokio::net::UdpSocket::from_std(endpoint.socket)?;
-    info!(address = %socket.local_addr()?, "listening for guests");
-
-    let token = session_token(&args.server);
-    if args.public && token.is_none() {
-        warn!(
-            "--public needs an account: run `couchwarp-host login` first; the game stays unlisted"
-        );
-    }
-    let room = signaling::open_room(&args.server, token.as_deref()).await?;
-    print_invitation(&args.server, &room.code, &room.console_key);
-
-    let (frame_tx, frames) = mpsc::channel(FRAME_QUEUE);
-    let control = video::EncoderControl::new(args.bitrate * 1_000_000);
-    let size = window.stream_size(args.max_height);
-    let encoder = Arc::new(Encoder::new(
-        &EncoderSettings {
-            width: size.0,
-            height: size.1,
-            fps: args.fps,
-            bitrate: args.bitrate * 1_000_000,
+    let token = session::saved_token(&args.server);
+    let options = Options {
+        server: args.server.clone(),
+        fps: args.fps,
+        bitrate_mbps: args.bitrate,
+        max_height: args.max_height,
+        port: args.port,
+        stun: args.stun,
+        ignore_focus: args.ignore_focus,
+        settings: SettingsRequest {
+            title: args.title,
+            game: args.game,
+            max_players: args.players,
+            public: args.public,
+            relay_only: args.relay_only,
+            turn_minutes: args.turn_minutes,
         },
-        frame_tx,
-        control.clone(),
-    )?);
-    let (sound_tx, sound) = mpsc::channel(SOUND_QUEUE);
-    let (stopped_tx, capture_stopped) = mpsc::unbounded_channel();
-    let thumbnails = Arc::new(thumbnail::Thumbnails::new(room.thumbnails.clone()));
-    let _capture = Capture::start(
-        &window,
-        size,
-        args.fps,
-        encoder,
-        thumbnails.clone(),
-        sound_tx,
-        stopped_tx,
-    )?;
-    info!(
-        width = size.0,
-        height = size.1,
-        fps = args.fps,
-        "capture started"
-    );
-
-    let signal_out = room.outgoing.clone();
-    let settings = host::SettingsRequest {
-        title: args.title,
-        game: args.game,
-        max_players: args.players,
-        public: args.public,
-        relay_only: args.relay_only,
-        turn_minutes: args.turn_minutes,
     };
-    host::Host::new(
-        socket,
-        endpoint.candidates,
-        host::Game {
-            pid: window.pid,
-            focus_lock: !args.ignore_focus,
-        },
-        control,
-        signal_out,
-        settings,
-        thumbnails,
-    )
-    .run(room, frames, sound, capture_stopped)
-    .await
-}
-
-/// The saved session for `server`, if the server still accepts it.
-fn session_token(server: &str) -> Option<String> {
-    let token = account::token(server)?;
-    match account::display_name(server, &token) {
-        Ok(Some(name)) => {
-            info!(%name, "signed in");
-            Some(token)
-        }
-        Ok(None) => {
-            warn!("the saved session has expired: run `couchwarp-host login` to sign in again");
-            if let Err(error) = account::forget(server) {
-                warn!(%error, "could not forget the expired session");
+    let (events_tx, mut events) = mpsc::unbounded_channel();
+    let server = args.server;
+    let printer = tokio::spawn(async move {
+        let mut last_stats: Option<Instant> = None;
+        while let Some(event) = events.recv().await {
+            match event {
+                Event::Opened { code, console_key } => {
+                    print_invitation(&server, &code, &console_key);
+                }
+                Event::Stats(stats) => {
+                    if last_stats.is_none_or(|at| at.elapsed() >= STATS_EVERY) {
+                        last_stats = Some(Instant::now());
+                        info!(
+                            fps = format!("{:.0}", stats.fps),
+                            median_ms = format!("{:.1}", stats.median_ms),
+                            p95_ms = format!("{:.1}", stats.p95_ms),
+                            guests = stats.guests,
+                            "capture to network"
+                        );
+                    }
+                }
+                Event::NoInputPermission => warn!(
+                    "keyboard input disabled: allow this terminal in System Settings > \
+                     Privacy & Security > Accessibility, then restart it"
+                ),
+                Event::PublicNeedsAccount => warn!(
+                    "--public needs an account: run `couchwarp-host login` first; the game \
+                     stays unlisted"
+                ),
             }
-            None
         }
-        Err(error) => {
-            warn!(%error, "could not check the saved session; trying it anyway");
-            Some(token)
-        }
-    }
+    });
+    let stop = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+    let outcome = session::run(&window, options, token, events_tx, stop).await;
+    let _ = printer.await;
+    outcome
 }
 
 fn print_invitation(server: &str, code: &str, console_key: &str) {

@@ -1,7 +1,5 @@
-import { Footer } from '../components/Footer'
-import { TopBar } from '../components/TopBar'
+import { Shell } from '../components/Shell'
 import { lang } from '../i18n'
-import { useGamepadNavigation } from '../lib/gamepad-nav'
 import { navigate } from '../lib/router'
 
 /**
@@ -276,17 +274,15 @@ const PRIVACY: Record<'fr' | 'en', Page> = {
 }
 
 export function Legal({ page }: { page: 'terms' | 'privacy' }) {
-  useGamepadNavigation(true, () => navigate('/'))
   const content = (page === 'terms' ? TERMS : PRIVACY)[lang]
   return (
-    <main className="screen">
-      <TopBar />
-      <article className="legal">
-        <h1 className="title">{content.title}</h1>
+    <Shell onBack={() => navigate('/')}>
+      <article className="page legal" data-width="narrow">
+        <h1 className="page__title">{content.title}</h1>
         <p className="legal__updated">{content.updated}</p>
         {content.sections.map((section) => (
           <section key={section.title} className="legal__section">
-            <h2 className="section-title">{section.title}</h2>
+            <h2 className="section__title">{section.title}</h2>
             {section.blocks
               .filter((block) => block.length > 0)
               .map((block) =>
@@ -303,7 +299,6 @@ export function Legal({ page }: { page: 'terms' | 'privacy' }) {
           </section>
         ))}
       </article>
-      <Footer />
-    </main>
+    </Shell>
   )
 }

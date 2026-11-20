@@ -225,10 +225,25 @@ function preferBaselineH264(transceiver: RTCRtpTransceiver): void {
   transceiver.setCodecPreferences([...baseline, ...retransmission])
 }
 
-/** Whether the room server knows an open room with this code. */
-export async function isRoomOpen(code: string): Promise<boolean> {
+/** What the code alone shows of an open room, before joining it. */
+export interface RoomPreview {
+  title: string
+  game: string
+  hostName: string
+  players: number
+  maxPlayers: number
+  spectators: number
+}
+
+/** The room behind `code`, or null when no host has it open. */
+export async function lookUpRoom(code: string): Promise<RoomPreview | null> {
   const response = await fetch(`/api/rooms/${encodeURIComponent(code)}`)
   if (!response.ok) throw new Error(`Room check failed with HTTP ${response.status}`)
-  const { open } = (await response.json()) as { open: boolean }
-  return open
+  const info = (await response.json()) as { open: boolean; room?: RoomPreview }
+  return info.open && info.room ? info.room : null
+}
+
+/** Whether the room server knows an open room with this code. */
+export async function isRoomOpen(code: string): Promise<boolean> {
+  return (await lookUpRoom(code)) !== null
 }

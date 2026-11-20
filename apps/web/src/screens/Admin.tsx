@@ -1,10 +1,10 @@
 import type { ReportDecision } from '@couchwarp/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { Choice } from '../components/Choice'
-import { TopBar } from '../components/TopBar'
+import { Page } from '../components/Page'
+import { Shell } from '../components/Shell'
 import { t } from '../i18n'
 import { accountRequest, useAccount } from '../lib/account'
-import { useGamepadNavigation } from '../lib/gamepad-nav'
 import { navigate } from '../lib/router'
 
 interface Report {
@@ -29,7 +29,6 @@ export function Admin() {
   const { account } = useAccount()
   const [state, setState] = useState<'open' | 'decided'>('open')
   const [reports, setReports] = useState<Report[] | null>(null)
-  useGamepadNavigation(true, () => navigate('/'))
 
   const load = useCallback(async () => {
     const response = await fetch(`/api/admin/reports?state=${state}`)
@@ -42,19 +41,19 @@ export function Admin() {
 
   if (account !== undefined && !account?.isAdmin) {
     return (
-      <main className="screen">
-        <TopBar />
-        <p className="panel panel__lead">{t.admin.forbidden}</p>
-      </main>
+      <Shell onBack={() => navigate('/')}>
+        <Page title={t.admin.title} lead={t.admin.forbidden}>
+          {null}
+        </Page>
+      </Shell>
     )
   }
 
   return (
-    <main className="screen">
-      <TopBar />
-      <div className="console">
-        <header className="console__head">
-          <h1 className="title">{t.admin.title}</h1>
+    <Shell onBack={() => navigate('/')}>
+      <Page
+        title={t.admin.title}
+        actions={
           <Choice<'open' | 'decided'>
             label={t.admin.show}
             value={state}
@@ -64,13 +63,16 @@ export function Admin() {
             ]}
             onChange={setState}
           />
-        </header>
-        {reports?.length === 0 && <p className="panel__lead">{t.admin.none}</p>}
-        {reports?.map((report) => (
-          <ReportCard key={report.id} report={report} onDecided={load} />
-        ))}
-      </div>
-    </main>
+        }
+      >
+        <div className="stack stack--loose">
+          {reports?.length === 0 && <p className="muted">{t.admin.none}</p>}
+          {reports?.map((report) => (
+            <ReportCard key={report.id} report={report} onDecided={load} />
+          ))}
+        </div>
+      </Page>
+    </Shell>
   )
 }
 

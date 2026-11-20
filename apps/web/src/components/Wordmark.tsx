@@ -1,9 +1,9 @@
-import type { MouseEventHandler } from 'react'
 import { t } from '../i18n'
+import { Link } from './Link'
 
-export function Wordmark({ onClick }: { onClick?: MouseEventHandler<HTMLAnchorElement> }) {
+export function Wordmark() {
   return (
-    <a className="wordmark" href="/" aria-label={t.wordmark} onClick={onClick}>
+    <Link to="/" className="wordmark" aria-label={t.wordmark}>
       <span className="wordmark__lights" aria-hidden="true">
         <i />
         <i />
@@ -11,6 +11,6 @@ export function Wordmark({ onClick }: { onClick?: MouseEventHandler<HTMLAnchorEl
         <i />
       </span>
       Couchwarp
-    </a>
+    </Link>
   )
 }

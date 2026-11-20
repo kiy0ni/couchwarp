@@ -1,6 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["crates/protocol", "crates/host"]
+members = ["crates/protocol", "crates/host", "apps/desktop/src-tauri"]
+# The desktop app builds with `pnpm desktop:build`; plain `cargo test` skips its webview.
+default-members = ["crates/protocol", "crates/host"]
 
 [workspace.package]
 edition = "2024"

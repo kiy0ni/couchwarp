@@ -2,6 +2,7 @@
 //! and the input sink. Frames, packets, room messages and timers come in; nothing is shared.
 
 use std::collections::HashMap;
+use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -24,6 +25,7 @@ use crate::bitrate::{BitrateController, QualityReport};
 use crate::input::{Action, InputRouter, Permissions};
 use crate::peer::{Peer, PeerEvent};
 use crate::platform::{InputSink, frontmost_pid};
+use crate::session::{Event, Stats};
 use crate::signaling::{Room, RoomEvent};
 use crate::stats::FrameDelays;
 use crate::thumbnail::Thumbnails;
@@ -41,7 +43,7 @@ pub struct Game {
     pub focus_lock: bool,
 }
 
-/// Room settings chosen on the command line, applied over the room server's defaults.
+/// Room settings chosen before the room opens, applied over the room server's defaults.
 #[derive(Debug, Default, Clone)]
 pub struct SettingsRequest {
     pub title: Option<String>,
@@ -96,6 +98,14 @@ fn permissions(state: &RoomState, guest: GuestId) -> Permissions {
     }
 }
 
+/// Where the host's messages go: the room server, the room list's pictures, and whoever
+/// runs the session.
+pub struct Outputs {
+    pub signal_out: mpsc::UnboundedSender<HostToEdge>,
+    pub thumbnails: Arc<Thumbnails>,
+    pub events: mpsc::UnboundedSender<Event>,
+}
+
 pub struct Host {
     socket: UdpSocket,
     local_candidates: Vec<Candidate>,
@@ -118,6 +128,7 @@ pub struct Host {
     /// Applied once, over the first room state.
     settings_request: Option<SettingsRequest>,
     thumbnails: Arc<Thumbnails>,
+    events: mpsc::UnboundedSender<Event>,
 }
 
 impl Host {
@@ -126,10 +137,14 @@ impl Host {
         local_candidates: Vec<Candidate>,
         game: Game,
         encoder: EncoderControl,
-        signal_out: mpsc::UnboundedSender<HostToEdge>,
         settings_request: SettingsRequest,
-        thumbnails: Arc<Thumbnails>,
+        outputs: Outputs,
     ) -> Self {
+        let Outputs {
+            signal_out,
+            thumbnails,
+            events,
+        } = outputs;
         Self {
             socket,
             local_candidates,
@@ -148,18 +163,21 @@ impl Host {
             room_state: None,
             settings_request: (!settings_request.is_empty()).then_some(settings_request),
             thumbnails,
+            events,
         }
     }
 
-    /// Runs until Ctrl+C, until the room is closed from the console, or until the shared
-    /// window goes away. On Ctrl+C the room closes for everyone.
+    /// Runs until `stop` completes, until the room is closed from the console, or until the
+    /// shared window goes away. On `stop` the room closes for everyone.
     pub async fn run(
         mut self,
         mut room: Room,
         mut frames: mpsc::Receiver<EncodedFrame>,
         mut sound: mpsc::Receiver<AudioPacket>,
         mut capture_stopped: mpsc::UnboundedReceiver<String>,
+        stop: impl Future<Output = ()>,
     ) -> Result<()> {
+        tokio::pin!(stop);
         let mut buffer = vec![0u8; MAX_DATAGRAM];
         let mut focus = interval(FOCUS_CHECK);
         focus.set_missed_tick_behavior(MissedTickBehavior::Skip);
@@ -199,7 +217,7 @@ impl Host {
                 Some(reason) = capture_stopped.recv() => {
                     break Err(anyhow!("the shared window is gone, so the game ended ({reason})"));
                 }
-                _ = tokio::signal::ctrl_c() => break Ok(()),
+                () = &mut stop => break Ok(()),
             }
         };
         info!("stopping");
@@ -422,7 +440,15 @@ impl Host {
     }
 
     fn send_frame(&mut self, frame: &EncodedFrame) {
-        self.delays.record(frame.captured_at.elapsed());
+        if let Some(delays) = self.delays.record(frame.captured_at.elapsed()) {
+            let _ = self.events.send(Event::Stats(Stats {
+                fps: delays.fps,
+                median_ms: delays.median_ms,
+                p95_ms: delays.p95_ms,
+                bitrate: self.encoder.bitrate(),
+                guests: self.peers.len(),
+            }));
+        }
         let rtp_ticks = self.clock.rtp_ticks(frame.captured_at);
         for peer in &mut self.peers {
             peer.send_frame(frame, rtp_ticks);

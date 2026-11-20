@@ -1,7 +1,102 @@
 import type { EndReason } from './lib/session'
 
 const fr = {
+  nav: {
+    label: 'Navigation principale',
+    skip: 'Aller au contenu',
+    home: 'Accueil',
+    rooms: 'Parties',
+    host: 'Héberger',
+    friends: 'Amis',
+    settings: 'Paramètres',
+    moderation: 'Modération',
+    waiting: (count: number) =>
+      count === 1 ? '1 demande en attente' : `${count} demandes en attente`,
+    accountHint: 'Compte et réglages',
+  },
+  settings: {
+    title: 'Paramètres',
+    tabs: { account: 'Compte', controllers: 'Manettes', keyboard: 'Clavier', app: 'Application' },
+    controllersLead:
+      'Chaque manette branchée reçoit un numéro de joueur. Appuie sur ses boutons pour vérifier qu’elle répond.',
+    noController: 'Aucune manette détectée',
+    noControllerHelp:
+      'Branche-la en USB ou en Bluetooth, puis appuie sur un bouton : le navigateur ne la montre qu’après.',
+    rumble: 'Vibrer',
+    leftStick: 'Stick gauche',
+    rightStick: 'Stick droit',
+    nonStandard:
+      'Cette manette n’utilise pas la disposition standard : certains boutons peuvent être mélangés en jeu.',
+    keyboardLead:
+      'Sans manette, ton clavier en devient une. Ces touches suivent la disposition de ton clavier.',
+    mouseLead:
+      'Quand l’hôte autorise ta souris, clique sur l’image du jeu pour la capturer. Échap la libère.',
+    languageTitle: 'Langue',
+    languageLabel: 'Langue de l’interface',
+    languages: { auto: 'Celle du système', fr: 'Français', en: 'English' },
+    aboutTitle: 'À propos',
+    desktopApp: 'Couchwarp pour ordinateur',
+    webApp: 'Couchwarp dans le navigateur',
+    version: (version: string) => `Version ${version}`,
+  },
+  host: {
+    title: 'Héberger une partie',
+    webLead:
+      'Le jeu tourne sur ton ordinateur, tes amis jouent depuis leur navigateur. Pour partager une fenêtre, il faut l’application.',
+    desktopLead:
+      'Choisis la fenêtre du jeu. Seule cette fenêtre est montrée, jamais le reste de ton écran.',
+    steps: [
+      { title: 'Installe Couchwarp', text: 'Sur le PC ou le Mac où tourne le jeu.' },
+      { title: 'Choisis la fenêtre du jeu', text: 'Lance le jeu, puis choisis-le dans la liste.' },
+      { title: 'Envoie le code', text: 'Tes amis le tapent ici, sans rien installer.' },
+    ],
+    macNote: 'macOS 14 ou plus récent, puce Apple.',
+    windowsNote: 'Windows 10 ou 11.',
+    download: (system: string) => `Télécharger pour ${system}`,
+    soon: 'Bientôt disponible.',
+    checking: 'Recherche du téléchargement…',
+    starting: (app: string) => `Ouverture de la partie avec ${app}…`,
+    windowGone: 'Cette fenêtre vient de se fermer. Choisis-en une autre.',
+    defaultTitle: (name: string) => `Partie de ${name}`,
+    roomTitle: 'La partie',
+    publicNeedsAccount:
+      'Connecte-toi pour lister la partie publiquement. Sans compte, elle reste accessible avec le lien.',
+    qualityTitle: 'Image',
+    resolutionLabel: 'Définition maximale',
+    fpsLabel: 'Images par seconde',
+    fps: (count: number) => `${count} i/s`,
+    bitrateLabel: 'Débit maximal',
+    bitrate: (mbps: number) => `${mbps} Mbit/s`,
+    bitrateHelp: 'Le débit baisse tout seul si la connexion d’un invité ne suit pas, puis remonte.',
+    start: 'Lancer la partie',
+    chooseFirst: 'Choisis une fenêtre',
+    windowTitle: 'Fenêtre à partager',
+    refresh: 'Actualiser',
+    listing: 'Recherche des fenêtres…',
+    screenPermission:
+      'macOS doit autoriser Couchwarp à enregistrer l’écran. Active-le dans Réglages Système, puis relance l’application.',
+    openSettings: 'Ouvrir les réglages',
+    noWindows: 'Aucune fenêtre à partager. Lance le jeu, puis actualise.',
+    liveTitle: 'Partie en cours',
+    sharing: (app: string, title: string) =>
+      title && title !== app ? `Fenêtre partagée : ${app}, ${title}` : `Fenêtre partagée : ${app}`,
+    stop: 'Arrêter la partie',
+    codeLabel: 'Code de la partie',
+    statGuests: 'Invités connectés',
+    statFps: 'Images par seconde',
+    statDelay: 'Délai de l’hôte',
+    statBitrate: 'Débit vidéo',
+    ms: (value: string) => `${value} ms`,
+    mbps: (value: string) => `${value} Mbit/s`,
+    inputPermission:
+      'Les claviers et souris des invités n’atteignent pas encore le jeu : autorise Couchwarp dans Accessibilité.',
+  },
   account: {
+    inBrowser: 'Termine la connexion dans ton navigateur, puis reviens ici.',
+    signedInWith: (count: number) => (count > 1 ? `${count} comptes liés` : '1 compte lié'),
+    notLinked: 'Non lié',
+    linkOnSite: 'À lier depuis le site',
+    dataLead: 'Tout ce que Couchwarp garde sur toi, dans un fichier.',
     title: 'Ton compte',
     loading: 'Chargement du compte…',
     signIn: 'Se connecter',
@@ -119,8 +214,9 @@ const fr = {
     closeConfirm: 'Fermer la partie pour tout le monde ?',
   },
   browse: {
+    lead: 'Des parties ouvertes à tous, les plus proches de toi en premier.',
+    emptyTitle: 'Rien pour l’instant',
     title: 'Parties publiques',
-    link: 'Parcourir les parties publiques',
     gameLabel: 'Jeu',
     gamePlaceholder: 'Tous les jeux',
     regionLabel: 'Région',
@@ -166,8 +262,13 @@ const fr = {
     failed: 'Le signalement n’est pas parti. Réessaie dans un instant.',
   },
   friends: {
+    lead: 'Vois à quoi jouent tes amis et rejoins-les.',
+    playingTitle: (count: number) => `En partie (${count})`,
+    awayTitle: (count: number) => `Pas en partie (${count})`,
+    noIncoming: 'Aucune demande en attente.',
+    howTitle: 'Ajouter un ami',
+    how: 'Joue une partie avec quelqu’un, puis ajoute-le depuis la liste des joueurs. Couchwarp n’a pas de recherche par nom : personne ne peut t’ajouter sans avoir joué avec toi.',
     title: 'Amis',
-    link: 'Amis',
     signedOut: 'Connecte-toi pour retrouver tes amis et voir à quoi ils jouent.',
     empty:
       'Pas encore d’amis. Ajoute les joueurs de tes parties depuis la liste « Dans la partie ».',
@@ -186,7 +287,6 @@ const fr = {
   },
   admin: {
     title: 'Signalements',
-    link: 'Modération',
     open: 'À traiter',
     decided: 'Traités',
     none: 'Aucun signalement.',
@@ -213,6 +313,21 @@ const fr = {
   },
   wordmark: 'Couchwarp, accueil',
   home: {
+    greeting: (name: string) => `Salut ${name}`,
+    welcome: 'Bienvenue',
+    lead: 'Rejoins une partie avec son code, ou héberge la tienne.',
+    hostTitle: 'Héberger',
+    hostDesktop: 'Partage la fenêtre d’un jeu et invite tes amis avec un code.',
+    hostWeb: 'Pour partager un jeu, installe Couchwarp sur le PC ou le Mac qui le fait tourner.',
+    hostAction: 'Choisir un jeu',
+    downloadAction: 'Télécharger l’application',
+    seeAll: 'Tout voir',
+    controllersTitle: 'Manettes',
+    test: 'Tester',
+    noController: 'Aucune manette. Appuie sur un bouton pour la réveiller, ou joue au clavier.',
+    recentTitle: 'Tes dernières parties',
+    rejoin: 'Revenir',
+    noPublic: 'Aucune partie publique pour l’instant.',
     title: 'Rejoindre une partie',
     codeLabel: 'Code de la partie',
     codeHelp: 'Six caractères, affichés chez la personne qui lance le jeu.',
@@ -225,6 +340,15 @@ const fr = {
     serverDown: 'Le serveur ne répond pas. Réessaie dans un instant.',
   },
   join: {
+    lead: (host: string, game: string) =>
+      game ? `Hébergée par ${host}, sur ${game}.` : `Hébergée par ${host}.`,
+    checking: 'Vérification de la partie…',
+    seatFree: (count: number) =>
+      count === 1 ? 'Il reste une place de joueur.' : `Il reste ${count} places de joueur.`,
+    full: 'Toutes les places sont prises : tu regardes en attendant ton tour.',
+    players: 'Joueurs',
+    spectators: 'Spectateurs',
+    code: 'Code',
     title: (code: string) => `Partie ${code}`,
     nameLabel: 'Ton pseudo',
     nameHelp: 'Les autres joueurs le voient.',
@@ -237,7 +361,6 @@ const fr = {
     videoChecking: 'Test du décodage vidéo…',
     noPad:
       'Aucune manette détectée. Appuie sur un de ses boutons pour la réveiller, ou joue au clavier.',
-    pad: (slot: number, name: string) => `Manette ${slot} : ${name}`,
     play: 'Jouer',
     back: 'Changer de code',
   },
@@ -298,7 +421,101 @@ const fr = {
 type Strings = typeof fr
 
 const en: Strings = {
+  nav: {
+    label: 'Main navigation',
+    skip: 'Skip to content',
+    home: 'Home',
+    rooms: 'Games',
+    host: 'Host',
+    friends: 'Friends',
+    settings: 'Settings',
+    moderation: 'Moderation',
+    waiting: (count) => (count === 1 ? '1 request waiting' : `${count} requests waiting`),
+    accountHint: 'Account and settings',
+  },
+  settings: {
+    title: 'Settings',
+    tabs: { account: 'Account', controllers: 'Controllers', keyboard: 'Keyboard', app: 'App' },
+    controllersLead:
+      'Each connected controller gets a player number. Press its buttons to check it answers.',
+    noController: 'No controller found',
+    noControllerHelp:
+      'Plug it in over USB or Bluetooth, then press a button: browsers only show it after that.',
+    rumble: 'Rumble',
+    leftStick: 'Left stick',
+    rightStick: 'Right stick',
+    nonStandard:
+      'This controller does not use the standard layout: some buttons may be mixed up in game.',
+    keyboardLead:
+      'Without a controller, your keyboard becomes one. These keys follow your keyboard layout.',
+    mouseLead:
+      'When the host allows your mouse, click the game picture to capture it. Escape lets it go.',
+    languageTitle: 'Language',
+    languageLabel: 'Interface language',
+    languages: { auto: 'Same as the system', fr: 'Français', en: 'English' },
+    aboutTitle: 'About',
+    desktopApp: 'Couchwarp for desktop',
+    webApp: 'Couchwarp in the browser',
+    version: (version) => `Version ${version}`,
+  },
+  host: {
+    title: 'Host a game',
+    webLead:
+      'The game runs on your computer, your friends play from their browser. Sharing a window takes the app.',
+    desktopLead: 'Pick the game window. Only that window is shown, never the rest of your screen.',
+    steps: [
+      { title: 'Install Couchwarp', text: 'On the PC or Mac that runs the game.' },
+      { title: 'Pick the game window', text: 'Start the game, then pick it from the list.' },
+      { title: 'Send the code', text: 'Your friends type it here, with nothing to install.' },
+    ],
+    macNote: 'macOS 14 or later, Apple silicon.',
+    windowsNote: 'Windows 10 or 11.',
+    download: (system) => `Download for ${system}`,
+    soon: 'Coming soon.',
+    checking: 'Looking for the download…',
+    starting: (app) => `Opening the game with ${app}…`,
+    windowGone: 'That window just closed. Pick another one.',
+    defaultTitle: (name) => `${name}’s game`,
+    roomTitle: 'The game',
+    publicNeedsAccount:
+      'Sign in to list the game publicly. Without an account, it stays open to the link.',
+    qualityTitle: 'Picture',
+    resolutionLabel: 'Highest resolution',
+    fpsLabel: 'Frames per second',
+    fps: (count) => `${count} fps`,
+    bitrateLabel: 'Highest bitrate',
+    bitrate: (mbps) => `${mbps} Mbit/s`,
+    bitrateHelp:
+      'The bitrate drops on its own when a guest’s connection cannot keep up, then climbs back.',
+    start: 'Start the game',
+    chooseFirst: 'Pick a window',
+    windowTitle: 'Window to share',
+    refresh: 'Refresh',
+    listing: 'Looking for windows…',
+    screenPermission:
+      'macOS must allow Couchwarp to record the screen. Turn it on in System Settings, then restart the app.',
+    openSettings: 'Open settings',
+    noWindows: 'No window to share. Start the game, then refresh.',
+    liveTitle: 'Game running',
+    sharing: (app, title) =>
+      title && title !== app ? `Shared window: ${app}, ${title}` : `Shared window: ${app}`,
+    stop: 'Stop the game',
+    codeLabel: 'Game code',
+    statGuests: 'Guests connected',
+    statFps: 'Frames per second',
+    statDelay: 'Host delay',
+    statBitrate: 'Video bitrate',
+    ms: (value) => `${value} ms`,
+    mbps: (value) => `${value} Mbit/s`,
+    inputPermission:
+      'Guests’ keyboards and mice cannot reach the game yet: allow Couchwarp in Accessibility.',
+  },
   account: {
+    inBrowser: 'Finish signing in in your browser, then come back here.',
+    signedInWith: (count) => (count > 1 ? `${count} linked accounts` : '1 linked account'),
+    notLinked: 'Not linked',
+    linkOnSite: 'Link it from the website',
+    dataLead: 'Everything Couchwarp keeps about you, in one file.',
     title: 'Your account',
     loading: 'Loading your account…',
     signIn: 'Sign in',
@@ -414,8 +631,9 @@ const en: Strings = {
     closeConfirm: 'Close the game for everyone?',
   },
   browse: {
+    lead: 'Games open to anyone, the nearest to you first.',
+    emptyTitle: 'Nothing yet',
     title: 'Public games',
-    link: 'Browse public games',
     gameLabel: 'Game',
     gamePlaceholder: 'All games',
     regionLabel: 'Region',
@@ -460,8 +678,13 @@ const en: Strings = {
     failed: 'The report did not go through. Try again in a moment.',
   },
   friends: {
+    lead: 'See what your friends are playing and join them.',
+    playingTitle: (count) => `In a game (${count})`,
+    awayTitle: (count) => `Not in a game (${count})`,
+    noIncoming: 'No request waiting.',
+    howTitle: 'Adding a friend',
+    how: 'Play a game with someone, then add them from the player list. Couchwarp has no search by name: nobody can add you without having played with you.',
     title: 'Friends',
-    link: 'Friends',
     signedOut: 'Sign in to find your friends and see what they play.',
     empty: 'No friends yet. Add the players of your games from the “In the game” list.',
     incomingTitle: 'Requests received',
@@ -479,7 +702,6 @@ const en: Strings = {
   },
   admin: {
     title: 'Reports',
-    link: 'Moderation',
     open: 'To handle',
     decided: 'Handled',
     none: 'No reports.',
@@ -506,6 +728,21 @@ const en: Strings = {
   },
   wordmark: 'Couchwarp, home',
   home: {
+    greeting: (name) => `Hi ${name}`,
+    welcome: 'Welcome',
+    lead: 'Join a game with its code, or host your own.',
+    hostTitle: 'Host',
+    hostDesktop: 'Share a game window and invite your friends with a code.',
+    hostWeb: 'To share a game, install Couchwarp on the PC or Mac that runs it.',
+    hostAction: 'Pick a game',
+    downloadAction: 'Download the app',
+    seeAll: 'See all',
+    controllersTitle: 'Controllers',
+    test: 'Test',
+    noController: 'No controller. Press a button to wake it, or play with the keyboard.',
+    recentTitle: 'Your last games',
+    rejoin: 'Go back',
+    noPublic: 'No public game right now.',
     title: 'Join a game',
     codeLabel: 'Game code',
     codeHelp: 'Six characters, shown by the person running the game.',
@@ -517,6 +754,13 @@ const en: Strings = {
     serverDown: 'The server is not answering. Try again in a moment.',
   },
   join: {
+    lead: (host, game) => (game ? `Hosted by ${host}, playing ${game}.` : `Hosted by ${host}.`),
+    checking: 'Checking the game…',
+    seatFree: (count) => (count === 1 ? 'One player seat left.' : `${count} player seats left.`),
+    full: 'Every seat is taken: you watch until your turn.',
+    players: 'Players',
+    spectators: 'Spectators',
+    code: 'Code',
     title: (code) => `Game ${code}`,
     nameLabel: 'Your name',
     nameHelp: 'The other players see it.',
@@ -527,7 +771,6 @@ const en: Strings = {
     videoSoftware: 'Video decoded by the processor: the picture may stutter.',
     videoChecking: 'Testing video decoding…',
     noPad: 'No controller found. Press one of its buttons to wake it, or play with the keyboard.',
-    pad: (slot, name) => `Controller ${slot}: ${name}`,
     play: 'Play',
     back: 'Change code',
   },
@@ -585,5 +828,37 @@ const en: Strings = {
   },
 }
 
-export const lang = navigator.language.toLowerCase().startsWith('fr') ? 'fr' : 'en'
+const LANGUAGE_KEY = 'couchwarp.lang'
+
+export type LanguageChoice = 'auto' | 'fr' | 'en'
+
+function readLanguageChoice(): LanguageChoice {
+  try {
+    const saved = localStorage.getItem(LANGUAGE_KEY)
+    return saved === 'fr' || saved === 'en' ? saved : 'auto'
+  } catch {
+    return 'auto'
+  }
+}
+
+/** The language picked in the settings, or `auto` to follow the browser. */
+export const chosenLanguage: LanguageChoice = readLanguageChoice()
+
+/** Saves the choice and reloads, since every string is read once at start. */
+export function setLanguage(choice: LanguageChoice): void {
+  try {
+    if (choice === 'auto') localStorage.removeItem(LANGUAGE_KEY)
+    else localStorage.setItem(LANGUAGE_KEY, choice)
+  } catch {
+    // Without storage the choice lasts until the page reloads, which is now.
+  }
+  location.reload()
+}
+
+export const lang =
+  chosenLanguage !== 'auto'
+    ? chosenLanguage
+    : navigator.language.toLowerCase().startsWith('fr')
+      ? 'fr'
+      : 'en'
 export const t: Strings = lang === 'fr' ? fr : en

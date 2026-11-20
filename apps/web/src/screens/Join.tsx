@@ -1,9 +1,11 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { TopBar } from '../components/TopBar'
+import { Page } from '../components/Page'
+import { PlayerBadge } from '../components/PlayerBadge'
+import { Shell } from '../components/Shell'
 import { t } from '../i18n'
 import { useAccount } from '../lib/account'
-import { useGamepadNavigation } from '../lib/gamepad-nav'
-import { isRoomOpen } from '../lib/session'
+import { padName } from '../lib/gamepads'
+import { lookUpRoom, type RoomPreview } from '../lib/session'
 import { useGamepads } from '../lib/use-gamepads'
 
 const NAME_KEY = 'couchwarp.name'
@@ -63,11 +65,14 @@ export function Join({ code, onPlay, onBack, onClosed }: Props) {
   useEffect(() => {
     if (account && !savedName()) setName(account.displayName)
   }, [account])
+  const [room, setRoom] = useState<RoomPreview | null>(null)
   useEffect(() => {
     let current = true
-    isRoomOpen(code)
-      .then((open) => {
-        if (current && !open) onClosed()
+    lookUpRoom(code)
+      .then((found) => {
+        if (!current) return
+        if (found) setRoom(found)
+        else onClosed()
       })
       // Not fatal: if the room is really gone, joining reports it.
       .catch((error) => console.error('Room check failed', error))
@@ -79,7 +84,6 @@ export function Join({ code, onPlay, onBack, onClosed }: Props) {
   const video = useVideoSupport()
   const webrtc = typeof RTCPeerConnection === 'function'
   const trimmed = name.trim()
-  useGamepadNavigation(true, onBack)
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -89,65 +93,100 @@ export function Join({ code, onPlay, onBack, onClosed }: Props) {
   }
 
   return (
-    <main className="screen">
-      <TopBar>
-        <button type="button" className="link-button" onClick={onBack}>
-          {t.join.back}
-        </button>
-      </TopBar>
-      <form className="panel" onSubmit={submit}>
-        <h1 className="title">{t.join.title(code)}</h1>
-        <div className="field">
-          <label className="field__label" htmlFor="guest-name">
-            {t.join.nameLabel}
-          </label>
-          <input
-            id="guest-name"
-            className="input"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            name="nickname"
-            autoComplete="nickname"
-            maxLength={MAX_NAME_LENGTH}
-            required
-            aria-describedby="guest-name-help"
-          />
-          <p id="guest-name-help" className="field__help">
-            {t.join.nameHelp}
-          </p>
-        </div>
-
-        <section className="checks" aria-labelledby="device-title">
-          <h2 id="device-title" className="checks__title">
-            {t.join.deviceTitle}
-          </h2>
-          <ul className="checks__list">
-            <li data-state={webrtc ? 'ok' : 'blocking'}>
-              {webrtc ? t.join.browserOk : t.join.browserMissing}
-            </li>
-            <li data-state={video === 'software' ? 'warning' : 'ok'}>
-              {video === 'checking'
-                ? t.join.videoChecking
-                : video === 'hardware'
-                  ? t.join.videoHardware
-                  : t.join.videoSoftware}
-            </li>
-            {gamepads.length === 0 ? (
-              <li data-state="info">{t.join.noPad}</li>
-            ) : (
-              gamepads.map((gamepad, i) => (
-                <li key={gamepad.index} data-state="ok">
-                  {t.join.pad(i + 1, gamepad.id.replace(/\s*\(.*\)\s*$/, ''))}
-                </li>
-              ))
+    <Shell onBack={onBack}>
+      <Page
+        title={room?.title || t.join.title(code)}
+        lead={room ? t.join.lead(room.hostName, room.game) : t.join.checking}
+        actions={
+          <button type="button" className="button button--secondary" onClick={onBack}>
+            {t.join.back}
+          </button>
+        }
+      >
+        <div className="columns">
+          <form className="card card--feature stack" onSubmit={submit}>
+            <div className="field">
+              <label className="field__label" htmlFor="guest-name">
+                {t.join.nameLabel}
+              </label>
+              <input
+                id="guest-name"
+                className="input"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                name="nickname"
+                autoComplete="nickname"
+                maxLength={MAX_NAME_LENGTH}
+                required
+                aria-describedby="guest-name-help"
+              />
+              <p id="guest-name-help" className="field__help">
+                {t.join.nameHelp}
+              </p>
+            </div>
+            {room && (
+              <p className="field__help">
+                {room.players < room.maxPlayers
+                  ? t.join.seatFree(room.maxPlayers - room.players)
+                  : t.join.full}
+              </p>
             )}
-          </ul>
-        </section>
+            <button type="submit" className="button button--large" disabled={!trimmed || !webrtc}>
+              {t.join.play}
+            </button>
+          </form>
 
-        <button type="submit" className="button" disabled={!trimmed || !webrtc}>
-          {t.join.play}
-        </button>
-      </form>
-    </main>
+          <div className="stack stack--loose">
+            {room && (
+              <dl className="stats">
+                <div className="stats__item">
+                  <dt>{t.join.players}</dt>
+                  <dd className="num">
+                    {room.players}/{room.maxPlayers}
+                  </dd>
+                </div>
+                <div className="stats__item">
+                  <dt>{t.join.spectators}</dt>
+                  <dd className="num">{room.spectators}</dd>
+                </div>
+                <div className="stats__item">
+                  <dt>{t.join.code}</dt>
+                  <dd className="code">{code}</dd>
+                </div>
+              </dl>
+            )}
+            <section className="card checks" aria-labelledby="device-title">
+              <h2 id="device-title" className="card__title">
+                {t.join.deviceTitle}
+              </h2>
+              <ul className="checks__list">
+                <li data-state={webrtc ? 'ok' : 'blocking'}>
+                  {webrtc ? t.join.browserOk : t.join.browserMissing}
+                </li>
+                <li data-state={video === 'software' ? 'warning' : 'ok'}>
+                  {video === 'checking'
+                    ? t.join.videoChecking
+                    : video === 'hardware'
+                      ? t.join.videoHardware
+                      : t.join.videoSoftware}
+                </li>
+                {gamepads.length === 0 ? (
+                  <li data-state="info">{t.join.noPad}</li>
+                ) : (
+                  gamepads.map((gamepad, i) => (
+                    <li key={gamepad.index} data-state="ok">
+                      <span className="checks__pad">
+                        <PlayerBadge slot={i + 1} />
+                        {padName(gamepad)}
+                      </span>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </section>
+          </div>
+        </div>
+      </Page>
+    </Shell>
   )
 }

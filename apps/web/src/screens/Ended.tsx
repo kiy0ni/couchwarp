@@ -1,26 +1,22 @@
 import { useEffect, useRef } from 'react'
-import { TopBar } from '../components/TopBar'
+import { Page } from '../components/Page'
+import { Shell } from '../components/Shell'
 import { t } from '../i18n'
-import { useGamepadNavigation } from '../lib/gamepad-nav'
 import type { EndReason } from '../lib/session'
 
 export function Ended({ reason, onAgain }: { reason: EndReason; onAgain(): void }) {
   const action = useRef<HTMLButtonElement>(null)
-  useGamepadNavigation(true)
   useEffect(() => action.current?.focus(), [])
 
   return (
-    <main className="screen">
-      <TopBar />
-      <section className="panel" aria-labelledby="ended-title">
-        <h1 id="ended-title" className="title">
-          {t.ended.title}
-        </h1>
-        <p className="panel__lead">{t.ended.reasons[reason]}</p>
-        <button ref={action} type="button" className="button" onClick={onAgain}>
-          {t.ended.again}
-        </button>
-      </section>
-    </main>
+    <Shell onBack={onAgain}>
+      <Page title={t.ended.title} lead={t.ended.reasons[reason]} width="narrow">
+        <div className="actions">
+          <button ref={action} type="button" className="button" onClick={onAgain}>
+            {t.ended.again}
+          </button>
+        </div>
+      </Page>
+    </Shell>
   )
 }

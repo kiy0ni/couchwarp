@@ -79,7 +79,7 @@ export class Room extends DurableObject<Env> {
     const arrival = JSON.parse(request.headers.get(ARRIVAL_HEADER) ?? 'null') as Arrival | null
     switch (route) {
       case 'info':
-        return Response.json({ open: this.hostSocket() !== undefined })
+        return Response.json(this.info())
       case 'thumbnail':
         return this.thumbnail()
       case 'facts': {
@@ -490,6 +490,25 @@ export class Room extends DurableObject<Env> {
     return {
       publicRoomsEnabled: this.env.PUBLIC_ROOMS === 'on',
       relayAvailable: Boolean(this.env.TURN_KEY_ID && this.env.TURN_KEY_API_TOKEN),
+    }
+  }
+
+  /** What the join page shows before asking a name: the code alone opens this much. */
+  private info() {
+    const model = this.hostSocket() ? this.load() : null
+    if (!model) return { open: false }
+    const state = model.state(this.policy())
+    const seated = state.members.filter((member) => member.role !== 'spectator').length
+    return {
+      open: true,
+      room: {
+        title: state.settings.title,
+        game: state.settings.game,
+        hostName: state.hostName,
+        players: seated,
+        maxPlayers: state.settings.maxPlayers,
+        spectators: state.members.length - seated,
+      },
     }
   }
 
