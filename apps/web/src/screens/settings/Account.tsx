@@ -30,30 +30,15 @@ import { PasswordInput } from '../Login'
 
 const PROVIDER_NAMES: Record<ProviderId, string> = { discord: 'Discord', google: 'Google' }
 
-/** Signed out, the way to the sign-in page; signed in, the profile, security and data. */
+/** The profile, sign-in and security, history and data. */
 export function AccountTab() {
   const { account } = useAccount()
-  if (account === undefined) {
+  // Signed out, the sign-in screen stands in front of every page.
+  if (!account) {
     return (
       <p className="muted" role="status">
         {t.account.loading}
       </p>
-    )
-  }
-  if (account === null) {
-    return (
-      <section className="card card--feature stack">
-        <h2 className="card__title">{t.account.signInTitle}</h2>
-        <p className="card__text">{t.account.signInLead}</p>
-        <div className="actions">
-          <Link to={`/login?return=${encodeURIComponent('/settings/account')}`} className="button">
-            {t.account.signIn}
-          </Link>
-          <Link to="/signup" className="button button--secondary">
-            {t.login.createTitle}
-          </Link>
-        </div>
-      </section>
     )
   }
   return <Profile account={account} />

@@ -20,7 +20,7 @@ Ces chiffres sont mesurés en local, sans réseau entre les deux. La mesure sur 
 
 ## Lancer en local
 
-Prérequis : Node 22 et pnpm (via mise), Rust stable. L'hôte tourne sur macOS 14 ou plus récent, sur Windows 10 (version 2004) ou plus récent, et sur Linux (x86-64, bureau X11 ou Wayland avec XWayland). Pour compiler l'application sous Linux : `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `libxdo-dev`, `libssl-dev`.
+Prérequis : Node 22 et pnpm (via mise), Rust stable. L'hôte tourne sur macOS 14 ou plus récent, sur Windows 10 (version 2004) ou plus récent, et sur Linux (x86-64, bureau X11 ou Wayland avec XWayland). Pour compiler l'application sous Linux : `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `libxdo-dev`, `libssl-dev`, `libudev-dev`.
 
 ```sh
 pnpm install

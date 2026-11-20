@@ -6,7 +6,7 @@ import { Page, Section } from '../components/Page'
 import { SettingRow, Switch } from '../components/SettingRow'
 import { Shell } from '../components/Shell'
 import { t } from '../i18n'
-import { signInPath, useAccount } from '../lib/account'
+import { useAccount } from '../lib/account'
 import {
   askByTag,
   askFriend,
@@ -44,16 +44,6 @@ export function Friends() {
   return (
     <Shell onBack={() => navigate('/')}>
       <Page title={t.friends.title} lead={t.friends.lead}>
-        {account === null && (
-          <section className="card card--feature stack">
-            <p className="card__text">{t.friends.signedOut}</p>
-            <div className="actions">
-              <Link to={signInPath()} className="button">
-                {t.account.signIn}
-              </Link>
-            </div>
-          </section>
-        )}
         {lists && (
           <div className="columns columns--action-first">
             <div className="stack stack--loose">

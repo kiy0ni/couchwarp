@@ -68,6 +68,14 @@ export interface StartRequest {
   stun: string
 }
 
+/** One input report of a PlayStation or Switch controller, as WebHID would give it. */
+export interface NativeReport {
+  vendorId: number
+  productId: number
+  reportId: number
+  data: number[]
+}
+
 /** Whether guests' controllers play into games here, as the app finds it. */
 export type ControllerSupport = 'ready' | 'stopped' | 'missing' | 'impossible'
 
@@ -106,6 +114,14 @@ export const desktop = {
   openPrivacySettings: (pane: PermissionPane) => invoke<void>('open_privacy_settings', { pane }),
   /** Forgets what macOS remembers for this permission, and asks again. */
   repairPermission: (pane: PermissionPane) => invoke<void>('repair_permission', { pane }),
+  /** The app reads PlayStation and Switch controllers' reports and hands them over. */
+  watchControllers: (onReport: (report: NativeReport) => void) => {
+    const channel = new Channel<NativeReport>()
+    channel.onmessage = onReport
+    return invoke<void>('watch_controllers', { onReport: channel })
+  },
+  /** The controllers whose motion the app reads now. */
+  motionControllers: () => invoke<string[]>('motion_controllers'),
   controllerSupport: () => invoke<ControllerSupport>('controller_support'),
   /** Installs what guests' controllers need (VIIPER on Windows, a udev rule on Linux). */
   installControllerSupport: () => invoke<ControllerSupport>('install_controller_support'),

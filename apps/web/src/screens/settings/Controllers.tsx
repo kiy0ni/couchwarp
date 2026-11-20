@@ -4,13 +4,14 @@ import { PlayerBadge } from '../../components/PlayerBadge'
 import { SettingRow, Switch } from '../../components/SettingRow'
 import { t } from '../../i18n'
 import { FACE_LABELS, FAMILY_NAMES, familyOf } from '../../lib/controllers'
-import { isDesktop } from '../../lib/desktop'
+import { desktop, isDesktop } from '../../lib/desktop'
 import { padName } from '../../lib/gamepads'
 import {
   connectController,
-  hidAvailable,
   motionFor,
+  motionSource,
   resumeControllers,
+  startNativeMotion,
   startPhoneMotion,
   stopPhoneMotion,
 } from '../../lib/motion'
@@ -156,9 +157,16 @@ function ControllerSettings() {
   const preferences = usePreferences()
   const [connected, setConnected] = useState<string[]>([])
   const [problem, setProblem] = useState<string | null>(null)
+  const source = motionSource()
   useEffect(() => {
-    if (hidAvailable()) resumeControllers().then(setConnected).catch(console.error)
-  }, [])
+    if (source === 'webhid') resumeControllers().then(setConnected).catch(console.error)
+    if (source !== 'app') return
+    // The app finds controllers on its own, plugged in or paired at any time.
+    const look = () => desktop.motionControllers().then(setConnected).catch(console.error)
+    startNativeMotion().then(look).catch(console.error)
+    const timer = window.setInterval(look, 2000)
+    return () => window.clearInterval(timer)
+  }, [source])
   const touchScreen = matchMedia('(pointer: coarse)').matches
   return (
     <div className="settings__rows">
@@ -169,22 +177,22 @@ function ControllerSettings() {
           onChange={(nintendoLetters) => setPreferences({ nintendoLetters })}
         />
       </SettingRow>
-      {/* A phone has its own gyroscope below; a controller's is read through WebHID. */}
+      {/* A phone has its own gyroscope below. */}
       {!touchScreen && (
         <SettingRow
           id="pad-motion"
           title={t.settings.motion}
           help={
-            hidAvailable()
-              ? connected.length > 0
-                ? t.settings.motionConnected(connected.join(', '))
-                : t.settings.motionHelp
-              : isDesktop
-                ? t.settings.motionUnsupportedApp
-                : t.settings.motionUnsupported
+            connected.length > 0
+              ? t.settings.motionConnected(connected.join(', '))
+              : source === 'app'
+                ? t.settings.motionApp
+                : source === 'webhid'
+                  ? t.settings.motionHelp
+                  : t.settings.motionUnsupported
           }
         >
-          {hidAvailable() && (
+          {source === 'webhid' && (
             <button
               id="pad-motion"
               type="button"

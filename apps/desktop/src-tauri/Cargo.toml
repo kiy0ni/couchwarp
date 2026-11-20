@@ -1,6 +1,6 @@
 [package]
 name = "couchwarp-desktop"
-version = "0.2.0"
+version = "0.2.1"
 description = "Couchwarp for Mac and Windows: host a game for friends, or join theirs"
 edition.workspace = true
 license.workspace = true
@@ -15,6 +15,14 @@ path = "src/main.rs"
 tauri-build = { version = "2.5", features = [] }
 
 [dependencies]
+# Reading the motion sensors of PlayStation and Switch controllers, which the app's web
+# view cannot (no WebHID). Shared on macOS so the page's Gamepad API keeps the controller;
+# hidraw on Linux (needs libudev-dev to build); Windows' own HID API there.
+hidapi = { version = "2.6", default-features = false, features = [
+  "macos-shared-device",
+  "linux-static-hidraw",
+  "windows-native",
+] }
 anyhow = "1"
 base64 = "0.22"
 couchwarp-host = { path = "../../../crates/host" }

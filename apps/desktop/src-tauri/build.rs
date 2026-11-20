@@ -13,6 +13,8 @@ fn main() {
         "save_session",
         "input_allowed",
         "restart_app",
+        "watch_controllers",
+        "motion_controllers",
         "controller_support",
         "install_controller_support",
         "repair_permission",

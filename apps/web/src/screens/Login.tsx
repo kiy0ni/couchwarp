@@ -55,10 +55,8 @@ export function Login({ mode: initial }: { mode: LoginMode }) {
   const [mode, setMode] = useState(initial)
   useEffect(() => setMode(initial), [initial])
   const go = (next: LoginMode) => {
-    // In the app the gate shows this page at any address: the mode lives here then.
-    if (!isDesktop || loginModeOf(location.pathname)) {
-      navigate(`${PATHS[next]}${location.search}`)
-    }
+    // In front of another page, the address stays that page's, to show it once signed in.
+    if (loginModeOf(location.pathname)) navigate(`${PATHS[next]}${location.search}`)
     setMode(next)
   }
   const done = async () => {
@@ -98,11 +96,6 @@ export function Login({ mode: initial }: { mode: LoginMode }) {
         </div>
         <main className="login__body">{panel}</main>
         <footer className="login__foot">
-          {!isDesktop && (
-            <Link to="/" className="link-button">
-              {t.login.guest}
-            </Link>
-          )}
           <p className="login__legal">
             {t.login.legal[0]}
             <Link to="/terms">{t.login.terms}</Link>
