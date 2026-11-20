@@ -1371,6 +1371,15 @@ a.list__title {
 
 /* The controller test: sticks on the sides, buttons in the middle. */
 
+.pad-tester__name {
+  display: flex;
+  flex-direction: column;
+}
+
+.setting__problem {
+  padding: 0 var(--space-lg) var(--space-md);
+}
+
 .pad-tester__who {
   min-width: 0;
   display: flex;

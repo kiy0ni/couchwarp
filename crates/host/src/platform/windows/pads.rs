@@ -9,7 +9,7 @@ use std::collections::hash_map::Entry;
 use std::net::SocketAddr;
 
 use anyhow::{Context, Result};
-use couchwarp_protocol::input::GamepadState;
+use couchwarp_protocol::input::{GamepadState, MotionState};
 use couchwarp_protocol::room::PadType;
 use tracing::{info, warn};
 use viiper_client::DeviceCreateRequest;
@@ -26,6 +26,10 @@ struct VirtualPad {
     pad_type: PadType,
     device_id: String,
     stream: DeviceStream,
+    /// The last buttons and sticks, sent again with each new motion.
+    state: GamepadState,
+    /// How the guest's controller moves; a DualShock 4 reports it, an Xbox 360 cannot.
+    motion: Option<MotionState>,
 }
 
 pub struct PadSink {
@@ -84,9 +88,31 @@ impl PadSink {
         let Some(pad) = self.pads.get_mut(&slot) else {
             return;
         };
-        let sent = match pad_type {
-            PadType::Xbox360 => pad.stream.send(&xbox_input(state)),
-            PadType::DualShock4 => pad.stream.send(&dualshock_input(state)),
+        pad.state = *state;
+        self.send(slot);
+    }
+
+    /// Motion only changes a controller that already plays.
+    pub fn set_motion(&mut self, slot: u8, motion: &MotionState) {
+        let Some(pad) = self.pads.get_mut(&slot) else {
+            return;
+        };
+        if pad.pad_type != PadType::DualShock4 {
+            return;
+        }
+        pad.motion = Some(*motion);
+        self.send(slot);
+    }
+
+    fn send(&mut self, slot: u8) {
+        let Some(pad) = self.pads.get_mut(&slot) else {
+            return;
+        };
+        let sent = match pad.pad_type {
+            PadType::Xbox360 => pad.stream.send(&xbox_input(&pad.state)),
+            PadType::DualShock4 => pad
+                .stream
+                .send(&dualshock_input(&pad.state, pad.motion.as_ref())),
         };
         if let Err(error) = sent {
             warn!(slot, %error, "controller state not delivered; unplugging it");
@@ -146,9 +172,9 @@ fn xbox_input(state: &GamepadState) -> Xbox360Input {
     }
 }
 
-fn dualshock_input(state: &GamepadState) -> Dualshock4Input {
+fn dualshock_input(state: &GamepadState, motion: Option<&MotionState>) -> Dualshock4Input {
     let report = ds4_report(state);
-    Dualshock4Input {
+    let still = Dualshock4Input {
         stick_lx: report.left_stick[0],
         stick_ly: report.left_stick[1],
         stick_rx: report.right_stick[0],
@@ -160,6 +186,18 @@ fn dualshock_input(state: &GamepadState) -> Dualshock4Input {
         // Lying flat and still: no touch, no motion, gravity straight down.
         accel_z: DEFAULT_ACCEL_Z_RAW,
         ..Dualshock4Input::default()
+    };
+    match motion {
+        Some(motion) => Dualshock4Input {
+            gyro_x: motion.gyro[0],
+            gyro_y: motion.gyro[1],
+            gyro_z: motion.gyro[2],
+            accel_x: motion.accel[0],
+            accel_y: motion.accel[1],
+            accel_z: motion.accel[2],
+            ..still
+        },
+        None => still,
     }
 }
 
@@ -184,5 +222,7 @@ fn plug_in(client: &ViiperClient, bus: u32, pad_type: PadType) -> Result<Virtual
         pad_type,
         device_id: device.dev_id,
         stream,
+        state: GamepadState::default(),
+        motion: None,
     })
 }

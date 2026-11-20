@@ -1,8 +1,9 @@
-import { type InputPacket, KEYBOARD_PAD, TOUCH_PAD } from '@couchwarp/protocol'
+import { type InputPacket, KEYBOARD_PAD, nextSeq, TOUCH_PAD } from '@couchwarp/protocol'
 import { type RefObject, useEffect, useMemo } from 'react'
 import { PadTracker } from './gamepads'
 import { KeyboardTracker } from './keyboard'
 import { keyboardPadState } from './keyboard-pad'
+import { type Motion, motionFor, phoneMotion } from './motion'
 import { MouseTracker } from './mouse'
 import { NEUTRAL_PAD, type PadState } from './pad-state'
 import { preferences } from './preferences'
@@ -14,6 +15,8 @@ import { VirtualPad } from './virtual-pad'
  * so reading once per animation frame would add up to a frame of input delay.
  */
 const PAD_POLL_MS = 4
+/** Motion is sent at about the rate a game reads it, not at every sensor report. */
+const MOTION_EVERY_MS = 16
 
 /**
  * `keys` sends the keyboard as is; `pad` plays it as a controller; `off` sends nothing,
@@ -63,6 +66,12 @@ export function useInputForwarding(
     const { pads, keyboard, keyboardPad, touchPad, mouse } = trackers
     const heldCodes = new Set<string>()
 
+    let motionSeq = 0
+    let motionSentAt = 0
+    const motionPacket = (pad: number, reading: Motion): InputPacket => {
+      motionSeq = nextSeq(motionSeq)
+      return { kind: 'motion', pad, seq: motionSeq, gyro: reading.gyro, accel: reading.accel }
+    }
     const send = (packet: InputPacket | null) => {
       if (packet) session.sendInput(packet)
     }
@@ -76,9 +85,20 @@ export function useInputForwarding(
 
     const poll = window.setInterval(() => {
       const now = performance.now()
-      const { packets, removed } = pads.poll(navigator.getGamepads(), now)
+      const gamepads = navigator.getGamepads()
+      const { packets, removed } = pads.poll(gamepads, now)
       for (const packet of packets) session.sendInput(packet)
       for (const pad of removed) removePad(pad)
+      if (now - motionSentAt >= MOTION_EVERY_MS) {
+        motionSentAt = now
+        for (const gamepad of gamepads) {
+          const pad = gamepad ? pads.padOf(gamepad.index) : undefined
+          const reading = gamepad && pad !== undefined ? motionFor(gamepad, now) : null
+          if (reading && pad !== undefined) send(motionPacket(pad, reading))
+        }
+        const tilt = touch.current ? phoneMotion(now) : null
+        if (tilt) send(motionPacket(TOUCH_PAD, tilt))
+      }
 
       if (touch.current) {
         send(touchPad.update(touch.current, now))

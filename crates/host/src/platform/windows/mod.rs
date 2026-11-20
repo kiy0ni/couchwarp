@@ -8,7 +8,7 @@ mod mouse;
 mod pads;
 mod sound;
 
-use couchwarp_protocol::input::{GamepadState, MouseButtons};
+use couchwarp_protocol::input::{GamepadState, MotionState, MouseButtons};
 use couchwarp_protocol::room::PadType;
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
@@ -71,6 +71,10 @@ impl InputSink {
 
     pub fn release_pad(&mut self, slot: u8) {
         self.pads.release(slot);
+    }
+
+    pub fn set_motion(&mut self, slot: u8, motion: &MotionState) {
+        self.pads.set_motion(slot, motion);
     }
 
     pub fn move_mouse(&mut self, dx: i32, dy: i32) {

@@ -19,6 +19,10 @@ export interface Preferences {
   keyboardMode: 'keys' | 'pad'
   /** The controller the game sees for this guest. */
   padType: 'xbox360' | 'dualshock4'
+  /** Nintendo controllers play by their letters: the A on the right is the game's A. */
+  nintendoLetters: boolean
+  /** The phone's own gyroscope moves the touch controller. */
+  phoneMotion: boolean
   /** Mouse movement multiplier, 0.25 to 3. */
   mouseSpeed: number
   /** Where the in-game bubble sits, as fractions of the screen. */
@@ -49,6 +53,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   touchPad: true,
   keyboardMode: 'pad',
   padType: 'xbox360',
+  nintendoLetters: true,
+  phoneMotion: false,
   mouseSpeed: 1,
   bubble: { x: 0.5, y: 0.02 },
   hostMaxHeight: 1080,

@@ -9,7 +9,7 @@ pub mod filter;
 
 use std::collections::{BTreeSet, HashMap};
 
-use couchwarp_protocol::input::{GamepadState, InputPacket, MouseButtons, is_newer};
+use couchwarp_protocol::input::{GamepadState, InputPacket, MotionState, MouseButtons, is_newer};
 use couchwarp_protocol::signal::GuestId;
 
 use filter::{allowed_buttons, allowed_keys};
@@ -31,6 +31,11 @@ pub enum Action {
     },
     ReleasePad {
         slot: u8,
+    },
+    /// How the controller in `slot` moves, for games that read tilt and rotation.
+    SetMotion {
+        slot: u8,
+        motion: MotionState,
     },
     /// Every key that must be held down on the host now, already filtered.
     SetKeys(Vec<u8>),
@@ -60,6 +65,7 @@ pub struct InputRouter {
     slots: [Option<(GuestId, u8)>; SLOTS as usize],
     permissions: HashMap<GuestId, Permissions>,
     pad_seqs: HashMap<(GuestId, u8), u16>,
+    motion_seqs: HashMap<(GuestId, u8), u16>,
     keyboards: HashMap<GuestId, (u16, Vec<u8>)>,
     mice: HashMap<GuestId, (u16, MouseButtons)>,
     game_focused: bool,
@@ -73,6 +79,7 @@ impl InputRouter {
             slots: [None; SLOTS as usize],
             permissions: HashMap::new(),
             pad_seqs: HashMap::new(),
+            motion_seqs: HashMap::new(),
             keyboards: HashMap::new(),
             mice: HashMap::new(),
             game_focused,
@@ -85,7 +92,21 @@ impl InputRouter {
         let mut actions = Vec::new();
         let allowed = self.permissions.get(&guest).copied().unwrap_or_default();
         match packet {
-            InputPacket::Gamepad(_) if !allowed.pads => {}
+            InputPacket::Gamepad(_) | InputPacket::Motion(_) if !allowed.pads => {}
+            InputPacket::Motion(motion) => {
+                let key = (guest, motion.pad);
+                if self.is_stale(self.motion_seqs.get(&key).copied(), motion.seq) {
+                    return actions;
+                }
+                self.motion_seqs.insert(key, motion.seq);
+                // Motion follows a controller that already plays; it never takes a seat.
+                if let Some(index) = self.slots.iter().position(|s| *s == Some(key)) {
+                    actions.push(Action::SetMotion {
+                        slot: index as u8 + 1,
+                        motion,
+                    });
+                }
+            }
             InputPacket::Keyboard(_) if !allowed.keyboard => {}
             InputPacket::Mouse(_) if !allowed.mouse => {}
             InputPacket::Mouse(mouse) => {
@@ -363,6 +384,24 @@ mod tests {
             ]
         );
         assert_eq!(slots_assigned(&router.apply(3, pad(0, 1, Buttons::A))), [2]);
+    }
+
+    #[test]
+    fn motion_follows_a_seated_controller_only() {
+        let mut router = router(true);
+        let tilt = |pad: u8, seq: u16| {
+            InputPacket::Motion(MotionState {
+                pad,
+                seq,
+                gyro: [10, 20, 30],
+                accel: [0, 8192, 0],
+            })
+        };
+        assert!(router.apply(1, tilt(0, 1)).is_empty());
+        router.apply(1, pad(0, 1, Buttons(0)));
+        let actions = router.apply(1, tilt(0, 2));
+        assert!(matches!(actions[..], [Action::SetMotion { slot: 1, .. }]));
+        assert!(router.apply(1, tilt(0, 2)).is_empty());
     }
 
     #[test]

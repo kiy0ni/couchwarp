@@ -153,6 +153,22 @@ const fr = {
     noControllerHelp:
       'Branche-la en USB ou en Bluetooth, puis appuie sur un bouton : le navigateur ne la montre qu’après.',
     rumble: 'Vibrer',
+    letters: 'Manettes Nintendo par lettres',
+    lettersHelp:
+      'Le bouton marqué A (à droite) fait le A du jeu. Sinon, c’est la position qui compte, comme sur une manette Xbox.',
+    motion: 'Gyroscope des manettes',
+    motionHelp:
+      'Pour viser ou conduire en penchant une manette PlayStation ou Switch. Il faut un hôte Windows, et le type PlayStation dans le menu.',
+    motionConnected: (names: string) => `Connectées : ${names}.`,
+    motionUnsupported:
+      'Ce navigateur ne lit pas le gyroscope des manettes. Utilise Chrome ou Edge sur ordinateur.',
+    motionConnect: 'Connecter une manette',
+    motionFailed: 'La manette n’a pas pu être connectée.',
+    motionLive: (gyro: string) => `Gyroscope : ${gyro} degrés par seconde`,
+    phoneMotion: 'Gyroscope du téléphone',
+    phoneMotionHelp:
+      'Avec la manette tactile, pencher le téléphone fait comme pencher une manette.',
+    phoneMotionRefused: 'Le téléphone a refusé l’accès à ses capteurs.',
     leftStick: 'Stick gauche',
     rightStick: 'Stick droit',
     nonStandard:
@@ -746,6 +762,21 @@ const en: Strings = {
     noControllerHelp:
       'Plug it in over USB or Bluetooth, then press a button: browsers only show it after that.',
     rumble: 'Rumble',
+    letters: 'Nintendo controllers by letter',
+    lettersHelp:
+      'The button marked A (on the right) is the game’s A. Otherwise the position counts, as on an Xbox controller.',
+    motion: 'Controller gyroscope',
+    motionHelp:
+      'To aim or steer by tilting a PlayStation or Switch controller. Needs a Windows host, and the PlayStation type in the menu.',
+    motionConnected: (names) => `Connected: ${names}.`,
+    motionUnsupported:
+      'This browser cannot read controller gyroscopes. Use Chrome or Edge on a computer.',
+    motionConnect: 'Connect a controller',
+    motionFailed: 'The controller could not be connected.',
+    motionLive: (gyro) => `Gyroscope: ${gyro} degrees per second`,
+    phoneMotion: 'Phone gyroscope',
+    phoneMotionHelp: 'With the touch controller, tilting the phone is like tilting a controller.',
+    phoneMotionRefused: 'The phone refused access to its sensors.',
     leftStick: 'Left stick',
     rightStick: 'Right stick',
     nonStandard:

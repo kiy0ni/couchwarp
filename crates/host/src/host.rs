@@ -321,6 +321,7 @@ impl Host {
                 Action::MoveMouse { dx, dy } => self.sink.move_mouse(dx, dy),
                 Action::SetMouseButtons(buttons) => self.sink.set_mouse_buttons(buttons),
                 Action::Scroll(wheel) => self.sink.scroll(wheel),
+                Action::SetMotion { slot, motion } => self.sink.set_motion(slot, &motion),
                 Action::KeyboardPaused(paused) => {
                     info!(paused, "guest keyboards follow the game window focus");
                     self.sink.set_paused(paused);

@@ -1,5 +1,7 @@
 import { Button, type GamepadPacket, nextSeq } from '@couchwarp/protocol'
+import { familyOf } from './controllers'
 import { samePadState } from './pad-state'
+import { preferences } from './preferences'
 
 /** Most controllers one guest can bring. */
 export const MAX_PADS = 4
@@ -33,12 +35,16 @@ function trigger(button: GamepadButton | undefined): number {
   return Math.round((button?.value ?? 0) * 255)
 }
 
-/** State of one controller, with `seq` left at 0 for the caller to fill. */
-export function readGamepad(gamepad: Gamepad, pad: number): GamepadPacket {
+/**
+ * State of one controller, with `seq` left at 0 for the caller to fill. With `byLetters`,
+ * a Nintendo controller's face buttons follow their letters instead of their places.
+ */
+export function readGamepad(gamepad: Gamepad, pad: number, byLetters = false): GamepadPacket {
   let buttons = 0
   for (const [index, bit] of BUTTON_BITS) {
     if (gamepad.buttons[index]?.pressed) buttons |= bit
   }
+  if (byLetters && familyOf(gamepad.id ?? '') === 'nintendo') buttons = swapFaceLetters(buttons)
   return {
     kind: 'gamepad',
     pad,
@@ -49,6 +55,19 @@ export function readGamepad(gamepad: Gamepad, pad: number): GamepadPacket {
     leftTrigger: trigger(gamepad.buttons[6]),
     rightTrigger: trigger(gamepad.buttons[7]),
   }
+}
+
+/** A with B, X with Y: the game's A becomes the button printed A on a Nintendo pad. */
+export function swapFaceLetters(buttons: number): number {
+  const swap = (bits: number, one: number, other: number) => {
+    const hasOne = (bits & one) !== 0
+    const hasOther = (bits & other) !== 0
+    let out = bits & ~(one | other)
+    if (hasOne) out |= other
+    if (hasOther) out |= one
+    return out
+  }
+  return swap(swap(buttons, Button.a, Button.b), Button.x, Button.y)
 }
 
 interface Tracked {
@@ -77,7 +96,7 @@ export class PadTracker {
     for (const gamepad of connected) {
       const pad = this.padFor(gamepad.index)
       if (pad === undefined) continue
-      const state = readGamepad(gamepad, pad)
+      const state = readGamepad(gamepad, pad, preferences().nintendoLetters)
       const tracked = this.pads[pad]
       if (tracked && samePadState(tracked.last, state) && now - tracked.sentAt < RESEND_MS) continue
       this.seq = nextSeq(this.seq)
@@ -86,6 +105,12 @@ export class PadTracker {
       packets.push(packet)
     }
     return { packets, removed }
+  }
+
+  /** The pad number of a connected controller, by its `Gamepad.index`. */
+  padOf(index: number): number | undefined {
+    const pad = this.pads.findIndex((tracked) => tracked?.index === index)
+    return pad === -1 ? undefined : pad
   }
 
   private padFor(index: number): number | undefined {

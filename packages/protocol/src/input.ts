@@ -70,13 +70,27 @@ export interface MousePacket {
   wheel: number
 }
 
-export type InputPacket = GamepadPacket | KeyboardPacket | MousePacket
+/**
+ * How one controller moves, for games that aim or steer by tilting: angular speed and
+ * acceleration, in a DualShock 4's own units (about 16 per degree per second, 8192 per g).
+ */
+export interface MotionPacket {
+  kind: 'motion'
+  pad: number
+  seq: number
+  gyro: [number, number, number]
+  accel: [number, number, number]
+}
+
+export type InputPacket = GamepadPacket | KeyboardPacket | MousePacket | MotionPacket
 
 const KIND_GAMEPAD = 1
 const KIND_KEYBOARD = 2
 const KIND_MOUSE = 3
+const KIND_MOTION = 4
 const GAMEPAD_LENGTH = 16
 const MOUSE_LENGTH = 10
+const MOTION_LENGTH = 16
 const INT16_MIN = -32768
 const INT16_MAX = 32767
 
@@ -97,6 +111,16 @@ export function encodeInput(packet: InputPacket): Uint8Array<ArrayBuffer> {
     view.setInt16(12, packet.rightStick[1], true)
     view.setUint8(14, packet.leftTrigger)
     view.setUint8(15, packet.rightTrigger)
+    return new Uint8Array(view.buffer)
+  }
+  if (packet.kind === 'motion') {
+    const view = new DataView(new ArrayBuffer(MOTION_LENGTH))
+    view.setUint8(0, KIND_MOTION)
+    view.setUint8(1, packet.pad)
+    view.setUint16(2, packet.seq, true)
+    ;[...packet.gyro, ...packet.accel].forEach((value, index) => {
+      view.setInt16(4 + index * 2, int16(value), true)
+    })
     return new Uint8Array(view.buffer)
   }
   if (packet.kind === 'mouse') {

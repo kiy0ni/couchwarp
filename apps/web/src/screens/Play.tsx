@@ -10,6 +10,7 @@ import { ReportDialog, type ReportTarget } from '../components/ReportDialog'
 import { TouchPad } from '../components/TouchPad'
 import { t } from '../i18n'
 import { latencyQuality } from '../lib/latency'
+import { startPhoneMotion, stopPhoneMotion } from '../lib/motion'
 import type { PadState } from '../lib/pad-state'
 import { preferences, usePreferences } from '../lib/preferences'
 import type { EndReason } from '../lib/session'
@@ -122,6 +123,12 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
     onShortcut,
   })
   const notices = useChatNotices(stream.chat, chatOpen, me?.id ?? null)
+  // The phone's gyroscope, while its touch controller plays.
+  useEffect(() => {
+    if (!showTouch || !prefs.phoneMotion) return
+    startPhoneMotion().catch(console.error)
+    return stopPhoneMotion
+  }, [showTouch, prefs.phoneMotion])
   // The controller type picked in the settings, sent once the room knows this guest.
   const myId = me?.id
   const myPadType = me?.padType

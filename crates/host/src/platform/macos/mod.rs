@@ -9,7 +9,7 @@ pub mod encoder;
 mod keyboard;
 mod mouse;
 
-use couchwarp_protocol::input::{GamepadState, MouseButtons};
+use couchwarp_protocol::input::{GamepadState, MotionState, MouseButtons};
 use couchwarp_protocol::room::PadType;
 use objc2_core_foundation::{
     CFArray, CFDictionary, CFNumber, CFRetained, CFString, CFType, CGRect,
@@ -124,6 +124,9 @@ impl InputSink {
     }
 
     pub fn release_pad(&mut self, _slot: u8) {}
+
+    /// No virtual controller on a Mac, so nothing reads motion either.
+    pub fn set_motion(&mut self, _slot: u8, _motion: &MotionState) {}
 
     pub fn move_mouse(&mut self, dx: i32, dy: i32) {
         self.mouse.move_by(dx, dy);
