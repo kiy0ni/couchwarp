@@ -63,6 +63,7 @@ fn main() {
             commands::saved_session,
             commands::sign_in,
             commands::sign_out,
+            commands::save_session,
             commands::input_allowed,
             commands::open_privacy_settings,
             commands::set_bubble_open,

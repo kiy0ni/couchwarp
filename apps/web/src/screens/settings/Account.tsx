@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { type FormEvent, useRef, useState } from 'react'
 import { Avatar } from '../../components/Avatar'
 import { Badges } from '../../components/Badges'
 import { Link } from '../../components/Link'
@@ -15,6 +15,13 @@ import {
 import { isDesktop } from '../../lib/desktop'
 import { fullTag } from '../../lib/friends'
 import { playedOn, useHistory } from '../../lib/history'
+import {
+  addPassword,
+  LOGIN_PATTERN,
+  MIN_PASSWORD,
+  signInWithPassword,
+  signUpWithPassword,
+} from '../../lib/password'
 import { PROFILE_COLORS, removeAvatar, updateProfile, uploadAvatar } from '../../lib/profile'
 import { navigate } from '../../lib/router'
 
@@ -75,9 +82,7 @@ function SignIn() {
           {t.account.inBrowser}
         </p>
       )}
-      {providers.length === 0 ? (
-        <p className="card__text">{t.account.noProviders}</p>
-      ) : (
+      {providers.length > 0 && (
         <div className="stack">
           {providers.map((provider) => (
             <button
@@ -93,8 +98,181 @@ function SignIn() {
           ))}
         </div>
       )}
+      {providers.length > 0 && <p className="divider">{t.password.or}</p>}
+      <PasswordForm />
       <p className="field__help">{t.account.legal}</p>
     </section>
+  )
+}
+
+/** Sign in or sign up with a login and a password, for people without Discord or Google. */
+function PasswordForm() {
+  const { refresh } = useAccount()
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [login, setLogin] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [atLeast13, setAtLeast13] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const signingUp = mode === 'signup'
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    setError(null)
+    if (!LOGIN_PATTERN.test(login.trim())) return setError(t.password.errors['invalid-login'])
+    if (password.length < MIN_PASSWORD) return setError(t.password.errors['invalid-password'])
+    if (signingUp && !atLeast13) return setError(t.password.errors['too-young'])
+    setBusy(true)
+    const outcome = signingUp
+      ? await signUpWithPassword({ login: login.trim(), password, displayName: name, atLeast13 })
+      : await signInWithPassword(login.trim(), password)
+    setBusy(false)
+    if (!outcome.ok) {
+      const errors = t.password.errors
+      setError(errors[outcome.reason as keyof typeof errors] ?? errors.failed)
+      return
+    }
+    await refresh()
+  }
+
+  return (
+    <form className="stack" onSubmit={submit} noValidate>
+      <div className="field">
+        <label className="field__label" htmlFor="password-login">
+          {t.password.login}
+        </label>
+        <input
+          id="password-login"
+          className="input"
+          value={login}
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          onChange={(event) => setLogin(event.target.value)}
+        />
+        {signingUp && <p className="field__help">{t.password.loginHelp}</p>}
+      </div>
+      <div className="field">
+        <label className="field__label" htmlFor="password-secret">
+          {t.password.password}
+        </label>
+        <input
+          id="password-secret"
+          className="input"
+          type="password"
+          value={password}
+          autoComplete={signingUp ? 'new-password' : 'current-password'}
+          onChange={(event) => setPassword(event.target.value)}
+        />
+        {signingUp && <p className="field__help">{t.password.passwordHelp}</p>}
+      </div>
+      {signingUp && (
+        <div className="field">
+          <label className="field__label" htmlFor="password-name">
+            {t.profile.name}
+          </label>
+          <input
+            id="password-name"
+            className="input"
+            value={name}
+            maxLength={32}
+            autoComplete="nickname"
+            onChange={(event) => setName(event.target.value)}
+          />
+        </div>
+      )}
+      {signingUp && (
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={atLeast13}
+            onChange={(event) => setAtLeast13(event.target.checked)}
+          />
+          <span>{t.account.ageYes}</span>
+        </label>
+      )}
+      {error && (
+        <p className="field__help" data-error role="status">
+          {error}
+        </p>
+      )}
+      <button type="submit" className="button" disabled={busy}>
+        {signingUp ? t.password.create : t.password.signIn}
+      </button>
+      <button
+        type="button"
+        className="link-button"
+        onClick={() => {
+          setMode(signingUp ? 'signin' : 'signup')
+          setError(null)
+        }}
+      >
+        {signingUp ? t.password.haveAccount : t.password.noAccount}
+      </button>
+      {signingUp && <p className="field__help">{t.password.noReset}</p>}
+    </form>
+  )
+}
+
+/** Adds a login and password to an account that has only Discord or Google. */
+function AddPassword({ onAdded }: { onAdded(): void }) {
+  const [open, setOpen] = useState(false)
+  const [login, setLogin] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  if (!open) {
+    return (
+      <button type="button" className="link-button" onClick={() => setOpen(true)}>
+        {t.password.add}
+      </button>
+    )
+  }
+  return (
+    <form
+      className="add-password"
+      onSubmit={async (event) => {
+        event.preventDefault()
+        if (!LOGIN_PATTERN.test(login.trim())) return setError(t.password.errors['invalid-login'])
+        if (password.length < MIN_PASSWORD) return setError(t.password.errors['invalid-password'])
+        const outcome = await addPassword(login.trim(), password)
+        if (outcome.ok) {
+          setOpen(false)
+          onAdded()
+        } else {
+          const errors = t.password.errors
+          setError(errors[outcome.reason as keyof typeof errors] ?? errors.failed)
+        }
+      }}
+    >
+      <input
+        className="input"
+        aria-label={t.password.login}
+        placeholder={t.password.login}
+        value={login}
+        autoComplete="username"
+        autoCapitalize="none"
+        onChange={(event) => setLogin(event.target.value)}
+      />
+      <input
+        className="input"
+        type="password"
+        aria-label={t.password.password}
+        placeholder={t.password.password}
+        value={password}
+        autoComplete="new-password"
+        onChange={(event) => setPassword(event.target.value)}
+      />
+      <button type="submit" className="button button--small">
+        {t.console.save}
+      </button>
+      {error && (
+        <p className="field__help" data-error role="status">
+          {error}
+        </p>
+      )}
+    </form>
   )
 }
 
@@ -136,7 +314,7 @@ function Profile({ account }: { account: Account }) {
   const [error, setError] = useState<string | null>(null)
   const linked = new Set(account.identities.map((identity) => identity.provider))
 
-  async function unlink(provider: ProviderId) {
+  async function unlink(provider: ProviderId | 'password') {
     const response = await accountRequest(`/api/me/identities/${provider}`, 'DELETE')
     setError(response.ok ? null : t.account.unlinkRefused)
     await refresh()
@@ -180,6 +358,22 @@ function Profile({ account }: { account: Account }) {
                 </li>
               )
             })}
+          <li className="list__item">
+            <span className="list__main">
+              <span className="list__title">{t.password.title}</span>
+              <span className="list__detail">
+                {account.identities.find((item) => item.provider === 'password')?.username ??
+                  t.account.notLinked}
+              </span>
+            </span>
+            {linked.has('password') ? (
+              <button type="button" className="link-button" onClick={() => unlink('password')}>
+                {t.account.unlink}
+              </button>
+            ) : (
+              <AddPassword onAdded={refresh} />
+            )}
+          </li>
         </ul>
         {error && (
           <p className="field__help" data-error>

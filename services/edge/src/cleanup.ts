@@ -26,5 +26,6 @@ export async function cleanUp(db: D1Database, now: number): Promise<void> {
     db
       .prepare('DELETE FROM friendships WHERE accepted_at IS NULL AND created_at < ?')
       .bind(now - 90 * DAY_MS),
+    db.prepare('DELETE FROM login_failures WHERE at < ?').bind(now - DAY_MS),
   ])
 }

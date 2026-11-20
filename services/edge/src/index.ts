@@ -8,7 +8,7 @@
  * - `GET /api/rooms/:code/console` (WebSocket): the host console, after an `auth` message.
  * - `GET /api/rooms/:code/thumbnail`: the latest picture of a public room.
  * - `POST /api/rooms/:code/report`: reports, see `reports.ts`.
- * - `/api/auth/*`, `/api/me*`: accounts, see `auth/routes.ts`.
+ * - `/api/auth/*`, `/api/me*`: accounts, see `auth/routes.ts` and `auth/password.ts`.
  * - `/api/friends*`: friends and presence, see `friends.ts`.
  * - `/api/me/profile`, `/api/me/avatar`, `/api/users/:id*`: profiles, see `profiles.ts`.
  * - `/api/admin/*`: report handling, for admins only.
@@ -22,6 +22,7 @@
  */
 
 import { isRoomCode, normalizeRoomCode } from '@couchwarp/protocol'
+import { handlePasswords } from './auth/password'
 import { handleAccounts } from './auth/routes'
 import { currentUser } from './auth/sessions'
 import { cleanUp } from './cleanup'
@@ -43,6 +44,7 @@ export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url)
     const handled =
+      (await handlePasswords(request, env)) ??
       (await handleProfiles(request, env)) ??
       (await handleAccounts(request, env)) ??
       (await handleFriends(request, env)) ??

@@ -26,14 +26,9 @@ import {
   sessionCookie,
   type User,
 } from './sessions'
+import { createUser } from './users'
 
 const STATE_LIFETIME_MS = 10 * 60 * 1000
-const TAG_DRAWS = 5
-
-/** Six digits, so a tag never starts with a zero that people would drop. */
-function randomTag(): number {
-  return 100000 + ((crypto.getRandomValues(new Uint32Array(1))[0] ?? 0) % 900000)
-}
 
 /** Where a sign-in may send the person back: a page of this site, or the host app on loopback. */
 function validReturn(client: SessionKind, returnTo: string): boolean {
@@ -176,27 +171,18 @@ async function attachIdentity(
     return { userId: owner }
   }
 
-  const userId = crypto.randomUUID()
-  // A random tag; on the rare clash with an existing one, draw again.
-  for (let draw = 0; ; draw++) {
-    try {
-      await db.batch([
-        db
-          .prepare(
-            'INSERT INTO users (id, display_name, avatar_url, tag, created_at) VALUES (?, ?, ?, ?, ?)',
-          )
-          .bind(userId, profile.displayName, profile.avatarUrl, randomTag(), now),
-        db
-          .prepare(
-            'INSERT INTO identities (provider, provider_user_id, user_id, username, created_at) VALUES (?, ?, ?, ?, ?)',
-          )
-          .bind(provider, profile.providerUserId, userId, profile.username, now),
-      ])
-      return { userId }
-    } catch (error) {
-      if (draw >= TAG_DRAWS || !String(error).includes('users.tag')) throw error
-    }
-  }
+  const userId = await createUser(
+    db,
+    { displayName: profile.displayName, avatarUrl: profile.avatarUrl },
+    (id) => [
+      db
+        .prepare(
+          'INSERT INTO identities (provider, provider_user_id, user_id, username, created_at) VALUES (?, ?, ?, ?, ?)',
+        )
+        .bind(provider, profile.providerUserId, id, profile.username, now),
+    ],
+  )
+  return { userId }
 }
 
 async function identities(db: D1Database, userId: string) {
@@ -286,9 +272,18 @@ async function unlink(env: Env, user: User, provider: string): Promise<Response>
   const linked = await identities(env.DB, user.id)
   if (!linked.some((identity) => identity.provider === provider)) return problem(404, 'not-linked')
   if (linked.length === 1) return problem(409, 'last-identity')
-  await env.DB.prepare('DELETE FROM identities WHERE user_id = ? AND provider = ?')
-    .bind(user.id, provider)
-    .run()
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM identities WHERE user_id = ? AND provider = ?').bind(
+      user.id,
+      provider,
+    ),
+    // A login without its identity would be a way in no one can see: both go.
+    env.DB.prepare('DELETE FROM passwords WHERE user_id = ? AND ? = ?').bind(
+      user.id,
+      provider,
+      'password',
+    ),
+  ])
   return json({ identities: await identities(env.DB, user.id) })
 }
 

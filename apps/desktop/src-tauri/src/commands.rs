@@ -84,6 +84,13 @@ pub async fn sign_in(site: State<'_, Site>, provider: String) -> Result<String, 
     .await
 }
 
+/// Keeps a session the page obtained with a password, so hosting carries the account.
+#[tauri::command]
+pub async fn save_session(site: State<'_, Site>, token: String) -> Result<(), String> {
+    let server = site.address();
+    blocking(move || account::remember(&server, &token)).await
+}
+
 #[tauri::command]
 pub async fn sign_out(site: State<'_, Site>) -> Result<(), String> {
     let server = site.address();

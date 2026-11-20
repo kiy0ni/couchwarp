@@ -19,6 +19,7 @@
     "allow-saved-session",
     "allow-sign-in",
     "allow-sign-out",
+    "allow-save-session",
     "allow-input-allowed",
     "allow-open-privacy-settings",
     "allow-set-bubble-open",

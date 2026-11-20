@@ -34,6 +34,35 @@ const fr = {
     regular: { name: 'Habitué', help: 'A rejoint au moins dix parties cette année.' },
     social: { name: 'Sociable', help: 'A au moins cinq amis sur Couchwarp.' },
   },
+  password: {
+    or: 'ou',
+    title: 'Identifiant et mot de passe',
+    login: 'Identifiant ou e-mail',
+    loginHelp:
+      'Lettres sans accent, chiffres, et . _ - + @. Seulement pour te connecter : les autres voient ton pseudo.',
+    password: 'Mot de passe',
+    passwordHelp: 'Au moins 10 caractères. Une phrase courte se retient mieux qu’un mot compliqué.',
+    signIn: 'Se connecter',
+    create: 'Créer mon compte',
+    noAccount: 'Pas encore de compte ? En créer un',
+    haveAccount: 'Déjà un compte ? Se connecter',
+    noReset:
+      'Couchwarp n’envoie pas d’e-mail : un mot de passe perdu ne se récupère pas. Lie aussi Discord ou Google pour ne jamais perdre l’accès.',
+    add: 'Ajouter',
+    errors: {
+      'invalid-login':
+        'L’identifiant fait de 3 à 64 caractères : lettres sans accent, chiffres, . _ - + @.',
+      'invalid-password': 'Le mot de passe fait au moins 10 caractères.',
+      'invalid-name': 'Choisis un pseudo de 2 à 32 caractères.',
+      'too-young': 'Couchwarp est réservé aux personnes de 13 ans ou plus.',
+      'login-taken': 'Cet identifiant est déjà pris.',
+      'wrong-login': 'Identifiant ou mot de passe incorrect.',
+      'too-many-attempts': 'Trop d’essais. Réessaie dans un quart d’heure.',
+      'already-linked': 'Ce compte a déjà un identifiant.',
+      banned: 'Ce compte est suspendu.',
+      failed: 'Ça n’a pas marché. Réessaie dans un instant.',
+    },
+  },
   profilePage: {
     missing: 'Ce profil n’existe pas, ou plus.',
     since: (date: string) => `Sur Couchwarp depuis ${date}`,
@@ -266,8 +295,6 @@ const fr = {
     signInLead:
       'Un compte garde tes amis et ton historique, et permet d’héberger en public. Il reste facultatif pour jouer.',
     continueWith: (provider: string) => `Continuer avec ${provider}`,
-    noProviders:
-      'La connexion n’est pas encore configurée sur ce serveur. Tu peux jouer sans compte.',
     legal:
       'En te connectant, tu acceptes les conditions d’utilisation. Couchwarp ne garde que ton pseudo, ton avatar et les comptes que tu lies.',
     ageTitle: 'Une dernière question',
@@ -668,6 +695,34 @@ const en: Strings = {
     regular: { name: 'Regular', help: 'Joined at least ten games this year.' },
     social: { name: 'Social', help: 'Has at least five friends on Couchwarp.' },
   },
+  password: {
+    or: 'or',
+    title: 'Login and password',
+    login: 'Login or email',
+    loginHelp: 'Plain letters, digits, and . _ - + @. Only to sign in: others see your name.',
+    password: 'Password',
+    passwordHelp:
+      'At least 10 characters. A short sentence is easier to remember than a tricky word.',
+    signIn: 'Sign in',
+    create: 'Create my account',
+    noAccount: 'No account yet? Create one',
+    haveAccount: 'Already have an account? Sign in',
+    noReset:
+      'Couchwarp sends no email: a lost password cannot be recovered. Link Discord or Google too, so you never lose access.',
+    add: 'Add',
+    errors: {
+      'invalid-login': 'The login has 3 to 64 characters: plain letters, digits, . _ - + @.',
+      'invalid-password': 'The password has at least 10 characters.',
+      'invalid-name': 'Choose a name of 2 to 32 characters.',
+      'too-young': 'Couchwarp is for people 13 or over.',
+      'login-taken': 'That login is already taken.',
+      'wrong-login': 'Wrong login or password.',
+      'too-many-attempts': 'Too many tries. Try again in a quarter of an hour.',
+      'already-linked': 'This account already has a login.',
+      banned: 'This account is suspended.',
+      failed: 'That did not work. Try again in a moment.',
+    },
+  },
   profilePage: {
     missing: 'This profile does not exist, or no longer does.',
     since: (date) => `On Couchwarp since ${date}`,
@@ -895,7 +950,6 @@ const en: Strings = {
     signInLead:
       'An account keeps your friends and history, and lets you host in public. You can always play without one.',
     continueWith: (provider) => `Continue with ${provider}`,
-    noProviders: 'Sign-in is not set up on this server yet. You can play without an account.',
     legal:
       'By signing in you accept the terms of use. Couchwarp only keeps your name, your avatar and the accounts you link.',
     ageTitle: 'One last question',

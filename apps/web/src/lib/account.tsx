@@ -14,7 +14,8 @@ export interface Account {
   /** With the name, how friends add this person: `Name#123456`. */
   tag: number | null
   badges: Badge[]
-  identities: { provider: ProviderId; username: string }[]
+  /** How the person signs in: Discord, Google, or a login and password. */
+  identities: { provider: ProviderId | 'password'; username: string }[]
 }
 
 interface AccountState {

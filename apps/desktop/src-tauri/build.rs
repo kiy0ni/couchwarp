@@ -10,6 +10,7 @@ fn main() {
         "saved_session",
         "sign_in",
         "sign_out",
+        "save_session",
         "input_allowed",
         "open_privacy_settings",
         "set_bubble_open",

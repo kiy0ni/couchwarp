@@ -159,6 +159,7 @@ const PRIVACY: Record<'fr' | 'en', Page> = {
           [
             'Ton nom, ton avatar et l’identifiant des comptes Discord ou Google que tu lies. Jamais ton adresse e-mail ni tes messages.',
             'Ce que tu choisis pour ton profil : pseudo, photo (redimensionnée avant l’envoi), couleur. Et ton tag, le numéro qui permet à tes amis de t’ajouter. Supprimés avec le compte.',
+            'Si tu crées un compte avec un identifiant : cet identifiant (un nom ou une adresse e-mail, qui ne reçoit jamais de message), et une empreinte de ton mot de passe (PBKDF2), jamais le mot de passe lui-même. Les essais de connexion ratés sont gardés un jour, pour freiner qui voudrait deviner.',
             'Tes sessions de connexion : 30 jours sur le site, 90 jours dans l’application hôte.',
             'Ton historique de parties (code, nom de la partie, jeu, hôte, heure) : 1 an.',
             'Tes amis, tes demandes d’ami et ce que tu permets à chaque ami dans tes parties (clavier, souris). Une demande sans réponse est supprimée après 90 jours.',
@@ -230,6 +231,7 @@ const PRIVACY: Record<'fr' | 'en', Page> = {
           [
             'Your name, your avatar and the ids of the Discord or Google accounts you link. Never your email address or your messages.',
             'What you choose for your profile: name, picture (resized before it is sent), colour. And your tag, the number friends add you with. Deleted with the account.',
+            'If you create an account with a login: that login (a name or an email address, which never receives a message), and a fingerprint of your password (PBKDF2), never the password itself. Failed sign-ins are kept for a day, to slow down guessing.',
             'Your sign-in sessions: 30 days on the site, 90 days in the host app.',
             'Your game history (code, game name, game, host, time): 1 year.',
             'Your friends, friend requests and what you let each friend use in your games (keyboard, mouse). An unanswered request is deleted after 90 days.',

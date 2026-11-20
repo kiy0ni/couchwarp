@@ -79,6 +79,8 @@ export const desktop = {
   /** Opens the system browser to sign in; resolves with the new session. */
   signIn: (provider: string) => invoke<string>('sign_in', { provider }),
   signOut: () => invoke<void>('sign_out'),
+  /** Keeps a session signed in with a password, for hosting. */
+  saveSession: (token: string) => invoke<void>('save_session', { token }),
   /** Whether guests' keys and mice can reach the game. A Mac asks the first time. */
   inputAllowed: () => invoke<boolean>('input_allowed'),
   openPrivacySettings: (pane: 'screen' | 'input') =>
