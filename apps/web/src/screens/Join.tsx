@@ -138,7 +138,7 @@ export function Join({ code, onPlay, onBack, onClosed }: Props) {
 
           <div className="stack stack--loose">
             {room && (
-              <dl className="stats">
+              <dl className="stats stats--three">
                 <div className="stats__item">
                   <dt>{t.join.players}</dt>
                   <dd className="num">

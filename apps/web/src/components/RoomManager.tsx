@@ -13,6 +13,7 @@ import { t } from '../i18n'
 import { type ConsoleEnd, ConsoleSession } from '../lib/console-session'
 import { ChatPanel } from './ChatPanel'
 import { Choice } from './Choice'
+import { ConfirmButton } from './ConfirmButton'
 import { MemberList } from './MemberList'
 import { ReportDialog, type ReportTarget } from './ReportDialog'
 
@@ -98,15 +99,14 @@ export function RoomManager({ code, consoleKey: key, onEnd, showClose = true }: 
           </h2>
           <p className="card__text">{t.console.closeLead}</p>
           <div className="actions">
-            <button
-              type="button"
+            <ConfirmButton
               className="button button--danger"
-              onClick={() => {
-                if (confirm(t.console.closeConfirm)) command({ type: 'close' })
-              }}
+              question={t.console.closeConfirm}
+              confirmLabel={t.console.closeButton}
+              onConfirm={() => command({ type: 'close' })}
             >
               {t.console.closeButton}
-            </button>
+            </ConfirmButton>
           </div>
         </section>
       )}

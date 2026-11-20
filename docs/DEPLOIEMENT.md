@@ -55,8 +55,10 @@ VITE_CONTACT_EMAIL="contact@exemple.fr"
 ## 4. Déployer
 
 ```sh
-pnpm deploy
+pnpm run deploy
 ```
+
+(`pnpm deploy` sans `run` est une autre commande de pnpm.)
 
 ## 5. Discord et Google
 
@@ -68,9 +70,20 @@ Une fois l'adresse du site connue :
   - Branding : page d'accueil `<PUBLIC_URL>/`, confidentialité et conditions comme ci-dessus, domaine autorisé.
   - Audience : « Publish app » quand le site est prêt. Avec les seules permissions `openid` et `profile`, Google ne demande pas de vérification, sauf si un logo est ajouté.
 
-## 6. Hôte
+## 6. Application et hôte
 
-Les hôtes pointent vers le site avec `--server <PUBLIC_URL>`, et se connectent une fois avec `couchwarp-host login --server <PUBLIC_URL>`.
+L'application montre le site écrit dans `apps/desktop/src-tauri/tauri.conf.json` (`build.frontendDist`) et l'autorise dans `capabilities/site.json` : change les deux si l'adresse change.
+
+Pour construire les installateurs, pousse une étiquette (`git tag v0.1.0 && git push --tags`) : GitHub Actions crée une version brouillon avec le `.dmg` et le `.exe`. Héberge ces fichiers où les visiteurs peuvent les télécharger, puis donne leurs adresses au site, qui les affiche sur la page Héberger :
+
+```sh
+wrangler secret put DOWNLOAD_MAC_URL
+wrangler secret put DOWNLOAD_WINDOWS_URL
+```
+
+Sans signature, macOS bloque l'application au premier lancement (clic droit > Ouvrir) et Windows affiche SmartScreen (Informations complémentaires > Exécuter quand même).
+
+L'hôte en ligne de commande pointe vers le site avec `--server <PUBLIC_URL>`, et se connecte une fois avec `couchwarp-host login --server <PUBLIC_URL>`.
 
 ## Données
 

@@ -1,6 +1,7 @@
 import { MAX_PLAYERS, MAX_TITLE_LENGTH } from '@couchwarp/protocol'
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Choice } from '../components/Choice'
+import { ConfirmButton } from '../components/ConfirmButton'
 import { Icon } from '../components/Icon'
 import { Page, Section } from '../components/Page'
 import { InviteLink, RoomManager } from '../components/RoomManager'
@@ -408,9 +409,6 @@ function WindowChoice({
 
 function Live({ state }: { state: Extract<HostingState, { state: 'live' }> }) {
   const [inputAllowed, setInputAllowed] = useState(!state.noInputPermission)
-  const stop = () => {
-    if (confirm(t.console.closeConfirm)) desktop.stopHosting().catch(console.error)
-  }
   // The room ends with the session: the hosting state turns idle on its own.
   const onEnd = useCallback(() => undefined, [])
   const stats = state.stats
@@ -419,9 +417,14 @@ function Live({ state }: { state: Extract<HostingState, { state: 'live' }> }) {
       title={t.host.liveTitle}
       lead={t.host.sharing(state.window.app, state.window.title)}
       actions={
-        <button type="button" className="button button--danger" onClick={stop}>
+        <ConfirmButton
+          className="button button--danger"
+          question={t.console.closeConfirm}
+          confirmLabel={t.host.stop}
+          onConfirm={() => desktop.stopHosting().catch(console.error)}
+        >
           {t.host.stop}
-        </button>
+        </ConfirmButton>
       }
     >
       <div className="live">

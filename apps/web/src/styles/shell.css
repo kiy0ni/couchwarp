@@ -602,6 +602,23 @@ a.list__title {
   font-weight: 600;
 }
 
+.stats--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* A button asking once more, in place. */
+
+.confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-md);
+}
+
+.confirm__question {
+  color: var(--color-ink-2);
+}
+
 /* Notices: something to fix or know, in its tone, always with words. */
 
 .notice {

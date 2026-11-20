@@ -33,6 +33,18 @@ Quatre pastilles côte à côte. Le joueur 2, c'est la deuxième allumée dans s
 - dans la barre en jeu, une rangée par manette de l'invité ;
 - au-delà de quatre joueurs, le motif reprend et le numéro s'ajoute à côté.
 
+## Organisation
+
+Couchwarp se range comme une application, pas comme un site :
+
+- à partir de 960 px, une barre latérale (Accueil, Parties, Héberger, Amis, Paramètres, et Modération pour l'équipe), le compte en bas ;
+- en dessous, une barre d'onglets en bas de l'écran et une petite barre en haut avec le compte ;
+- chaque page a un titre, une phrase, ses actions à droite, puis des cartes (`paper-2`, une bordure fine, 16 px de rayon), jamais une carte dans une carte ;
+- l'accueil sert de tableau de bord : rejoindre avec un code, héberger, amis en ligne, manettes branchées, dernières parties, parties publiques ;
+- la partie elle-même reste en plein écran, sans barre latérale.
+
+Dans l'application Mac, la page passe sous la barre de titre : la barre latérale garde de la place pour les boutons de la fenêtre et sert à la déplacer.
+
 ## Formes et mouvement
 
 - Rayons : 10 px pour les contrôles, 16 px pour les menus.

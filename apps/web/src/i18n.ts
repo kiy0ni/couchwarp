@@ -1,6 +1,7 @@
 import type { EndReason } from './lib/session'
 
 const fr = {
+  common: { cancel: 'Annuler' },
   nav: {
     label: 'Navigation principale',
     skip: 'Aller au contenu',
@@ -340,8 +341,10 @@ const fr = {
     serverDown: 'Le serveur ne répond pas. Réessaie dans un instant.',
   },
   join: {
-    lead: (host: string, game: string) =>
-      game ? `Hébergée par ${host}, sur ${game}.` : `Hébergée par ${host}.`,
+    lead: (host: string, game: string) => {
+      const parts = [host && `Hébergée par ${host}`, game && `Jeu : ${game}`].filter(Boolean)
+      return parts.length > 0 ? `${parts.join('. ')}.` : 'La partie est ouverte.'
+    },
     checking: 'Vérification de la partie…',
     seatFree: (count: number) =>
       count === 1 ? 'Il reste une place de joueur.' : `Il reste ${count} places de joueur.`,
@@ -421,6 +424,7 @@ const fr = {
 type Strings = typeof fr
 
 const en: Strings = {
+  common: { cancel: 'Cancel' },
   nav: {
     label: 'Main navigation',
     skip: 'Skip to content',
@@ -754,7 +758,10 @@ const en: Strings = {
     serverDown: 'The server is not answering. Try again in a moment.',
   },
   join: {
-    lead: (host, game) => (game ? `Hosted by ${host}, playing ${game}.` : `Hosted by ${host}.`),
+    lead: (host, game) => {
+      const parts = [host && `Hosted by ${host}`, game && `Game: ${game}`].filter(Boolean)
+      return parts.length > 0 ? `${parts.join('. ')}.` : 'The game is open.'
+    },
     checking: 'Checking the game…',
     seatFree: (count) => (count === 1 ? 'One player seat left.' : `${count} player seats left.`),
     full: 'Every seat is taken: you watch until your turn.',
