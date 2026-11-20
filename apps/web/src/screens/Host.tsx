@@ -10,6 +10,7 @@ import { InviteLink, RoomManager } from '../components/RoomManager'
 import { Shell } from '../components/Shell'
 import { t } from '../i18n'
 import { useAccount } from '../lib/account'
+import { useServerConfig } from '../lib/config'
 import { desktop, type HostingState, isDesktop, system, type WindowInfo } from '../lib/desktop'
 import { useKnownGame } from '../lib/games'
 import { usePreferences } from '../lib/preferences'
@@ -137,6 +138,7 @@ function savedDraft(): Draft {
 function Setup({ lastError }: { lastError: string | null }) {
   const { account } = useAccount()
   const prefs = usePreferences()
+  const config = useServerConfig()
   const [draft, setDraft] = useState(savedDraft)
   const [chosen, setChosen] = useState<WindowInfo | null>(null)
   // A known game in the chosen window names the game and brings its cover.
@@ -161,8 +163,8 @@ function Setup({ lastError }: { lastError: string | null }) {
         title: draft.title || (account ? t.host.defaultTitle(account.displayName) : null),
         game: game || null,
         maxPlayers: draft.maxPlayers,
-        public: draft.public,
-        relayOnly: draft.relayOnly,
+        public: draft.public && config?.publicRooms === true,
+        relayOnly: draft.relayOnly && config?.relay !== false,
         turnMinutes: draft.turnMinutes,
         fps: prefs.hostFps,
         bitrateMbps: prefs.hostBitrate,
@@ -240,29 +242,42 @@ function Setup({ lastError }: { lastError: string | null }) {
                   ))}
                 </select>
               </div>
-              <Choice<'link' | 'public'>
-                label={t.console.visibilityLabel}
-                value={draft.public ? 'public' : 'link'}
-                options={[
-                  ['link', t.console.visibilityLink],
-                  ['public', t.console.visibilityPublic],
-                ]}
-                onChange={(visibility) => change({ public: visibility === 'public' })}
-              />
-              {draft.public && !account && (
+              {config?.publicRooms ? (
+                <Choice<'link' | 'public'>
+                  label={t.console.visibilityLabel}
+                  value={draft.public ? 'public' : 'link'}
+                  options={[
+                    ['link', t.console.visibilityLink],
+                    ['public', t.console.visibilityPublic],
+                  ]}
+                  onChange={(visibility) => change({ public: visibility === 'public' })}
+                />
+              ) : (
+                <p className="field__help">{t.host.linkOnly}</p>
+              )}
+              {draft.public && config?.publicRooms && !account && (
                 <p className="field__help">{t.host.publicNeedsAccount}</p>
               )}
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={draft.relayOnly}
-                  onChange={(event) => change({ relayOnly: event.target.checked })}
-                />
-                <span>
-                  {t.console.relayLabel}
-                  <span className="field__help">{t.console.relayHelp}</span>
-                </span>
-              </label>
+              {draft.public && config?.publicRooms ? (
+                <p className="field__help">
+                  {config.relay ? t.console.relayPublic : t.console.relayMissing}
+                </p>
+              ) : (
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={draft.relayOnly}
+                    disabled={config?.relay === false}
+                    onChange={(event) => change({ relayOnly: event.target.checked })}
+                  />
+                  <span>
+                    {t.console.relayLabel}
+                    <span className="field__help">
+                      {config?.relay === false ? t.console.relayMissing : t.console.relayHelp}
+                    </span>
+                  </span>
+                </label>
+              )}
             </div>
           </Section>
           <Section

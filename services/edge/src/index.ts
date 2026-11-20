@@ -13,6 +13,7 @@
  * - `/api/me/profile`, `/api/me/avatar`, `/api/users/:id*`: profiles, see `profiles.ts`.
  * - `/api/admin/*`: report handling, for admins only.
  * - `GET /api/games/lookup?q=`: a known game's title and cover, see `games.ts`.
+ * - `GET /api/config`: what this server offers, `{ publicRooms, relay }`.
  * - `GET /api/downloads`: where to get the desktop app, `{ mac, windows }`, null until set.
  *
  * A daily cron trigger runs `cleanUp`.
@@ -50,6 +51,12 @@ export default {
     if (handled) return handled
     if (url.pathname === '/api/host') return openRoom(request, env)
     if (url.pathname === '/api/rooms') return listRooms(request, env)
+    if (url.pathname === '/api/config') {
+      return json({
+        publicRooms: env.PUBLIC_ROOMS === 'on',
+        relay: Boolean(env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN),
+      })
+    }
     if (url.pathname === '/api/downloads') {
       return json({ mac: env.DOWNLOAD_MAC_URL ?? null, windows: env.DOWNLOAD_WINDOWS_URL ?? null })
     }

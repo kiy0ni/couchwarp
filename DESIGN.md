@@ -15,7 +15,9 @@ Les jetons sont dans [apps/web/src/styles/tokens.css](apps/web/src/styles/tokens
 | Joueurs           | `--color-p1` à `--color-p4`             | Corail, ciel, citron vert, ambre. **Les seules couleurs vives de l'interface** |
 | États             | `--color-success`, `-warning`, `-error` | Toujours accompagnés d'un texte                                                |
 
-Règle : une couleur vive à l'écran désigne un joueur. On ne s'en sert ni pour décorer ni pour les boutons.
+Règle : une couleur vive à l'écran désigne un joueur. Une seule exception : le corail du joueur 1, celui de l'hôte, est aussi la couleur de l'action principale.
+
+Les surfaces sont chaudes (cacao), avec une lueur corail en haut à gauche de la page, comme une lampe dans le salon. Les icônes viennent de Phosphor (trait fin, duotone pour l'élément ouvert). Les images de jeux viennent de la boutique ; la jaquette générique (`apps/web/public/covers/generic.jpg`) reprend les quatre témoins.
 
 ## Typographie
 
@@ -37,8 +39,10 @@ Quatre pastilles côte à côte. Le joueur 2, c'est la deuxième allumée dans s
 
 Couchwarp se range comme une application, pas comme un site :
 
-- à partir de 960 px, une barre latérale (Accueil, Parties, Héberger, Amis, Paramètres, et Modération pour l'équipe), le compte en bas ;
+- à partir de 960 px, un rail d'icônes à gauche (Accueil, Parties, Héberger, Amis, Paramètres, Modération pour l'équipe), chaque lieu ouvert marqué par le témoin de sa couleur ; le compte en haut à droite ; une barre « Rejoindre avec un code ou un lien » en bas ;
 - en dessous, une barre d'onglets en bas de l'écran et une petite barre en haut avec le compte ;
+- les Paramètres sont des onglets, puis une ligne par réglage : ce qu'il fait à gauche, son contrôle à droite ;
+- en jeu, une seule pastille déplaçable qui s'estompe ; côté hôte, une pastille ronde au-dessus du jeu, dépliable ;
 - chaque page a un titre, une phrase, ses actions à droite, puis des cartes (`paper-2`, une bordure fine, 16 px de rayon), jamais une carte dans une carte ;
 - l'accueil sert de tableau de bord : rejoindre avec un code, héberger, amis en ligne, manettes branchées, dernières parties, parties publiques ;
 - la partie elle-même reste en plein écran, sans barre latérale.

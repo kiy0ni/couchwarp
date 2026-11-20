@@ -131,6 +131,11 @@ export function Join({ code, onPlay, onBack, onClosed }: Props) {
               </p>
             </div>
             {room && (
+              <p className="notice" data-tone={room.addressesHidden ? undefined : 'warning'}>
+                {room.addressesHidden ? t.join.addressHidden : t.join.addressSeen}
+              </p>
+            )}
+            {room && (
               <p className="field__help">
                 {room.players < room.maxPlayers
                   ? t.join.seatFree(room.maxPlayers - room.players)

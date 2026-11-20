@@ -55,7 +55,7 @@ export function Friends() {
           </section>
         )}
         {lists && (
-          <div className="columns">
+          <div className="columns columns--action-first">
             <div className="stack stack--loose">
               {lists.friends.length === 0 && (
                 <section className="card card--feature">
@@ -96,6 +96,7 @@ export function Friends() {
               )}
             </div>
             <div className="stack stack--loose">
+              <AddFriend onAdded={setLists} />
               <Requests
                 title={t.friends.incomingTitle}
                 empty={t.friends.noIncoming}
@@ -134,7 +135,6 @@ export function Friends() {
                   )}
                 />
               )}
-              <AddFriend onAdded={setLists} />
             </div>
           </div>
         )}

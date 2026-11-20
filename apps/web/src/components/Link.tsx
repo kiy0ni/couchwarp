@@ -1,7 +1,7 @@
-import type { AnchorHTMLAttributes, MouseEvent } from 'react'
+import type { ComponentProps, MouseEvent } from 'react'
 import { navigate } from '../lib/router'
 
-type Props = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & { to: string }
+type Props = Omit<ComponentProps<'a'>, 'href'> & { to: string }
 
 /** A link inside the app: changes page without reloading, opens a new tab as usual. */
 export function Link({ to, onClick, ...rest }: Props) {

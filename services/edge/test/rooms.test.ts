@@ -55,7 +55,7 @@ describe('a room', () => {
     const info = await exports.default.fetch(`${SITE}/api/rooms/${code}`)
     expect(await info.json()).toMatchObject({
       open: true,
-      room: { players: 0, spectators: 0, maxPlayers: expect.any(Number) },
+      room: { players: 0, spectators: 0, maxPlayers: expect.any(Number), addressesHidden: false },
     })
 
     const guest = await join(code.toLowerCase(), 'Léa')

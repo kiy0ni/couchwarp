@@ -202,6 +202,8 @@ const fr = {
     windowGone: 'Cette fenêtre vient de se fermer. Choisis-en une autre.',
     defaultTitle: (name: string) => `Partie de ${name}`,
     roomTitle: 'La partie',
+    linkOnly:
+      'Les invités rejoignent avec le code ou le lien. Les parties publiques ne sont pas encore ouvertes sur ce serveur.',
     recognised:
       'Jeu reconnu : son nom et sa jaquette s’affichent dans la partie. Tu peux le changer.',
     gameHelp: 'Affiché aux invités et dans la liste publique.',
@@ -347,7 +349,10 @@ const fr = {
     relayLabel: 'Cacher l’adresse IP des invités',
     relayHelp:
       'Les invités passent par le relais : tu ne vois pas leur adresse IP, au prix de quelques millisecondes. Toujours le cas dans une partie publique. Les invités ne voient jamais l’adresse des autres invités.',
-    relayMissing: 'Aucun relais configuré sur ce serveur.',
+    relayMissing:
+      'Ce serveur n’a pas encore de relais : les invités se connectent directement et tu vois leur adresse IP.',
+    relayPublic:
+      'Partie publique : les invités passent toujours par le relais, tu ne vois pas leur adresse IP.',
     hotseatLabel: 'Tour par tour',
     hotseatOff: 'Non',
     hotseatManual: 'À la main',
@@ -526,6 +531,9 @@ const fr = {
       return parts.length > 0 ? `${parts.join('. ')}.` : 'La partie est ouverte.'
     },
     checking: 'Vérification de la partie…',
+    addressHidden: 'Ton adresse IP reste cachée : tu passes par le relais de Couchwarp.',
+    addressSeen:
+      'Connexion directe : l’hôte pourra voir ton adresse IP, comme dans un jeu en ligne entre amis. Ne rejoins que des gens de confiance.',
     seatFree: (count: number) =>
       count === 1 ? 'Il reste une place de joueur.' : `Il reste ${count} places de joueur.`,
     full: 'Toutes les places sont prises : tu regardes en attendant ton tour.',
@@ -809,6 +817,8 @@ const en: Strings = {
     windowGone: 'That window just closed. Pick another one.',
     defaultTitle: (name) => `${name}’s game`,
     roomTitle: 'The game',
+    linkOnly:
+      'Guests join with the code or the link. Public games are not open on this server yet.',
     recognised: 'Game recognised: its name and cover show in the room. You can change it.',
     gameHelp: 'Shown to guests and in the public list.',
     publicNeedsAccount:
@@ -951,7 +961,10 @@ const en: Strings = {
     relayLabel: 'Hide guests’ IP addresses',
     relayHelp:
       'Guests go through the relay: you do not see their IP address, for a few milliseconds more. Always the case in a public game. Guests never see each other’s address.',
-    relayMissing: 'No relay is set up on this server.',
+    relayMissing:
+      'This server has no relay yet: guests connect directly and you see their IP address.',
+    relayPublic:
+      'Public game: guests always go through the relay, you do not see their IP address.',
     hotseatLabel: 'Take turns',
     hotseatOff: 'No',
     hotseatManual: 'By hand',
@@ -1127,6 +1140,9 @@ const en: Strings = {
       return parts.length > 0 ? `${parts.join('. ')}.` : 'The game is open.'
     },
     checking: 'Checking the game…',
+    addressHidden: 'Your IP address stays hidden: you go through Couchwarp’s relay.',
+    addressSeen:
+      'Direct connection: the host will be able to see your IP address, as in an online game between friends. Only join people you trust.',
     seatFree: (count) => (count === 1 ? 'One player seat left.' : `${count} player seats left.`),
     full: 'Every seat is taken: you watch until your turn.',
     players: 'Players',

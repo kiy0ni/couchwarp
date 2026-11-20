@@ -544,6 +544,10 @@ export class Room extends DurableObject<Env> {
         players: seated,
         maxPlayers: state.settings.maxPlayers,
         spectators: state.members.length - seated,
+        // Guests go through the relay, so the host does not see their address.
+        addressesHidden:
+          state.relayAvailable &&
+          (state.settings.relayOnly || state.settings.visibility === 'public'),
       },
     }
   }

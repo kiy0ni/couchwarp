@@ -236,19 +236,25 @@ function History({ account }: { account: Account }) {
         <p className="muted">{t.account.historyEmpty}</p>
       ) : (
         <ul className="list">
-          {games.slice(0, 20).map((game) => (
-            <li key={`${game.roomCode}-${game.joinedAt}`} className="list__item">
-              <span className="list__main">
-                <span className="list__title">{game.title || game.game || game.roomCode}</span>
-                {game.hostName && (
-                  <span className="list__detail">{t.browse.hostedBy(game.hostName)}</span>
-                )}
-              </span>
-              <time className="list__detail" dateTime={new Date(game.joinedAt).toISOString()}>
-                {playedOn.format(game.joinedAt)}
-              </time>
-            </li>
-          ))}
+          {games
+            .filter(
+              (game, index) =>
+                games.findIndex((other) => other.roomCode === game.roomCode) === index,
+            )
+            .slice(0, 20)
+            .map((game) => (
+              <li key={`${game.roomCode}-${game.joinedAt}`} className="list__item">
+                <span className="list__main">
+                  <span className="list__title">{game.title || game.game || game.roomCode}</span>
+                  {game.hostName && (
+                    <span className="list__detail">{t.browse.hostedBy(game.hostName)}</span>
+                  )}
+                </span>
+                <time className="list__detail" dateTime={new Date(game.joinedAt).toISOString()}>
+                  {playedOn.format(game.joinedAt)}
+                </time>
+              </li>
+            ))}
         </ul>
       )}
     </Section>
@@ -272,8 +278,8 @@ function ProfileEditor({ account, onSignOut }: { account: Account; onSignOut(): 
   }
 
   return (
-    <section className="card profile" data-color={account.color ?? undefined}>
-      <div className="profile__top">
+    <>
+      <section className="card profile" data-color={account.color ?? undefined}>
         <Avatar
           name={account.displayName}
           url={account.avatarUrl}
@@ -294,7 +300,7 @@ function ProfileEditor({ account, onSignOut }: { account: Account; onSignOut(): 
         >
           {t.account.signOut}
         </button>
-      </div>
+      </section>
 
       <div className="settings__rows">
         <SettingRow id="profile-picture" title={t.profile.picture} help={t.profile.pictureHelp}>
@@ -379,6 +385,6 @@ function ProfileEditor({ account, onSignOut }: { account: Account; onSignOut(): 
           {status}
         </p>
       )}
-    </section>
+    </>
   )
 }

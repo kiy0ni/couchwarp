@@ -106,6 +106,17 @@ Le paquet souris porte le mouvement relatif depuis le paquet précédent, la mol
 
 Chaque seconde, l'invité envoie sur le canal `control` sa perte de paquets vidéo (d'après `getStats`) et sa latence image au 95e centile (`quality`). L'hôte (`bitrate.rs`) baisse de 20 % la part d'un invité qui perd plus de 2 % des paquets ou dont la latence dépasse de 40 ms son meilleur niveau, au plus une fois par seconde. Il la remonte de 10 % après 4 secondes sans problème. L'encodeur, unique, suit l'invité le moins bien servi, sans descendre sous 1,5 Mbit/s ni dépasser `--bitrate`. Le changement s'applique à l'image suivante, sans image clé. L'estimation de bande passante de str0m (TWCC) n'est pas utilisée : elle lisse l'envoi des paquets, ce qui a fait passer la latence locale de 28 à 126 ms à l'essai.
 
+## Profils, amis et jeux reconnus
+
+- **Profil** (`services/edge/src/profiles.ts`) : pseudo, photo et couleur choisis par la personne. La photo est recadrée et réduite à 256 px dans le navigateur, puis vérifiée par ses octets (JPEG, PNG, WebP) et gardée en D1. Les **badges** se calculent à la demande depuis l'historique, les amis et la liste de l'équipe ; rien n'est stocké.
+- **Tag** : un numéro à six chiffres par compte. Un ami s'ajoute par `Pseudo#123456`, nom et numéro ensemble, ou depuis la liste des joueurs d'une partie jouée ensemble. Pas de recherche par nom.
+- **Permissions par ami** : l'hôte choisit pour chaque ami le clavier et la souris dès son arrivée (`friend_permissions`), comme les permissions par défaut de Parsec.
+- **Jeux reconnus** (`services/edge/src/games.ts`) : le nom d'une fenêtre ou celui tapé par l'hôte est cherché dans la boutique Steam (correspondance exacte, ou titre de fenêtre qui commence par le nom du jeu). Résultat et absence de résultat sont gardés en D1 (30 et 7 jours). Les pages affichent la jaquette, ou une jaquette générique.
+
+## Manettes et gyroscope
+
+Le navigateur lit les manettes par l'API Gamepad. Les manettes Nintendo, PlayStation et Xbox sont reconnues par leur identifiant ; une manette Nintendo peut suivre ses lettres (A à droite) plutôt que ses positions. Le gyroscope vient d'une manette PlayStation ou Switch lue par WebHID (Chrome, Edge), ou du téléphone avec la manette tactile. Il part dans un paquet `motion` (16 octets, unités d'une DualShock 4) que l'hôte Windows met dans sa DualShock 4 virtuelle.
+
 ## Comptes, amis et modération
 
 - **Amis** : une demande exige une partie jouée ensemble (même code dans l'historique). La présence vient de l'historique ouvert ; le code n'est montré que si la partie est publique.

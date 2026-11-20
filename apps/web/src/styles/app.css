@@ -149,8 +149,10 @@
 }
 
 .button:disabled {
-  opacity: 0.55;
   cursor: not-allowed;
+  background: var(--color-paper-3);
+  border-color: var(--color-rule);
+  color: var(--color-muted);
 }
 
 .button--secondary {

@@ -491,6 +491,19 @@
   gap: var(--space-md);
 }
 
+/* A link beside a card's title keeps its 44 px target without pushing the title down. */
+.card__head > .link-button,
+.section__head > .link-button {
+  margin-block: calc(-1 * var(--space-sm));
+}
+
+/* Where the action matters more than the list, it comes first on a phone. */
+@media (max-width: 51.99rem) {
+  .columns--action-first > :last-child {
+    order: -1;
+  }
+}
+
 .card__title {
   font-size: var(--text-lg);
   font-weight: 600;
@@ -1067,6 +1080,14 @@ a.list__title {
   overflow-x: auto;
   scrollbar-width: none;
   border-bottom: var(--rule-hair) solid var(--color-rule);
+  /* The edge fades where more tabs wait, so a phone shows there is more to scroll. */
+  mask-image: linear-gradient(90deg, #000 calc(100% - 2.5rem), transparent);
+}
+
+@media (min-width: 56rem) {
+  .tabs {
+    mask-image: none;
+  }
 }
 
 .tabs__item {
@@ -1250,20 +1271,16 @@ a.list__title {
 }
 
 .profile {
-  gap: var(--space-lg);
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md) var(--space-lg);
 }
 
 .profile[data-color] {
   background:
     linear-gradient(180deg, color-mix(in oklab, var(--ring) 14%, transparent), transparent 9rem),
     var(--color-paper-2);
-}
-
-.profile__top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-md) var(--space-lg);
 }
 
 .profile__who {

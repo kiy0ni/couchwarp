@@ -36,8 +36,8 @@ export function Home({ onFound }: { onFound(code: string): void }) {
         lead={t.home.lead}
       >
         <div className="machines">
-          <ThisComputer />
           <JoinCard onFound={onFound} />
+          <ThisComputer />
           <ControllersCard />
         </div>
         <FriendsPlaying />

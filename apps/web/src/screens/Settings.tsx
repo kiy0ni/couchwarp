@@ -30,6 +30,11 @@ const TABS: readonly { id: Tab; path: string }[] = [
   { id: 'app', path: '/parametres/application' },
 ]
 
+/** On a phone, the open tab scrolls into sight. */
+function revealTab(element: HTMLAnchorElement | null) {
+  element?.scrollIntoView({ block: 'nearest', inline: 'center' })
+}
+
 /** The settings, one tab per subject, the path saying which. */
 export function Settings({ path }: { path: string }) {
   const tab = TABS.find((item) => item.path === path)?.id ?? 'game'
@@ -43,6 +48,7 @@ export function Settings({ path }: { path: string }) {
               to={item.path}
               className="tabs__item"
               aria-current={item.id === tab ? 'page' : undefined}
+              ref={item.id === tab ? revealTab : undefined}
             >
               {t.settings.tabs[item.id]}
             </Link>
