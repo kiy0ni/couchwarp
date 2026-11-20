@@ -33,6 +33,8 @@ Dans un autre terminal, `pnpm desktop:dev` ouvre l'application branchée sur le 
 
 `pnpm desktop:build` produit l'application et son installateur pour le système courant (`.dmg` sur Mac, `.exe` sous Windows) dans `target/release/bundle`. Pousser une étiquette `v*` les construit tous les deux sur GitHub Actions (`.github/workflows/release.yml`), dans une version brouillon.
 
+L'appli s'appelle Couchwarp dans le Dock et la barre des tâches ; son icône est dans `docs/branding/couchwarp-app.svg`. Pendant une partie, une pastille ronde reste au-dessus du jeu (code, invités, permissions, arrêt) ; la capture ne prend que la fenêtre du jeu, donc les invités ne la voient pas.
+
 L'application affiche le site en ligne (`build.frontendDist` dans `apps/desktop/src-tauri/tauri.conf.json`) : une mise à jour du site lui parvient sans la réinstaller.
 
 ### L'hôte en ligne de commande

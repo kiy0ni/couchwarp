@@ -1,5 +1,6 @@
 import { t } from '../i18n'
 import type { RoomCard as Room } from '../lib/directory'
+import { GameCover } from './GameCover'
 import { Link } from './Link'
 
 const LIGHTS = 4
@@ -13,9 +14,7 @@ export function RoomCard({ room }: { room: Room }) {
         {room.thumbnailUrl ? (
           <img src={room.thumbnailUrl} alt="" loading="lazy" width={320} height={180} />
         ) : (
-          <span className="room-card__blank" aria-hidden="true">
-            {room.game || room.title}
-          </span>
+          <GameCover sources={[room.gameHeader]} />
         )}
         <span className="room-card__proximity" data-proximity={room.proximity}>
           {t.browse.proximity[room.proximity]}

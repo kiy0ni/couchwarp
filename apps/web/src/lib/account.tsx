@@ -1,5 +1,6 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 import { adoptAppSession, desktop, isDesktop } from './desktop'
+import type { Badge, ProfileColor } from './profile'
 
 export type ProviderId = 'discord' | 'google'
 
@@ -9,7 +10,12 @@ export interface Account {
   avatarUrl: string | null
   ageConfirmed: boolean
   isAdmin: boolean
-  identities: { provider: ProviderId; username: string }[]
+  color: ProfileColor | null
+  /** With the name, how friends add this person: `Name#123456`. */
+  tag: number | null
+  badges: Badge[]
+  /** How the person signs in: Discord, Google, or a login and password. */
+  identities: { provider: ProviderId | 'password'; username: string }[]
 }
 
 interface AccountState {

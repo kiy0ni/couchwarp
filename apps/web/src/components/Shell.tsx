@@ -1,10 +1,11 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { isRoomCode, normalizeRoomCode } from '@couchwarp/protocol'
+import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { type Account, useAccount } from '../lib/account'
 import { isDesktop, system } from '../lib/desktop'
 import { fetchFriends } from '../lib/friends'
 import { useGamepadNavigation } from '../lib/gamepad-nav'
-import { usePath } from '../lib/router'
+import { navigate, usePath } from '../lib/router'
 import { Avatar } from './Avatar'
 import { Icon, type IconName } from './Icon'
 import { Link } from './Link'
@@ -16,13 +17,14 @@ interface Destination {
   to: string
   icon: IconName
   label: string
-  /** A number next to the label, such as friend requests waiting. */
-  count?: number
+  /** The player light that marks this place when it is open, 1 to 4. */
+  tone: 1 | 2 | 3 | 4 | 0
 }
 
 /**
- * Every page but the game: the navigation on the left from a laptop, at the bottom on a
- * phone, and the page in the middle. A controller moves through both.
+ * Every page but the game. From a laptop: a rail of places on the left, the account at
+ * the top and a bar to join with a code at the bottom. On a phone: tabs at the bottom.
+ * A controller moves through all of it.
  */
 export function Shell({ children, onBack }: { children: ReactNode; onBack?: () => void }) {
   const path = usePath()
@@ -31,13 +33,13 @@ export function Shell({ children, onBack }: { children: ReactNode; onBack?: () =
   useGamepadNavigation(true, onBack)
 
   const destinations: Destination[] = [
-    { to: '/', icon: 'home', label: t.nav.home },
-    { to: '/parties', icon: 'rooms', label: t.nav.rooms },
-    { to: '/heberger', icon: 'host', label: t.nav.host },
-    { to: '/amis', icon: 'friends', label: t.nav.friends, count: requests },
-    { to: '/parametres', icon: 'settings', label: t.nav.settings },
+    { to: '/', icon: 'home', label: t.nav.home, tone: 1 },
+    { to: '/parties', icon: 'rooms', label: t.nav.rooms, tone: 2 },
+    { to: '/heberger', icon: 'host', label: t.nav.host, tone: 3 },
+    { to: '/amis', icon: 'friends', label: t.nav.friends, tone: 4 },
+    { to: '/parametres', icon: 'settings', label: t.nav.settings, tone: 0 },
   ]
-  const admin: Destination = { to: '/moderation', icon: 'shield', label: t.nav.moderation }
+  const admin: Destination = { to: '/moderation', icon: 'shield', label: t.nav.moderation, tone: 0 }
   const current = (to: string) =>
     to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`)
 
@@ -46,106 +48,161 @@ export function Shell({ children, onBack }: { children: ReactNode; onBack?: () =
       <a className="skip-link" href="#main">
         {t.nav.skip}
       </a>
-      <aside className="sidebar">
-        {/* In the desktop app the window is dragged by this strip. */}
-        <div className="sidebar__brand" data-tauri-drag-region>
-          <Wordmark />
+      <nav className="rail" aria-label={t.nav.label}>
+        {/* In the desktop app the window is dragged by its edges and this strip. */}
+        <div className="rail__brand" data-tauri-drag-region>
+          <Link to="/" className="rail__mark" aria-label={t.wordmark}>
+            <i />
+            <i />
+            <i />
+            <i />
+          </Link>
         </div>
-        <nav className="sidebar__nav" aria-label={t.nav.label}>
-          {[...destinations, ...(account?.isAdmin ? [admin] : [])].map((destination) => (
-            <NavItem
+        <div className="rail__places">
+          {destinations.map((destination) => (
+            <RailItem
               key={destination.to}
               destination={destination}
               current={current(destination.to)}
             />
           ))}
-        </nav>
-        <div className="sidebar__foot">
-          <AccountButton account={account} />
-          <div className="sidebar__legal">
-            <Link to="/conditions">{t.footer.terms}</Link>
-            <Link to="/confidentialite">{t.footer.privacy}</Link>
-          </div>
         </div>
-      </aside>
+        {account?.isAdmin && (
+          <div className="rail__foot">
+            <RailItem destination={admin} current={current(admin.to)} />
+          </div>
+        )}
+      </nav>
 
-      <header className="mobilebar">
-        <Wordmark />
-        <AccountButton account={account} compact />
-      </header>
+      <div className="shell__body">
+        <header className="topbar" data-tauri-drag-region>
+          <span className="topbar__brand">
+            <Wordmark />
+          </span>
+          <span className="topbar__end">
+            {requests > 0 && (
+              <Link to="/amis" className="topbar__requests">
+                <Icon name="friends" size={18} />
+                <span className="count" aria-hidden="true">
+                  {requests}
+                </span>
+                <span className="visually-hidden">{t.nav.waiting(requests)}</span>
+              </Link>
+            )}
+            <AccountButton account={account} />
+          </span>
+        </header>
 
-      <main id="main" className="shell__main" tabIndex={-1}>
-        {children}
-      </main>
+        <main id="main" className="shell__main" tabIndex={-1}>
+          {children}
+        </main>
+
+        {path !== '/' && <JoinBar />}
+      </div>
 
       <nav className="tabbar" aria-label={t.nav.label}>
         {destinations.map((destination) => (
-          <NavItem
+          <Link
             key={destination.to}
-            destination={destination}
-            current={current(destination.to)}
-            tab
-          />
+            to={destination.to}
+            className="tabbar__item"
+            data-tone={destination.tone}
+            aria-current={current(destination.to) ? 'page' : undefined}
+          >
+            <Icon
+              name={destination.icon}
+              size={24}
+              weight={current(destination.to) ? 'duotone' : 'regular'}
+            />
+            <span className="tabbar__label">{destination.label}</span>
+          </Link>
         ))}
       </nav>
     </div>
   )
 }
 
-function NavItem({
-  destination,
-  current,
-  tab = false,
-}: {
-  destination: Destination
-  current: boolean
-  tab?: boolean
-}) {
-  const { to, icon, label, count } = destination
+function RailItem({ destination, current }: { destination: Destination; current: boolean }) {
   return (
     <Link
-      to={to}
-      className={tab ? 'tabbar__item' : 'nav-item'}
+      to={destination.to}
+      className="rail__item"
+      data-tone={destination.tone}
       aria-current={current ? 'page' : undefined}
     >
-      <Icon name={icon} size={tab ? 22 : 20} />
-      <span className={tab ? 'tabbar__label' : 'nav-item__label'}>{label}</span>
-      {count ? (
-        <>
-          <span className="count" aria-hidden="true">
-            {count}
-          </span>
-          <span className="visually-hidden">{t.nav.waiting(count)}</span>
-        </>
-      ) : null}
+      <Icon name={destination.icon} size={24} weight={current ? 'duotone' : 'regular'} />
+      <span className="rail__label">{destination.label}</span>
     </Link>
   )
 }
 
-function AccountButton({
-  account,
-  compact = false,
-}: {
-  account: Account | null | undefined
-  compact?: boolean
-}) {
+/** Join from anywhere: a code, or a whole invitation link pasted as is. */
+function JoinBar() {
+  const [value, setValue] = useState('')
+  const [invalid, setInvalid] = useState(false)
+
+  function submit(event: FormEvent) {
+    event.preventDefault()
+    const code = codeFrom(value)
+    if (!code) {
+      setInvalid(true)
+      return
+    }
+    setValue('')
+    navigate(`/${code}`)
+  }
+
+  return (
+    <form className="joinbar" onSubmit={submit}>
+      <label className="visually-hidden" htmlFor="joinbar-code">
+        {t.nav.joinLabel}
+      </label>
+      <input
+        id="joinbar-code"
+        className="input joinbar__input"
+        value={value}
+        placeholder={t.nav.joinPlaceholder}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? 'joinbar-error' : undefined}
+        autoComplete="off"
+        spellCheck={false}
+        onChange={(event) => {
+          setValue(event.target.value)
+          setInvalid(false)
+        }}
+      />
+      {invalid && (
+        <span id="joinbar-error" className="joinbar__error" role="status">
+          {t.nav.joinInvalid}
+        </span>
+      )}
+      <button type="submit" className="button button--small" disabled={!value.trim()}>
+        {t.home.join}
+      </button>
+    </form>
+  )
+}
+
+/** The room code in what was typed: the code itself, or the end of an invitation link. */
+export function codeFrom(text: string): string | null {
+  const last = text.trim().replace(/\/+$/, '').split('/').pop() ?? ''
+  const code = normalizeRoomCode(last.split(/[?#]/)[0] ?? '')
+  return isRoomCode(code) ? code : null
+}
+
+function AccountButton({ account }: { account: Account | null | undefined }) {
   if (account === undefined) return <span className="account-button" aria-hidden="true" />
   if (account === null) {
     return (
-      <Link to="/parametres" className="button button--secondary button--small">
+      <Link to="/parametres/compte" className="button button--secondary button--small">
         {t.account.signIn}
       </Link>
     )
   }
   return (
-    <Link to="/parametres" className="account-button" title={t.account.title}>
+    <Link to="/parametres/compte" className="account-button" title={t.account.title}>
       <Avatar name={account.displayName} url={account.avatarUrl} />
-      {!compact && (
-        <span className="account-button__text">
-          <span className="account-button__name">{account.displayName}</span>
-          <span className="account-button__hint">{t.nav.accountHint}</span>
-        </span>
-      )}
+      <span className="account-button__name">{account.displayName}</span>
     </Link>
   )
 }

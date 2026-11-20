@@ -233,6 +233,11 @@ export interface RoomPreview {
   players: number
   maxPlayers: number
   spectators: number
+  /** For a known game: its tall cover and wide picture. */
+  cover: string | null
+  header: string | null
+  /** Whether the host cannot see this guest's IP address: they go through the relay. */
+  addressesHidden: boolean
 }
 
 /** The room behind `code`, or null when no host has it open. */

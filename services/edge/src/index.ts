@@ -8,9 +8,12 @@
  * - `GET /api/rooms/:code/console` (WebSocket): the host console, after an `auth` message.
  * - `GET /api/rooms/:code/thumbnail`: the latest picture of a public room.
  * - `POST /api/rooms/:code/report`: reports, see `reports.ts`.
- * - `/api/auth/*`, `/api/me*`: accounts, see `auth/routes.ts`.
+ * - `/api/auth/*`, `/api/me*`: accounts, see `auth/routes.ts` and `auth/password.ts`.
  * - `/api/friends*`: friends and presence, see `friends.ts`.
+ * - `/api/me/profile`, `/api/me/avatar`, `/api/users/:id*`: profiles, see `profiles.ts`.
  * - `/api/admin/*`: report handling, for admins only.
+ * - `GET /api/games/lookup?q=`: a known game's title and cover, see `games.ts`.
+ * - `GET /api/config`: what this server offers, `{ publicRooms, relay }`.
  * - `GET /api/downloads`: where to get the desktop app, `{ mac, windows }`, null until set.
  *
  * A daily cron trigger runs `cleanUp`.
@@ -19,12 +22,15 @@
  */
 
 import { isRoomCode, normalizeRoomCode } from '@couchwarp/protocol'
+import { handlePasswords } from './auth/password'
 import { handleAccounts } from './auth/routes'
 import { currentUser } from './auth/sessions'
 import { cleanUp } from './cleanup'
 import { list } from './directory'
 import { handleFriends } from './friends'
+import { handleGames } from './games'
 import { json } from './http'
+import { handleProfiles } from './profiles'
 import { handleAdmin, report } from './reports'
 import { ARRIVAL_HEADER, type Arrival } from './room'
 import { randomRoomCode } from './room-code'
@@ -38,12 +44,21 @@ export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url)
     const handled =
+      (await handlePasswords(request, env)) ??
+      (await handleProfiles(request, env)) ??
       (await handleAccounts(request, env)) ??
       (await handleFriends(request, env)) ??
+      (await handleGames(request, env)) ??
       (await handleAdmin(request, env))
     if (handled) return handled
     if (url.pathname === '/api/host') return openRoom(request, env)
     if (url.pathname === '/api/rooms') return listRooms(request, env)
+    if (url.pathname === '/api/config') {
+      return json({
+        publicRooms: env.PUBLIC_ROOMS === 'on',
+        relay: Boolean(env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN),
+      })
+    }
     if (url.pathname === '/api/downloads') {
       return json({ mac: env.DOWNLOAD_MAC_URL ?? null, windows: env.DOWNLOAD_WINDOWS_URL ?? null })
     }
@@ -132,7 +147,8 @@ async function sha256(text: string): Promise<string> {
 
 function roomRequest(request: Request, path: string, arrival?: Arrival): Request {
   const forwarded = new Request(`https://room/${path}`, request)
-  if (arrival) forwarded.headers.set(ARRIVAL_HEADER, JSON.stringify(arrival))
+  // Encoded: names may hold any character, and header values are ASCII.
+  if (arrival) forwarded.headers.set(ARRIVAL_HEADER, encodeURIComponent(JSON.stringify(arrival)))
   return forwarded
 }
 

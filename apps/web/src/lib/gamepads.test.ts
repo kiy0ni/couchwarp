@@ -1,6 +1,6 @@
 import { Button } from '@couchwarp/protocol'
 import { describe, expect, it } from 'vitest'
-import { PadTracker, RESEND_MS, readGamepad } from './gamepads'
+import { PadTracker, RESEND_MS, readGamepad, swapFaceLetters } from './gamepads'
 
 function fakeGamepad(index: number, pressed: number[] = [], axes = [0, 0, 0, 0]): Gamepad {
   const buttons = Array.from({ length: 17 }, (_, i) => ({
@@ -52,5 +52,13 @@ describe('PadTracker', () => {
     const tracker = new PadTracker()
     const pads = [0, 1, 2, 3, 4].map((i) => fakeGamepad(i))
     expect(tracker.poll(pads, 0).packets).toHaveLength(4)
+  })
+})
+
+describe('Nintendo letters', () => {
+  it('swaps A with B and X with Y, and leaves the rest', () => {
+    const swapped = swapFaceLetters(Button.a | Button.y | Button.start)
+    expect(swapped).toBe(Button.b | Button.x | Button.start)
+    expect(swapFaceLetters(swapped)).toBe(Button.a | Button.y | Button.start)
   })
 })

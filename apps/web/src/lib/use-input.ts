@@ -1,10 +1,12 @@
-import { type InputPacket, KEYBOARD_PAD, TOUCH_PAD } from '@couchwarp/protocol'
+import { type InputPacket, KEYBOARD_PAD, nextSeq, TOUCH_PAD } from '@couchwarp/protocol'
 import { type RefObject, useEffect, useMemo } from 'react'
 import { PadTracker } from './gamepads'
 import { KeyboardTracker } from './keyboard'
 import { keyboardPadState } from './keyboard-pad'
+import { type Motion, motionFor, phoneMotion } from './motion'
 import { MouseTracker } from './mouse'
 import { NEUTRAL_PAD, type PadState } from './pad-state'
+import { preferences } from './preferences'
 import type { GuestSession } from './session'
 import { VirtualPad } from './virtual-pad'
 
@@ -13,6 +15,8 @@ import { VirtualPad } from './virtual-pad'
  * so reading once per animation frame would add up to a frame of input delay.
  */
 const PAD_POLL_MS = 4
+/** Motion is sent at about the rate a game reads it, not at every sensor report. */
+const MOTION_EVERY_MS = 16
 
 /**
  * `keys` sends the keyboard as is; `pad` plays it as a controller; `off` sends nothing,
@@ -28,6 +32,8 @@ interface Options {
   mouse: boolean
   onPadRemoved(pad: number): void
   onPointerLock(locked: boolean): void
+  /** Couchwarp's own shortcuts, never sent to the game. See `SHORTCUTS`. */
+  onShortcut(shortcut: Shortcut): void
 }
 
 /**
@@ -38,7 +44,7 @@ interface Options {
 export function useInputForwarding(
   session: GuestSession | null,
   surface: RefObject<HTMLElement | null>,
-  { keyboardMode, touch, mouse: mouseAllowed, onPadRemoved, onPointerLock }: Options,
+  { keyboardMode, touch, mouse: mouseAllowed, onPadRemoved, onPointerLock, onShortcut }: Options,
 ): void {
   // One set of trackers per session: their sequence numbers must keep rising across
   // keyboard mode changes, or the host would take the next packets for late ones.
@@ -60,6 +66,12 @@ export function useInputForwarding(
     const { pads, keyboard, keyboardPad, touchPad, mouse } = trackers
     const heldCodes = new Set<string>()
 
+    let motionSeq = 0
+    let motionSentAt = 0
+    const motionPacket = (pad: number, reading: Motion): InputPacket => {
+      motionSeq = nextSeq(motionSeq)
+      return { kind: 'motion', pad, seq: motionSeq, gyro: reading.gyro, accel: reading.accel }
+    }
     const send = (packet: InputPacket | null) => {
       if (packet) session.sendInput(packet)
     }
@@ -73,9 +85,20 @@ export function useInputForwarding(
 
     const poll = window.setInterval(() => {
       const now = performance.now()
-      const { packets, removed } = pads.poll(navigator.getGamepads(), now)
+      const gamepads = navigator.getGamepads()
+      const { packets, removed } = pads.poll(gamepads, now)
       for (const packet of packets) session.sendInput(packet)
       for (const pad of removed) removePad(pad)
+      if (now - motionSentAt >= MOTION_EVERY_MS) {
+        motionSentAt = now
+        for (const gamepad of gamepads) {
+          const pad = gamepad ? pads.padOf(gamepad.index) : undefined
+          const reading = gamepad && pad !== undefined ? motionFor(gamepad, now) : null
+          if (reading && pad !== undefined) send(motionPacket(pad, reading))
+        }
+        const tilt = touch.current ? phoneMotion(now) : null
+        if (tilt) send(motionPacket(TOUCH_PAD, tilt))
+      }
 
       if (touch.current) {
         send(touchPad.update(touch.current, now))
@@ -105,7 +128,9 @@ export function useInputForwarding(
       onPointerLock(locked())
     }
     const onMouseMove = (event: MouseEvent) => {
-      if (locked()) mouse.move(event.movementX, event.movementY)
+      if (!locked()) return
+      const speed = preferences().mouseSpeed
+      mouse.move(event.movementX * speed, event.movementY * speed)
     }
     const onMouseButton = (event: MouseEvent) => {
       if (!locked()) return
@@ -124,7 +149,14 @@ export function useInputForwarding(
 
     const onKeyDown = (event: KeyboardEvent) => {
       // Typing in the chat or the menu stays there.
-      if (event.isComposing || event.target !== element || keyboardMode === 'off') return
+      if (event.isComposing || event.target !== element) return
+      const shortcut = shortcutOf(event)
+      if (shortcut) {
+        event.preventDefault()
+        onShortcut(shortcut)
+        return
+      }
+      if (keyboardMode === 'off') return
       // Keys belong to the game: no page scrolling, no browser shortcuts.
       event.preventDefault()
       const now = performance.now()
@@ -180,5 +212,30 @@ export function useInputForwarding(
       element.removeEventListener('keyup', onKeyUp)
       element.removeEventListener('blur', releaseAll)
     }
-  }, [session, surface, keyboardMode, touch, mouseAllowed, onPadRemoved, onPointerLock, trackers])
+  }, [
+    session,
+    surface,
+    keyboardMode,
+    touch,
+    mouseAllowed,
+    onPadRemoved,
+    onPointerLock,
+    onShortcut,
+    trackers,
+  ])
+}
+
+export type Shortcut = 'menu' | 'chat' | 'fullscreen'
+
+/** Ctrl and Shift together with a letter: a combination games almost never use. */
+export const SHORTCUTS: Record<Shortcut, string> = {
+  menu: 'KeyM',
+  chat: 'KeyC',
+  fullscreen: 'KeyF',
+}
+
+function shortcutOf(event: KeyboardEvent): Shortcut | null {
+  if (!event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey) return null
+  const found = Object.entries(SHORTCUTS).find(([, code]) => code === event.code)
+  return found ? (found[0] as Shortcut) : null
 }

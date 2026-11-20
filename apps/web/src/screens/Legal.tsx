@@ -133,7 +133,7 @@ const TERMS: Record<'fr' | 'en', Page> = {
 const PRIVACY: Record<'fr' | 'en', Page> = {
   fr: {
     title: 'Confidentialité',
-    updated: 'Mise à jour le 19 novembre 2026',
+    updated: 'Mise à jour le 20 novembre 2026',
     sections: [
       {
         title: 'En bref',
@@ -158,9 +158,11 @@ const PRIVACY: Record<'fr' | 'en', Page> = {
         blocks: [
           [
             'Ton nom, ton avatar et l’identifiant des comptes Discord ou Google que tu lies. Jamais ton adresse e-mail ni tes messages.',
+            'Ce que tu choisis pour ton profil : pseudo, photo (redimensionnée avant l’envoi), couleur. Et ton tag, le numéro qui permet à tes amis de t’ajouter. Supprimés avec le compte.',
+            'Si tu crées un compte avec un identifiant : cet identifiant (un nom ou une adresse e-mail, qui ne reçoit jamais de message), et une empreinte de ton mot de passe (PBKDF2), jamais le mot de passe lui-même. Les essais de connexion ratés sont gardés un jour, pour freiner qui voudrait deviner.',
             'Tes sessions de connexion : 30 jours sur le site, 90 jours dans l’application hôte.',
             'Ton historique de parties (code, nom de la partie, jeu, hôte, heure) : 1 an.',
-            'Tes amis et tes demandes d’ami. Une demande sans réponse est supprimée après 90 jours.',
+            'Tes amis, tes demandes d’ami et ce que tu permets à chaque ami dans tes parties (clavier, souris). Une demande sans réponse est supprimée après 90 jours.',
             'La date à laquelle tu as confirmé avoir 13 ans ou plus.',
           ],
         ],
@@ -168,7 +170,7 @@ const PRIVACY: Record<'fr' | 'en', Page> = {
       {
         title: 'Ce que voient les autres',
         blocks: [
-          'Pour jouer sans délai, ton navigateur se connecte directement au PC de l’hôte : l’hôte peut alors voir ton adresse IP, comme dans tout jeu en ligne entre amis. Si l’hôte active « Masquer les adresses », tout passe par le relais et personne ne voit l’adresse des autres.',
+          'Pour jouer sans délai, ton navigateur se connecte directement au PC de l’hôte : l’hôte et toi pouvez alors voir l’adresse IP de l’autre, comme dans tout jeu en ligne entre amis. Les invités ne se connectent jamais entre eux et ne voient pas l’adresse des autres invités. Dans une partie publique, ou si l’hôte le choisit, tu passes par le relais : l’hôte ne voit plus ton adresse.',
           'Les joueurs de la partie voient ton pseudo, ton avatar et tes messages. Une partie publique montre à tous son nom, son jeu, le nom de l’hôte, les avatars des joueurs et une petite image du jeu, effacée dès que la partie n’est plus publique.',
         ],
       },
@@ -203,7 +205,7 @@ const PRIVACY: Record<'fr' | 'en', Page> = {
   },
   en: {
     title: 'Privacy',
-    updated: 'Updated on 19 November 2026',
+    updated: 'Updated on 20 November 2026',
     sections: [
       {
         title: 'In short',
@@ -228,9 +230,11 @@ const PRIVACY: Record<'fr' | 'en', Page> = {
         blocks: [
           [
             'Your name, your avatar and the ids of the Discord or Google accounts you link. Never your email address or your messages.',
+            'What you choose for your profile: name, picture (resized before it is sent), colour. And your tag, the number friends add you with. Deleted with the account.',
+            'If you create an account with a login: that login (a name or an email address, which never receives a message), and a fingerprint of your password (PBKDF2), never the password itself. Failed sign-ins are kept for a day, to slow down guessing.',
             'Your sign-in sessions: 30 days on the site, 90 days in the host app.',
             'Your game history (code, game name, game, host, time): 1 year.',
-            'Your friends and friend requests. An unanswered request is deleted after 90 days.',
+            'Your friends, friend requests and what you let each friend use in your games (keyboard, mouse). An unanswered request is deleted after 90 days.',
             'The date you confirmed being 13 or over.',
           ],
         ],
@@ -238,7 +242,7 @@ const PRIVACY: Record<'fr' | 'en', Page> = {
       {
         title: 'What others see',
         blocks: [
-          'To play without delay, your browser connects straight to the host’s PC: the host can then see your IP address, as in any online game between friends. If the host turns on “Hide addresses”, everything goes through the relay and nobody sees anyone else’s address.',
+          'To play without delay, your browser connects straight to the host’s PC: you and the host can then see each other’s IP address, as in any online game between friends. Guests never connect to each other and do not see other guests’ addresses. In a public game, or when the host chooses so, you go through the relay: the host no longer sees your address.',
           'Players in the game see your name, avatar and messages. A public game shows everyone its name, its game, the host’s name, the players’ avatars and a small picture of the game, erased as soon as the game stops being public.',
         ],
       },

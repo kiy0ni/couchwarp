@@ -149,8 +149,10 @@
 }
 
 .button:disabled {
-  opacity: 0.55;
   cursor: not-allowed;
+  background: var(--color-paper-3);
+  border-color: var(--color-rule);
+  color: var(--color-muted);
 }
 
 .button--secondary {
@@ -298,56 +300,18 @@
   outline: none;
 }
 
-.play[data-idle] {
-  cursor: none;
-}
-
 .play__video {
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 
-.play__bar {
-  position: absolute;
-  top: 0;
-  inset-inline: 0;
-  z-index: var(--z-sticky);
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-xs) max(var(--space-md), env(safe-area-inset-right));
-  padding-top: max(var(--space-xs), env(safe-area-inset-top));
-  background: var(--color-paper-2);
-  border-bottom: var(--rule-hair) solid var(--color-rule);
-  transition: transform var(--dur-short) var(--ease-out);
-}
-
-.play[data-idle] .play__bar {
-  transform: translateY(-100%);
-  transition-timing-function: var(--ease-in);
-}
-
-.play__players {
-  display: flex;
-  gap: var(--space-xs);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .play__latency {
-  margin-left: auto;
   display: flex;
   align-items: baseline;
   gap: var(--space-xs);
   font-size: var(--text-sm);
   font-weight: 600;
-}
-
-.play__latency-label {
-  font-weight: 400;
-  color: var(--color-muted);
 }
 
 .play__notice {
@@ -595,7 +559,21 @@
 }
 
 .choice__option input {
-  accent-color: var(--color-ink);
+  accent-color: var(--color-accent);
+}
+
+.choice__option--described {
+  align-items: flex-start;
+  padding-block: var(--space-2xs);
+}
+
+.choice__option--described input {
+  margin-top: 0.35em;
+}
+
+.choice__option--described > span {
+  display: flex;
+  flex-direction: column;
 }
 
 .keyhelp {
@@ -649,8 +627,15 @@
 }
 
 .button--danger {
-  background: var(--color-error);
-  color: var(--color-accent-ink);
+  background: transparent;
+  color: var(--color-error);
+  border-color: color-mix(in oklab, var(--color-error) 70%, transparent);
+}
+
+@media (hover: hover) {
+  .button--danger:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--color-error) 14%, transparent);
+  }
 }
 
 /* Forms beyond text fields: selects and checkboxes. */
@@ -755,18 +740,24 @@ select.input {
   margin: var(--space-sm) 0 0;
   padding: 0;
   list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
+/* One person per row, spaced like cards: who, what they can use, then Manage. */
 .members__item {
-  display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
-  column-gap: var(--space-sm);
+  min-height: 60px;
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
   align-items: center;
-  padding-block: var(--space-sm);
-  border-top: var(--rule-hair) solid var(--color-rule);
+  gap: var(--space-sm);
+  background: var(--color-paper-3);
+  border-radius: var(--radius-control);
 }
 
 .members__who {
+  flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -782,32 +773,18 @@ select.input {
   color: var(--color-muted);
 }
 
-.members__actions {
-  grid-column: 2;
-  margin: var(--space-xs) 0 0;
-  padding: 0;
-  border: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  column-gap: var(--space-md);
-  row-gap: var(--space-2xs);
-  font-size: var(--text-sm);
-}
-
-.members__toggle {
+.members__inputs {
   display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-height: 44px;
-  cursor: pointer;
+  gap: var(--space-2xs);
+  color: var(--color-ink-2);
 }
 
-.members__toggle input {
-  accent-color: var(--color-ink);
+.member-dialog {
+  width: min(28rem, 100vw - 2 * var(--space-md));
 }
 
 .avatar {
+  flex: none;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -819,15 +796,30 @@ select.input {
   object-fit: cover;
 }
 
-/* In-game additions: the turn timer, the latency grade, notices over the picture. */
-
-.play__turn {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-xs);
-  font-size: var(--text-sm);
-  font-weight: 600;
+/* The colour a person chose rings their picture, like a controller light. */
+.avatar[data-color] {
+  box-shadow:
+    0 0 0 2px var(--color-paper-2),
+    0 0 0 4px var(--ring);
 }
+
+[data-color="coral"] {
+  --ring: var(--color-p1);
+}
+
+[data-color="sky"] {
+  --ring: var(--color-p2);
+}
+
+[data-color="lime"] {
+  --ring: var(--color-p3);
+}
+
+[data-color="amber"] {
+  --ring: var(--color-p4);
+}
+
+/* In-game additions: the turn timer, the latency grade, notices over the picture. */
 
 .play__latency::before {
   content: "";
@@ -946,21 +938,6 @@ select.input {
   height: 100%;
   display: block;
   object-fit: cover;
-}
-
-.room-card__blank {
-  height: 100%;
-  display: grid;
-  place-items: center;
-  padding: var(--space-md);
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  text-align: center;
-  color: var(--color-muted);
-  overflow-wrap: break-word;
-  min-width: 0;
 }
 
 .room-card__proximity {
@@ -1115,11 +1092,113 @@ textarea.input,
 
 .play__hint {
   position: absolute;
-  top: calc(56px + var(--space-md));
+  top: calc(72px + var(--space-md));
   padding: var(--space-xs) var(--space-sm);
   background: color-mix(in oklab, var(--color-paper-2) 88%, transparent);
   border-radius: var(--radius-control);
   font-size: var(--text-sm);
   color: var(--color-ink-2);
   pointer-events: none;
+}
+
+/* The in-game bubble: the one control over the picture, dragged anywhere, faded while
+ * playing. Pressed, it opens the menu. */
+
+.bubble {
+  position: absolute;
+  z-index: var(--z-sticky);
+  min-height: 44px;
+  padding: var(--space-2xs) var(--space-sm) var(--space-2xs) var(--space-xs);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: color-mix(in oklab, var(--color-paper-2) 86%, transparent);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px color-mix(in oklab, var(--color-shade) 60%, transparent);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  transition: opacity var(--dur-long) var(--ease-out);
+}
+
+.bubble[data-faded] {
+  opacity: 0.35;
+}
+
+.bubble[data-dragging] {
+  cursor: grabbing;
+  transition: none;
+}
+
+.bubble:hover,
+.bubble:focus-visible {
+  opacity: 1;
+}
+
+.bubble__grip {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  grid-template-columns: repeat(2, 7px);
+  place-content: center;
+  gap: 4px;
+  border-radius: 50%;
+  background: var(--color-paper-3);
+}
+
+.bubble__grip i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-p1);
+}
+
+.bubble__grip i:nth-child(2) {
+  background: var(--color-p2);
+}
+
+.bubble__grip i:nth-child(3) {
+  background: var(--color-p3);
+}
+
+.bubble__grip i:nth-child(4) {
+  background: var(--color-p4);
+}
+
+.bubble__players {
+  display: inline-flex;
+  gap: var(--space-2xs);
+}
+
+.bubble__players .lights {
+  padding: var(--space-2xs) var(--space-xs);
+}
+
+.bubble__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-weight: 600;
+}
+
+.bubble .count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+}
+
+.play__sound {
+  position: absolute;
+  bottom: calc(var(--space-xl) + 64px);
+  z-index: var(--z-raised);
+}
+
+.play__notice--warning {
+  top: calc(72px + var(--space-md));
+  bottom: auto;
+  border-color: var(--color-warning);
 }

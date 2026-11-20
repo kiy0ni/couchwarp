@@ -30,6 +30,8 @@ pub const TOUCH_PAD: u8 = 5;
 const KIND_GAMEPAD: u8 = 1;
 const KIND_KEYBOARD: u8 = 2;
 const KIND_MOUSE: u8 = 3;
+const KIND_MOTION: u8 = 4;
+const MOTION_LEN: usize = 16;
 const GAMEPAD_LEN: usize = 16;
 const MOUSE_LEN: usize = 10;
 const KEYBOARD_HEADER_LEN: usize = 4;
@@ -114,11 +116,22 @@ pub struct MouseState {
     pub wheel: i16,
 }
 
+/// How one controller moves: angular speed and acceleration on three axes, in a
+/// DualShock 4's own units (about 16 per degree per second, 8192 per g).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MotionState {
+    pub pad: u8,
+    pub seq: u16,
+    pub gyro: [i16; 3],
+    pub accel: [i16; 3],
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputPacket {
     Gamepad(GamepadState),
     Keyboard(KeyboardState),
     Mouse(MouseState),
+    Motion(MotionState),
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -161,6 +174,15 @@ impl InputPacket {
                 out.extend(keyboard.keys.iter().take(MAX_KEYS));
                 out
             }
+            Self::Motion(motion) => {
+                let mut out = Vec::with_capacity(MOTION_LEN);
+                out.extend([KIND_MOTION, motion.pad]);
+                out.extend(motion.seq.to_le_bytes());
+                for value in motion.gyro.iter().chain(&motion.accel) {
+                    out.extend(value.to_le_bytes());
+                }
+                out
+            }
             Self::Mouse(mouse) => {
                 let mut out = Vec::with_capacity(MOUSE_LEN);
                 out.push(KIND_MOUSE);
@@ -180,6 +202,7 @@ impl InputPacket {
             Some(&KIND_GAMEPAD) => decode_gamepad(bytes).map(Self::Gamepad),
             Some(&KIND_KEYBOARD) => decode_keyboard(bytes).map(Self::Keyboard),
             Some(&KIND_MOUSE) => decode_mouse(bytes).map(Self::Mouse),
+            Some(&KIND_MOTION) => decode_motion(bytes).map(Self::Motion),
             Some(&kind) => Err(DecodeError::UnknownKind(kind)),
         }
     }
@@ -200,6 +223,20 @@ fn decode_gamepad(bytes: &[u8]) -> Result<GamepadState, DecodeError> {
         right_stick: [i16_at(10), i16_at(12)],
         left_trigger: bytes[14],
         right_trigger: bytes[15],
+    })
+}
+
+fn decode_motion(bytes: &[u8]) -> Result<MotionState, DecodeError> {
+    let bytes: &[u8; MOTION_LEN] = bytes.try_into().map_err(|_| DecodeError::Length {
+        expected: MOTION_LEN,
+        actual: bytes.len(),
+    })?;
+    let i16_at = |i: usize| i16::from_le_bytes([bytes[i], bytes[i + 1]]);
+    Ok(MotionState {
+        pad: bytes[1],
+        seq: u16::from_le_bytes([bytes[2], bytes[3]]),
+        gyro: [i16_at(4), i16_at(6), i16_at(8)],
+        accel: [i16_at(10), i16_at(12), i16_at(14)],
     })
 }
 

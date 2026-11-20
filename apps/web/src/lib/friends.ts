@@ -1,4 +1,6 @@
+import { handleOf } from '@couchwarp/protocol'
 import { accountRequest } from './account'
+import type { ProfileColor } from './profile'
 
 export interface Person {
   userId: string
@@ -7,6 +9,7 @@ export interface Person {
 }
 
 export interface Friend extends Person {
+  color: ProfileColor | null
   presence: {
     title: string
     game: string
@@ -14,6 +17,13 @@ export interface Friend extends Person {
     /** Only for a public game. */
     roomCode: string | null
   } | null
+  /** What you let this friend use in your games, beyond the controller. */
+  permissions: Permissions
+}
+
+export interface Permissions {
+  keyboard: boolean
+  mouse: boolean
 }
 
 export interface FriendLists {
@@ -39,4 +49,33 @@ export async function askFriend(userId: string): Promise<FriendLists> {
 /** Declines, cancels or ends, whichever applies. */
 export async function dropFriend(userId: string): Promise<FriendLists> {
   return lists(await accountRequest(`/api/friends/${encodeURIComponent(userId)}`, 'DELETE'))
+}
+
+/** What this friend may use from the start in the games you host. */
+export async function setPermissions(
+  userId: string,
+  permissions: Permissions,
+): Promise<FriendLists> {
+  return lists(
+    await accountRequest(
+      `/api/friends/${encodeURIComponent(userId)}/permissions`,
+      'PUT',
+      permissions,
+    ),
+  )
+}
+
+export type AddResult = { ok: true; lists: FriendLists } | { ok: false; reason: string }
+
+/** Adds someone by `Name#123456`, or accepts their request when they asked first. */
+export async function askByTag(tag: string): Promise<AddResult> {
+  const response = await accountRequest('/api/friends', 'POST', { tag })
+  if (response.ok) return { ok: true, lists: (await response.json()) as FriendLists }
+  const body = (await response.json().catch(() => ({}))) as { error?: string }
+  return { ok: false, reason: body.error ?? 'failed' }
+}
+
+/** How a person writes their tag for others: the plain handle of their name, then the number. */
+export function fullTag(name: string, tag: number | null): string | null {
+  return tag === null ? null : `${handleOf(name)}#${tag}`
 }

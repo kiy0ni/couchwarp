@@ -74,6 +74,13 @@ pub fn sign_in(server: &str, provider: Provider, show_link: impl FnOnce(&str)) -
     Ok(name)
 }
 
+/// Keeps a session obtained another way, such as a password typed in the desktop app.
+pub fn remember(server: &str, token: &str) -> Result<()> {
+    let mut tokens = load_tokens();
+    tokens.insert(site(server).to_owned(), token.to_owned());
+    save_tokens(&tokens)
+}
+
 /// Ends the session on the server and forgets it here.
 pub fn sign_out(server: &str) -> Result<bool> {
     let mut tokens = load_tokens();

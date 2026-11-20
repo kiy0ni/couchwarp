@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/remote-schema.json",
   "identifier": "site",
   "description": "What the Couchwarp site may ask the app, from its own address only.",
-  "windows": ["main"],
+  "windows": ["main", "bubble"],
   "remote": {
     "urls": ["https://couchwarp.sachapastor34.workers.dev/*", "http://localhost:5173/*"]
   },
@@ -19,7 +19,10 @@
     "allow-saved-session",
     "allow-sign-in",
     "allow-sign-out",
+    "allow-save-session",
     "allow-input-allowed",
-    "allow-open-privacy-settings"
+    "allow-open-privacy-settings",
+    "allow-set-bubble-open",
+    "allow-show-main-window"
   ]
 }

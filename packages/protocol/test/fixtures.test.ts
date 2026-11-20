@@ -45,6 +45,11 @@ describe('input packets', () => {
     expect(toHex(encodeInput(packet))).toBe(example.hex)
   })
 
+  it.each(input.motion as Example[])('encodes the motion example "$name"', (example) => {
+    const packet = { kind: 'motion', ...example.packet } as InputPacket
+    expect(toHex(encodeInput(packet))).toBe(example.hex)
+  })
+
   it('caps mouse movement at 16 bits', () => {
     const bytes = encodeInput({
       kind: 'mouse',

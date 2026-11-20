@@ -2,20 +2,18 @@ import { MAX_PLAYERS, MAX_TITLE_LENGTH } from '@couchwarp/protocol'
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Choice } from '../components/Choice'
 import { ConfirmButton } from '../components/ConfirmButton'
+import { GameCover } from '../components/GameCover'
 import { Icon } from '../components/Icon'
+import { Link } from '../components/Link'
 import { Page, Section } from '../components/Page'
 import { InviteLink, RoomManager } from '../components/RoomManager'
 import { Shell } from '../components/Shell'
 import { t } from '../i18n'
 import { useAccount } from '../lib/account'
-import {
-  desktop,
-  type HostingState,
-  isDesktop,
-  type StartRequest,
-  system,
-  type WindowInfo,
-} from '../lib/desktop'
+import { useServerConfig } from '../lib/config'
+import { desktop, type HostingState, isDesktop, system, type WindowInfo } from '../lib/desktop'
+import { useKnownGame } from '../lib/games'
+import { usePreferences } from '../lib/preferences'
 
 /** In the desktop app, share a window; in a browser, get the app. */
 export function Host() {
@@ -111,8 +109,7 @@ function HostDesktop() {
 
 const SETTINGS_KEY = 'couchwarp.host'
 
-type Quality = Pick<StartRequest, 'fps' | 'bitrateMbps' | 'maxHeight'>
-interface Draft extends Quality {
+interface Draft {
   title: string
   game: string
   maxPlayers: number
@@ -128,9 +125,6 @@ const DEFAULTS: Draft = {
   public: false,
   relayOnly: false,
   turnMinutes: null,
-  fps: 60,
-  bitrateMbps: 12,
-  maxHeight: 1080,
 }
 
 function savedDraft(): Draft {
@@ -143,8 +137,14 @@ function savedDraft(): Draft {
 
 function Setup({ lastError }: { lastError: string | null }) {
   const { account } = useAccount()
+  const prefs = usePreferences()
+  const config = useServerConfig()
   const [draft, setDraft] = useState(savedDraft)
-  const [chosen, setChosen] = useState<string | null>(null)
+  const [chosen, setChosen] = useState<WindowInfo | null>(null)
+  // A known game in the chosen window names the game and brings its cover.
+  const known = useKnownGame(chosen?.app, chosen?.title)
+  const [gameTouched, setGameTouched] = useState(false)
+  const game = gameTouched || !known ? draft.game : known.name
   const [error, setError] = useState(lastError)
   const change = (patch: Partial<Draft>) => setDraft((previous) => ({ ...previous, ...patch }))
 
@@ -159,16 +159,21 @@ function Setup({ lastError }: { lastError: string | null }) {
     setError(null)
     try {
       await desktop.startHosting({
-        windowId: chosen,
+        windowId: chosen.id,
         title: draft.title || (account ? t.host.defaultTitle(account.displayName) : null),
-        game: draft.game || null,
+        game: game || null,
         maxPlayers: draft.maxPlayers,
-        public: draft.public,
-        relayOnly: draft.relayOnly,
+        public: draft.public && config?.publicRooms === true,
+        relayOnly: draft.relayOnly && config?.relay !== false,
         turnMinutes: draft.turnMinutes,
-        fps: draft.fps,
-        bitrateMbps: draft.bitrateMbps,
-        maxHeight: draft.maxHeight,
+        fps: prefs.hostFps,
+        bitrateMbps: prefs.hostBitrate,
+        maxHeight: prefs.hostMaxHeight,
+        keepAwake: prefs.hostKeepAwake,
+        focusLock: prefs.hostFocusLock,
+        bubble: prefs.hostBubble,
+        port: prefs.hostPort,
+        stun: prefs.hostStun,
       })
     } catch (reason) {
       setError(String(reason))
@@ -183,7 +188,7 @@ function Setup({ lastError }: { lastError: string | null }) {
         </p>
       )}
       <form className="host-setup" onSubmit={start}>
-        <WindowPicker chosen={chosen} onChoose={setChosen} />
+        <WindowPicker chosen={chosen?.id ?? null} onChoose={setChosen} />
         <div className="host-setup__side">
           <Section title={t.host.roomTitle}>
             <div className="card stack">
@@ -207,11 +212,19 @@ function Setup({ lastError }: { lastError: string | null }) {
                 <input
                   id="host-game"
                   className="input"
-                  value={draft.game}
+                  value={game}
                   maxLength={MAX_TITLE_LENGTH}
-                  onChange={(event) => change({ game: event.target.value })}
+                  onChange={(event) => {
+                    setGameTouched(true)
+                    change({ game: event.target.value })
+                  }}
+                  aria-describedby="host-game-help"
                 />
+                <p id="host-game-help" className="field__help">
+                  {known && !gameTouched ? t.host.recognised : t.host.gameHelp}
+                </p>
               </div>
+              {chosen && <GameCover sources={[known?.header]} />}
               <div className="field">
                 <label className="field__label" htmlFor="host-seats">
                   {t.console.seatsLabel}
@@ -229,65 +242,55 @@ function Setup({ lastError }: { lastError: string | null }) {
                   ))}
                 </select>
               </div>
-              <Choice<'link' | 'public'>
-                label={t.console.visibilityLabel}
-                value={draft.public ? 'public' : 'link'}
-                options={[
-                  ['link', t.console.visibilityLink],
-                  ['public', t.console.visibilityPublic],
-                ]}
-                onChange={(visibility) => change({ public: visibility === 'public' })}
-              />
-              {draft.public && !account && (
+              {config?.publicRooms ? (
+                <Choice<'link' | 'public'>
+                  label={t.console.visibilityLabel}
+                  value={draft.public ? 'public' : 'link'}
+                  options={[
+                    ['link', t.console.visibilityLink],
+                    ['public', t.console.visibilityPublic],
+                  ]}
+                  onChange={(visibility) => change({ public: visibility === 'public' })}
+                />
+              ) : (
+                <p className="field__help">{t.host.linkOnly}</p>
+              )}
+              {draft.public && config?.publicRooms && !account && (
                 <p className="field__help">{t.host.publicNeedsAccount}</p>
               )}
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={draft.relayOnly}
-                  onChange={(event) => change({ relayOnly: event.target.checked })}
-                />
-                <span>
-                  {t.console.relayLabel}
-                  <span className="field__help">{t.console.relayHelp}</span>
-                </span>
-              </label>
+              {draft.public && config?.publicRooms ? (
+                <p className="field__help">
+                  {config.relay ? t.console.relayPublic : t.console.relayMissing}
+                </p>
+              ) : (
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={draft.relayOnly}
+                    disabled={config?.relay === false}
+                    onChange={(event) => change({ relayOnly: event.target.checked })}
+                  />
+                  <span>
+                    {t.console.relayLabel}
+                    <span className="field__help">
+                      {config?.relay === false ? t.console.relayMissing : t.console.relayHelp}
+                    </span>
+                  </span>
+                </label>
+              )}
             </div>
           </Section>
-          <Section title={t.host.qualityTitle}>
-            <div className="card stack">
-              <Choice<string>
-                label={t.host.resolutionLabel}
-                value={String(draft.maxHeight)}
-                options={[
-                  ['720', '720p'],
-                  ['1080', '1080p'],
-                  ['1440', '1440p'],
-                ]}
-                onChange={(height) => change({ maxHeight: Number(height) })}
-              />
-              <Choice<string>
-                label={t.host.fpsLabel}
-                value={String(draft.fps)}
-                options={[
-                  ['30', t.host.fps(30)],
-                  ['60', t.host.fps(60)],
-                ]}
-                onChange={(fps) => change({ fps: Number(fps) })}
-              />
-              <Choice<string>
-                label={t.host.bitrateLabel}
-                value={String(draft.bitrateMbps)}
-                options={[
-                  ['6', t.host.bitrate(6)],
-                  ['12', t.host.bitrate(12)],
-                  ['20', t.host.bitrate(20)],
-                  ['30', t.host.bitrate(30)],
-                ]}
-                onChange={(mbps) => change({ bitrateMbps: Number(mbps) })}
-              />
-              <p className="field__help">{t.host.bitrateHelp}</p>
-            </div>
+          <Section
+            title={t.host.qualityTitle}
+            actions={
+              <Link to="/parametres/hote" className="link-button">
+                {t.host.change}
+              </Link>
+            }
+          >
+            <p className="card card__text">
+              {t.host.quality(prefs.hostMaxHeight, prefs.hostFps, prefs.hostBitrate)}
+            </p>
           </Section>
           <button type="submit" className="button button--large" disabled={!chosen}>
             {chosen ? t.host.start : t.host.chooseFirst}
@@ -303,7 +306,13 @@ type Windows =
   | { kind: 'failed'; reason: string }
   | { kind: 'ready'; list: WindowInfo[] }
 
-function WindowPicker({ chosen, onChoose }: { chosen: string | null; onChoose(id: string): void }) {
+function WindowPicker({
+  chosen,
+  onChoose,
+}: {
+  chosen: string | null
+  onChoose(window: WindowInfo): void
+}) {
   const [windows, setWindows] = useState<Windows>({ kind: 'loading' })
   const load = useCallback(() => {
     setWindows({ kind: 'loading' })
@@ -354,7 +363,7 @@ function WindowPicker({ chosen, onChoose }: { chosen: string | null; onChoose(id
               key={window.id}
               window={window}
               chosen={chosen === window.id}
-              onChoose={() => onChoose(window.id)}
+              onChoose={() => onChoose(window)}
             />
           ))}
         </fieldset>
@@ -429,6 +438,7 @@ function Live({ state }: { state: Extract<HostingState, { state: 'live' }> }) {
     >
       <div className="live">
         <section className="card card--feature live__invite">
+          <LiveCover window={state.window} />
           <p className="field__label">{t.host.codeLabel}</p>
           <p className="live__code">{state.code}</p>
           <InviteLink code={state.code} />
@@ -483,4 +493,10 @@ function Stat({ label, value }: { label: string; value: string }) {
       <dd className="num">{value}</dd>
     </div>
   )
+}
+
+/** The shared game's picture, when the window is a known game. */
+function LiveCover({ window }: { window: WindowInfo }) {
+  const known = useKnownGame(window.app, window.title)
+  return known ? <GameCover sources={[known.header]} className="live__cover" /> : null
 }

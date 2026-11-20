@@ -31,6 +31,14 @@ export interface Account {
 /** Who sends a command: the host (its app or its console), or a guest. */
 export type Actor = { kind: 'host' } | { kind: 'guest'; guestId: GuestId }
 
+/** Inputs a host allows one friend beyond the controller. */
+export interface Grants {
+  keyboard: boolean
+  mouse: boolean
+}
+
+export const NO_GRANTS: Grants = { keyboard: false, mouse: false }
+
 export interface HostInfo {
   name: string
   userId: string | null
@@ -136,13 +144,17 @@ export class RoomModel {
     }
   }
 
-  /** Adds a guest, as a player while seats are left, else as a spectator. */
+  /**
+   * Adds a guest, as a player while seats are left, else as a spectator. `grants` is what
+   * the host lets this friend do from the start; strangers get the controller only.
+   */
   join(
     guestId: GuestId,
     name: string,
     account: Account | null,
     banKeys: string[],
     now: number,
+    grants: Grants = NO_GRANTS,
   ): Member | RejectReason {
     if (banKeys.some((key) => this.snapshot.bans.includes(key))) return 'banned'
     if (this.snapshot.members.length >= MAX_MEMBERS) return 'room-full'
@@ -152,8 +164,8 @@ export class RoomModel {
       avatarUrl: account?.avatarUrl ?? null,
       userId: account?.userId ?? null,
       role: this.seated().length < this.settings.maxPlayers ? 'player' : 'spectator',
-      keyboard: false,
-      mouse: false,
+      keyboard: grants.keyboard,
+      mouse: grants.mouse,
       padType: 'xbox360',
       banKeys,
       playingSince: now,

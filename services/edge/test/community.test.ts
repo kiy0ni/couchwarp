@@ -176,6 +176,51 @@ describe('friends', () => {
     const after = await (await api('/api/friends', sam)).json<typeof list>()
     expect(after.friends).toEqual([])
   })
+  it('gives a friend the keyboard and mouse the host chose, from the start', async () => {
+    const lea = await signIn('lea-2', 'Léa')
+    const sam = await signIn('sam-2', 'Sam')
+    const first = await openRoom({ Authorization: `Bearer ${lea}` })
+    const visit = await connect(`/api/rooms/${first.code}/guest?name=Sam`, {
+      Authorization: `Bearer ${sam}`,
+    })
+    await visit.next('welcome')
+    await post('/api/friends', sam, { userId: 'lea-2' })
+    await post('/api/friends', lea, { userId: 'sam-2' })
+
+    const put = (token: string, friend: string, body: unknown) =>
+      api(`/api/friends/${friend}/permissions`, token, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      })
+    expect((await put(lea, 'sam-2', { keyboard: 'yes' })).status).toBe(400)
+    expect((await put(lea, 'nobody', { keyboard: true, mouse: false })).status).toBe(404)
+    const saved = await put(lea, 'sam-2', { keyboard: true, mouse: false })
+    const list = await saved.json<{ friends: { permissions: unknown }[] }>()
+    expect(list.friends[0]?.permissions).toEqual({ keyboard: true, mouse: false })
+
+    const { host, code } = await openRoom({ Authorization: `Bearer ${lea}` })
+    const guest = await connect(`/api/rooms/${code}/guest?name=Sam`, {
+      Authorization: `Bearer ${sam}`,
+    })
+    await guest.next('welcome')
+    const state = await host.latestState()
+    expect(state.members).toEqual([expect.objectContaining({ keyboard: true, mouse: false })])
+  })
+})
+
+describe('friends by tag', () => {
+  it('adds someone from their name and tag, never from the tag alone', async () => {
+    const lea = await signIn('lea-t', 'Léa')
+    await signIn('sam-t', 'Sâm 🍥')
+    await env.DB.prepare('UPDATE users SET tag = ? WHERE id = ?').bind(482913, 'sam-t').run()
+    expect((await post('/api/friends', lea, { tag: 'Sam#48291' })).status).toBe(400)
+    expect((await post('/api/friends', lea, { tag: 'Bob#482913' })).status).toBe(404)
+    // The handle drops accents, spaces and emoji, and ignores case.
+    const asked = await post('/api/friends', lea, { tag: 'sam#482913' })
+    expect(asked.status).toBe(200)
+    const lists = await asked.json<{ outgoing: { userId: string }[] }>()
+    expect(lists.outgoing.map((person) => person.userId)).toEqual(['sam-t'])
+  })
 })
 
 describe('clean-up', () => {

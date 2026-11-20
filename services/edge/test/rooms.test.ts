@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test'
 import { exports } from 'cloudflare:workers'
 import { DEFAULT_SETTINGS, isRoomCode, normalizeRoomCode } from '@couchwarp/protocol'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanGuestName } from '../src/room'
 import { randomRoomCode } from '../src/room-code'
 import { MAX_MEMBERS } from '../src/room-model'
@@ -49,13 +49,19 @@ describe('guest names', () => {
   })
 })
 
+// Rooms look their game up in the Steam store: here, a store that knows nothing.
+beforeEach(() => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json({ items: [] }))
+})
+afterEach(() => vi.restoreAllMocks())
+
 describe('a room', () => {
   it('relays the negotiation between a guest and the host', async () => {
     const { host, code } = await openRoom()
     const info = await exports.default.fetch(`${SITE}/api/rooms/${code}`)
     expect(await info.json()).toMatchObject({
       open: true,
-      room: { players: 0, spectators: 0, maxPlayers: expect.any(Number) },
+      room: { players: 0, spectators: 0, maxPlayers: expect.any(Number), addressesHidden: false },
     })
 
     const guest = await join(code.toLowerCase(), 'Léa')

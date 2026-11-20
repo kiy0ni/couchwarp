@@ -14,6 +14,7 @@
 
 import { friends } from '../friends'
 import { fromOurPages, json, problem, redirect, siteOrigin } from '../http'
+import { badges } from '../profiles'
 import { isAdmin } from '../reports'
 import { enabledProviders, exchangeCode, isProviderId, PROVIDERS, type Provider } from './providers'
 import {
@@ -25,6 +26,7 @@ import {
   sessionCookie,
   type User,
 } from './sessions'
+import { createUser } from './users'
 
 const STATE_LIFETIME_MS = 10 * 60 * 1000
 
@@ -169,17 +171,17 @@ async function attachIdentity(
     return { userId: owner }
   }
 
-  const userId = crypto.randomUUID()
-  await db.batch([
-    db
-      .prepare('INSERT INTO users (id, display_name, avatar_url, created_at) VALUES (?, ?, ?, ?)')
-      .bind(userId, profile.displayName, profile.avatarUrl, now),
-    db
-      .prepare(
-        'INSERT INTO identities (provider, provider_user_id, user_id, username, created_at) VALUES (?, ?, ?, ?, ?)',
-      )
-      .bind(provider, profile.providerUserId, userId, profile.username, now),
-  ])
+  const userId = await createUser(
+    db,
+    { displayName: profile.displayName, avatarUrl: profile.avatarUrl },
+    (id) => [
+      db
+        .prepare(
+          'INSERT INTO identities (provider, provider_user_id, user_id, username, created_at) VALUES (?, ?, ?, ?, ?)',
+        )
+        .bind(provider, profile.providerUserId, id, profile.username, now),
+    ],
+  )
   return { userId }
 }
 
@@ -194,10 +196,16 @@ async function identities(db: D1Database, userId: string) {
 async function me(request: Request, env: Env): Promise<Response> {
   const user = await currentUser(request, env.DB)
   if (!user) return problem(401, 'signed-out')
+  const extra = await env.DB.prepare('SELECT color, tag, created_at FROM users WHERE id = ?')
+    .bind(user.id)
+    .first<{ color: string | null; tag: number | null; created_at: number }>()
   return json({
     ...publicUser(user),
     identities: await identities(env.DB, user.id),
     isAdmin: isAdmin(env, user),
+    color: extra?.color ?? null,
+    tag: extra?.tag ?? null,
+    badges: await badges(env, user.id, extra?.created_at ?? Date.now()),
   })
 }
 
@@ -264,9 +272,18 @@ async function unlink(env: Env, user: User, provider: string): Promise<Response>
   const linked = await identities(env.DB, user.id)
   if (!linked.some((identity) => identity.provider === provider)) return problem(404, 'not-linked')
   if (linked.length === 1) return problem(409, 'last-identity')
-  await env.DB.prepare('DELETE FROM identities WHERE user_id = ? AND provider = ?')
-    .bind(user.id, provider)
-    .run()
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM identities WHERE user_id = ? AND provider = ?').bind(
+      user.id,
+      provider,
+    ),
+    // A login without its identity would be a way in no one can see: both go.
+    env.DB.prepare('DELETE FROM passwords WHERE user_id = ? AND ? = ?').bind(
+      user.id,
+      provider,
+      'password',
+    ),
+  ])
   return json({ identities: await identities(env.DB, user.id) })
 }
 

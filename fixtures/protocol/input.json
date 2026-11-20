@@ -30,33 +30,95 @@
   "keyboard": [
     {
       "name": "W and left shift held",
-      "packet": { "seq": 7, "keys": [26, 225] },
+      "packet": {
+        "seq": 7,
+        "keys": [26, 225]
+      },
       "hex": "020700021ae1"
     },
     {
       "name": "every key released",
-      "packet": { "seq": 8, "keys": [] },
+      "packet": {
+        "seq": 8,
+        "keys": []
+      },
       "hex": "02080000"
     }
   ],
   "mouse": [
     {
       "name": "left button held, moved right and up, one notch down",
-      "packet": { "seq": 9, "buttons": 1, "dx": 5, "dy": -3, "wheel": 120 },
+      "packet": {
+        "seq": 9,
+        "buttons": 1,
+        "dx": 5,
+        "dy": -3,
+        "wheel": 120
+      },
       "hex": "030900010500fdff7800"
     },
     {
       "name": "buttons released, no movement",
-      "packet": { "seq": 10, "buttons": 0, "dx": 0, "dy": 0, "wheel": 0 },
+      "packet": {
+        "seq": 10,
+        "buttons": 0,
+        "dx": 0,
+        "dy": 0,
+        "wheel": 0
+      },
       "hex": "030a0000000000000000"
     }
   ],
   "invalid": [
-    { "name": "empty packet", "hex": "" },
-    { "name": "unknown kind", "hex": "09" },
-    { "name": "truncated gamepad", "hex": "0100" },
-    { "name": "gamepad with trailing bytes", "hex": "01000100000000000000000000000000ff" },
-    { "name": "keyboard count larger than the packet", "hex": "0201000304" },
-    { "name": "truncated mouse", "hex": "0301" }
+    {
+      "name": "empty packet",
+      "hex": ""
+    },
+    {
+      "name": "unknown kind",
+      "hex": "09"
+    },
+    {
+      "name": "truncated gamepad",
+      "hex": "0100"
+    },
+    {
+      "name": "gamepad with trailing bytes",
+      "hex": "01000100000000000000000000000000ff"
+    },
+    {
+      "name": "keyboard count larger than the packet",
+      "hex": "0201000304"
+    },
+    {
+      "name": "truncated mouse",
+      "hex": "0301"
+    },
+    {
+      "name": "truncated motion",
+      "hex": "040001"
+    }
+  ],
+  "motion": [
+    {
+      "name": "still, flat on a table",
+      "packet": {
+        "pad": 0,
+        "seq": 3,
+        "gyro": [0, 0, 0],
+        "accel": [0, 8192, 0]
+      },
+      "hex": "04000300000000000000000000200000"
+    },
+    {
+      "name": "turning fast, tilted",
+      "packet": {
+        "pad": 2,
+        "seq": 65535,
+        "gyro": [-32768, 1600, 32767],
+        "accel": [-4096, 7000, 123]
+      },
+      "hex": "0402ffff00804006ff7f00f0581b7b00"
+    }
   ]
 }

@@ -1,10 +1,12 @@
 import { type FormEvent, useEffect, useState } from 'react'
+import { GameCover } from '../components/GameCover'
 import { Page } from '../components/Page'
 import { PlayerBadge } from '../components/PlayerBadge'
 import { Shell } from '../components/Shell'
 import { t } from '../i18n'
 import { useAccount } from '../lib/account'
 import { padName } from '../lib/gamepads'
+import { preferences } from '../lib/preferences'
 import { lookUpRoom, type RoomPreview } from '../lib/session'
 import { useGamepads } from '../lib/use-gamepads'
 
@@ -89,6 +91,10 @@ export function Join({ code, onPlay, onBack, onClosed }: Props) {
     event.preventDefault()
     if (!trimmed || !webrtc) return
     saveName(trimmed)
+    // The press on Play is the gesture browsers ask for before going full screen.
+    if (preferences().fullscreenOnStart) {
+      document.documentElement.requestFullscreen?.().catch(() => undefined)
+    }
     onPlay(trimmed)
   }
 
@@ -125,6 +131,11 @@ export function Join({ code, onPlay, onBack, onClosed }: Props) {
               </p>
             </div>
             {room && (
+              <p className="notice" data-tone={room.addressesHidden ? undefined : 'warning'}>
+                {room.addressesHidden ? t.join.addressHidden : t.join.addressSeen}
+              </p>
+            )}
+            {room && (
               <p className="field__help">
                 {room.players < room.maxPlayers
                   ? t.join.seatFree(room.maxPlayers - room.players)
@@ -137,6 +148,7 @@ export function Join({ code, onPlay, onBack, onClosed }: Props) {
           </form>
 
           <div className="stack stack--loose">
+            {room && <GameCover sources={[room.header, room.cover]} className="join__cover" />}
             {room && (
               <dl className="stats stats--three">
                 <div className="stats__item">
