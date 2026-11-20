@@ -388,6 +388,8 @@ export class Room extends DurableObject<Env> {
         },
         now,
       )
+      // The list only reads the cache: the room makes sure its game is in it.
+      if (model.settings.game) await lookUpGame(this.env.DB, model.settings.game, now)
     } else {
       await unpublish(this.env.DB, model.code)
     }

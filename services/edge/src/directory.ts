@@ -1,6 +1,6 @@
 /** The public room list in D1, written by the rooms, read by the listing page. */
 
-import { lookUpGame } from './games'
+import { cachedGame } from './games'
 
 export interface RoomCard {
   code: string
@@ -110,7 +110,7 @@ export async function list(
     )
     .bind(...values)
     .all<Row>()
-  const known = await knownGames(db, results, now)
+  const known = await knownGames(db, results)
   return results.map((row) => ({
     code: row.code,
     title: row.title,
@@ -132,9 +132,9 @@ export async function list(
   }))
 }
 
-/** The known games among the listed rooms, by the name each host gave. */
-async function knownGames(db: D1Database, rows: Row[], now: number) {
+/** The known games among the listed rooms, by the name each host gave; the rooms looked them up. */
+async function knownGames(db: D1Database, rows: Row[]) {
   const names = [...new Set(rows.map((row) => row.game).filter(Boolean))]
-  const found = await Promise.all(names.map((name) => lookUpGame(db, name, now)))
+  const found = await Promise.all(names.map((name) => cachedGame(db, name)))
   return new Map(names.map((name, index) => [name, found[index] ?? null]))
 }

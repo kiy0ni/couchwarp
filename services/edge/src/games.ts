@@ -56,6 +56,15 @@ export function matchScore(query: string, title: string): number {
   return 0
 }
 
+/** What the cache already knows, without asking the store: for lists, which must stay fast. */
+export async function cachedGame(db: D1Database, query: string): Promise<GameInfo | null> {
+  const row = await db
+    .prepare('SELECT app_id, name FROM game_lookups WHERE query = ?')
+    .bind(normalizeGameName(query))
+    .first<{ app_id: number | null; name: string | null }>()
+  return row?.app_id ? info(row.app_id, row.name ?? query) : null
+}
+
 export async function lookUpGame(db: D1Database, query: string, now: number) {
   const key = normalizeGameName(query)
   if (!key) return null
