@@ -7,9 +7,24 @@ import { fetchProfile, type PublicProfile } from '../lib/profile'
 import { Avatar } from './Avatar'
 import { Badges } from './Badges'
 import { ConfirmButton } from './ConfirmButton'
-import { Icon } from './Icon'
+import { Icon, type IconName } from './Icon'
 import { Link } from './Link'
 import { SettingRow, Switch } from './SettingRow'
+
+/** What the host can give or take from each player, in the order the pages show them. */
+export const GUEST_INPUTS = ['pads', 'keyboard', 'mouse'] as const
+export type GuestInput = (typeof GUEST_INPUTS)[number]
+
+export const INPUT_ICONS: Record<GuestInput, IconName> = {
+  pads: 'pad',
+  keyboard: 'keyboard',
+  mouse: 'mouse',
+}
+
+/** A member's inputs, as `set-permissions` carries them. */
+export function inputsOf(member: Member): Record<GuestInput, boolean> {
+  return { pads: member.pads, keyboard: member.keyboard, mouse: member.mouse }
+}
 
 /** Who looks at the list: the host (console), a moderator, or anyone else. */
 export type Viewer = 'host' | 'moderator' | 'guest'
@@ -85,8 +100,8 @@ function MemberRow({ member, viewer, self, seatsLeft, onCommand, onReport }: Row
   const hasMenu = manage || befriend || report !== undefined
 
   const setRole = (role: GuestRole) => onCommand({ type: 'set-role', guestId, role })
-  const setInputs = (keyboard: boolean, mouse: boolean) =>
-    onCommand({ type: 'set-permissions', guestId, keyboard, mouse })
+  const setInputs = (change: Partial<Record<GuestInput, boolean>>) =>
+    onCommand({ type: 'set-permissions', guestId, ...inputsOf(member), ...change })
   const titleId = `member-${member.id}`
   const roles: readonly GuestRole[] =
     viewer === 'host' ? ['player', 'moderator', 'spectator'] : ['player', 'spectator']
@@ -145,45 +160,20 @@ function MemberRow({ member, viewer, self, seatsLeft, onCommand, onReport }: Row
 
           {manage && viewer === 'host' && member.role !== 'spectator' && (
             <div className="settings__rows">
-              <div className="setting">
-                <div className="setting__text">
-                  <span className="setting__title">{t.friends.pad}</span>
-                  <p className="setting__help">{t.friends.padHelp}</p>
-                </div>
-                <div className="setting__control">
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    className="switch"
-                    checked
-                    aria-checked
-                    disabled
-                    aria-label={t.friends.pad}
+              {GUEST_INPUTS.map((input) => (
+                <SettingRow
+                  key={input}
+                  id={`${titleId}-${input}`}
+                  title={t.room.inputs[input]}
+                  help={t.room.inputsHelp[input]}
+                >
+                  <Switch
+                    id={`${titleId}-${input}`}
+                    checked={member[input]}
+                    onChange={(allowed) => setInputs({ [input]: allowed })}
                   />
-                </div>
-              </div>
-              <SettingRow
-                id={`${titleId}-keyboard`}
-                title={t.friends.inputs.keyboard}
-                help={t.friends.inputsHelp.keyboard}
-              >
-                <Switch
-                  id={`${titleId}-keyboard`}
-                  checked={member.keyboard}
-                  onChange={(keyboard) => setInputs(keyboard, member.mouse)}
-                />
-              </SettingRow>
-              <SettingRow
-                id={`${titleId}-mouse`}
-                title={t.friends.inputs.mouse}
-                help={t.friends.inputsHelp.mouse}
-              >
-                <Switch
-                  id={`${titleId}-mouse`}
-                  checked={member.mouse}
-                  onChange={(mouse) => setInputs(member.keyboard, mouse)}
-                />
-              </SettingRow>
+                </SettingRow>
+              ))}
             </div>
           )}
 
@@ -254,19 +244,16 @@ function MemberRow({ member, viewer, self, seatsLeft, onCommand, onReport }: Row
   )
 }
 
-/** What a player can use, at a glance: the controller always, keyboard and mouse if allowed. */
+/** What a player can use, at a glance: the inputs the host allows. */
 function Inputs({ member }: { member: Member }) {
-  const allowed = [
-    t.friends.pad,
-    ...(member.keyboard ? [t.friends.inputs.keyboard] : []),
-    ...(member.mouse ? [t.friends.inputs.mouse] : []),
-  ]
+  const allowed = GUEST_INPUTS.filter((input) => member[input])
+  const names = allowed.map((input) => t.room.inputs[input]).join(', ')
   return (
-    <span className="members__inputs" title={allowed.join(', ')}>
-      <span className="visually-hidden">{t.room.canUse(allowed.join(', '))}</span>
-      <Icon name="pad" size={18} />
-      {member.keyboard && <Icon name="keyboard" size={18} />}
-      {member.mouse && <Icon name="mouse" size={18} />}
+    <span className="members__inputs" title={names || t.room.noInput}>
+      <span className="visually-hidden">{names ? t.room.canUse(names) : t.room.noInput}</span>
+      {allowed.map((input) => (
+        <Icon key={input} name={INPUT_ICONS[input]} size={18} />
+      ))}
     </span>
   )
 }

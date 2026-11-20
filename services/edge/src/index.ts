@@ -13,7 +13,7 @@
  * - `/api/me/profile`, `/api/me/avatar`, `/api/users/:id*`: profiles, see `profiles.ts`.
  * - `/api/admin/*`: report handling, for admins only.
  * - `GET /api/games/lookup?q=`: a known game's title and cover, see `games.ts`.
- * - `GET /api/config`: what this server offers, `{ publicRooms, relay }`.
+ * - `GET /api/config`: what this server offers, `{ publicRooms, relay, email }`.
  * - `GET /api/downloads`: where to get the desktop app, `{ mac, windows, linux, linuxDeb }`,
  *   null without one.
  * - `/api/updates/*`: the desktop app's update manifest and files, see `updates.ts`.
@@ -32,6 +32,8 @@ import { list } from './directory'
 import { handleFriends } from './friends'
 import { handleGames } from './games'
 import { json, siteOrigin } from './http'
+import { relayConfigured } from './ice'
+import { mailConfigured } from './mail'
 import { handleProfiles } from './profiles'
 import { handleAdmin, report } from './reports'
 import { ARRIVAL_HEADER, type Arrival } from './room'
@@ -60,7 +62,8 @@ export default {
     if (url.pathname === '/api/config') {
       return json({
         publicRooms: env.PUBLIC_ROOMS === 'on',
-        relay: Boolean(env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN),
+        relay: relayConfigured(env),
+        email: mailConfigured(env),
       })
     }
     if (url.pathname === '/api/downloads') {

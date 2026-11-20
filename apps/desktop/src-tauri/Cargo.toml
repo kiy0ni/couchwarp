@@ -1,6 +1,6 @@
 [package]
 name = "couchwarp-desktop"
-version = "0.1.1"
+version = "0.2.0"
 description = "Couchwarp for Mac and Windows: host a game for friends, or join theirs"
 edition.workspace = true
 license.workspace = true
@@ -29,5 +29,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [target.'cfg(windows)'.dependencies]
+# Downloading VIIPER and checking it is the expected file.
+sha2 = "0.10"
+ureq = { version = "3", default-features = false, features = ["rustls"] }
 # Keeping the computer awake during a game.
 windows = { version = "0.62", features = ["Win32_System_Power"] }

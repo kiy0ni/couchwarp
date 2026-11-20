@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-install-controller-support"
+description = "Enables the install_controller_support command without any pre-configured scope."
+commands.allow = ["install_controller_support"]
+
+[[permission]]
+identifier = "deny-install-controller-support"
+description = "Denies the install_controller_support command without any pre-configured scope."
+commands.deny = ["install_controller_support"]

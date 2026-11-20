@@ -1,5 +1,6 @@
 import { isRoomCode, normalizeRoomCode } from '@couchwarp/protocol'
 import { useCallback, useEffect, useState } from 'react'
+import { useAccount } from './lib/account'
 import { isDesktop } from './lib/desktop'
 import { navigate, usePath } from './lib/router'
 import type { EndReason } from './lib/session'
@@ -13,6 +14,7 @@ import { Host } from './screens/Host'
 import { HostBubble } from './screens/HostBubble'
 import { Join } from './screens/Join'
 import { Legal } from './screens/Legal'
+import { Login, loginModeOf } from './screens/Login'
 import { Play } from './screens/Play'
 import { BadgesPage, Profile } from './screens/Profile'
 import { Settings } from './screens/Settings'
@@ -46,18 +48,29 @@ export function App() {
   const onEnd = useCallback((reason: EndReason) => setStage({ name: 'ended', reason }), [])
   const onClosed = useCallback(() => onEnd('room-not-found'), [onEnd])
 
+  const { account } = useAccount()
+  const loginMode = loginModeOf(path)
+  // Links from e-mails work whether signed in or not, in the app as in a browser.
+  if (loginMode === 'reset' || loginMode === 'confirm') return <Login mode={loginMode} />
+  if (path === '/bubble' && isDesktop) return <HostBubble />
+  if (path === '/terms') return <Legal page="terms" />
+  if (path === '/privacy') return <Legal page="privacy" />
+  // The app opens on the sign-in page; a browser lets guests play without an account.
+  if (isDesktop && account === undefined) return <div className="splash" aria-busy="true" />
+  if (isDesktop && account === null) return <Login mode={loginMode ?? 'signin'} />
+  // A new account made with Discord or Google answers the age question once.
+  if (account && !account.ageConfirmed && !code) return <Login mode="signin" />
+  if (loginMode) return <Login mode={loginMode} />
+
   // Addresses of earlier versions are already rewritten by `usePath`.
   if (path === '/settings' || path.startsWith('/settings/')) return <Settings path={path} />
   if (path === '/host') return <Host />
   if (path === '/badges') return <BadgesPage />
   const profile = path.match(/^\/profile\/([0-9a-zA-Z-]{1,64})$/)?.[1]
   if (profile) return <Profile userId={profile} />
-  if (path === '/bubble' && isDesktop) return <HostBubble />
   if (path === '/rooms') return <Browse />
   if (path === '/friends') return <Friends />
   if (path === '/moderation') return <Admin />
-  if (path === '/terms') return <Legal page="terms" />
-  if (path === '/privacy') return <Legal page="privacy" />
   if (!code) return <Home onFound={goTo} />
   if (isConsole && stage.name !== 'ended') return <Console code={code} onEnd={onEnd} />
   switch (stage.name) {

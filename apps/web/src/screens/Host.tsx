@@ -2,6 +2,7 @@ import { MAX_PLAYERS, MAX_TITLE_LENGTH } from '@couchwarp/protocol'
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Choice } from '../components/Choice'
 import { ConfirmButton } from '../components/ConfirmButton'
+import { ControllerSupport } from '../components/ControllerSupport'
 import { GameCover } from '../components/GameCover'
 import { Icon } from '../components/Icon'
 import { Link } from '../components/Link'
@@ -11,7 +12,14 @@ import { Shell } from '../components/Shell'
 import { t } from '../i18n'
 import { useAccount } from '../lib/account'
 import { useServerConfig } from '../lib/config'
-import { desktop, type HostingState, isDesktop, system, type WindowInfo } from '../lib/desktop'
+import {
+  desktop,
+  type HostingState,
+  isDesktop,
+  type PermissionPane,
+  system,
+  type WindowInfo,
+} from '../lib/desktop'
 import { useKnownGame } from '../lib/games'
 import { usePreferences } from '../lib/preferences'
 
@@ -140,7 +148,6 @@ interface Draft {
   game: string
   maxPlayers: number
   public: boolean
-  relayOnly: boolean
   turnMinutes: number | null
 }
 
@@ -149,7 +156,6 @@ const DEFAULTS: Draft = {
   game: '',
   maxPlayers: 4,
   public: false,
-  relayOnly: false,
   turnMinutes: null,
 }
 
@@ -190,7 +196,6 @@ function Setup({ lastError }: { lastError: string | null }) {
         game: game || null,
         maxPlayers: draft.maxPlayers,
         public: draft.public && config?.publicRooms === true,
-        relayOnly: draft.relayOnly && config?.relay !== false,
         turnMinutes: draft.turnMinutes,
         fps: prefs.hostFps,
         bitrateMbps: prefs.hostBitrate,
@@ -213,6 +218,7 @@ function Setup({ lastError }: { lastError: string | null }) {
           {error === 'window-gone' ? t.host.windowGone : error}
         </p>
       )}
+      <ControllerSupport quiet />
       <form className="host-setup" onSubmit={start}>
         <WindowPicker chosen={chosen?.id ?? null} onChoose={setChosen} />
         <div className="host-setup__side">
@@ -284,26 +290,6 @@ function Setup({ lastError }: { lastError: string | null }) {
               {draft.public && config?.publicRooms && !account && (
                 <p className="field__help">{t.host.publicNeedsAccount}</p>
               )}
-              {draft.public && config?.publicRooms ? (
-                <p className="field__help">
-                  {config.relay ? t.console.relayPublic : t.console.relayMissing}
-                </p>
-              ) : (
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={draft.relayOnly}
-                    disabled={config?.relay === false}
-                    onChange={(event) => change({ relayOnly: event.target.checked })}
-                  />
-                  <span>
-                    {t.console.relayLabel}
-                    <span className="field__help">
-                      {config?.relay === false ? t.console.relayMissing : t.console.relayHelp}
-                    </span>
-                  </span>
-                </label>
-              )}
             </div>
           </Section>
           <Section
@@ -364,20 +350,14 @@ function WindowPicker({
           {t.host.listing}
         </p>
       )}
-      {windows.kind === 'failed' && (
-        <div className="notice" data-tone="error">
-          <p>{system === 'mac' ? t.host.screenPermission : windows.reason}</p>
-          {system === 'mac' && (
-            <button
-              type="button"
-              className="button button--small button--secondary"
-              onClick={() => desktop.openPrivacySettings('screen')}
-            >
-              {t.host.openSettings}
-            </button>
-          )}
-        </div>
-      )}
+      {windows.kind === 'failed' &&
+        (system === 'mac' ? (
+          <PermissionNotice pane="screen" tone="error" text={t.host.screenPermission} />
+        ) : (
+          <p className="notice" data-tone="error">
+            {windows.reason}
+          </p>
+        ))}
       {windows.kind === 'ready' && windows.list.length === 0 && (
         <p className="muted">{t.host.noWindows}</p>
       )}
@@ -443,7 +423,6 @@ function WindowChoice({
 }
 
 function Live({ state }: { state: Extract<HostingState, { state: 'live' }> }) {
-  const [inputAllowed, setInputAllowed] = useState(!state.noInputPermission)
   // The room ends with the session: the hosting state turns idle on its own.
   const onEnd = useCallback(() => undefined, [])
   const stats = state.stats
@@ -482,20 +461,21 @@ function Live({ state }: { state: Extract<HostingState, { state: 'live' }> }) {
           />
         </dl>
       </div>
-      {!inputAllowed && (
-        <div className="notice" data-tone="warning">
-          <p>{system === 'linux' ? t.host.inputPermissionLinux : t.host.inputPermission}</p>
-          <button
-            type="button"
-            className="button button--small button--secondary"
-            onClick={() => {
-              if (system === 'mac') desktop.openPrivacySettings('input').catch(console.error)
-              desktop.inputAllowed().then(setInputAllowed).catch(console.error)
-            }}
-          >
-            {system === 'mac' ? t.host.openSettings : t.host.checkAgain}
-          </button>
-        </div>
+      {state.noInputPermission &&
+        (system === 'mac' ? (
+          <PermissionNotice pane="input" tone="warning" text={t.host.inputPermission} />
+        ) : (
+          <>
+            <p className="notice" data-tone="warning">
+              {t.host.inputPermissionLinux}
+            </p>
+            <ControllerSupport />
+          </>
+        ))}
+      {state.inputPaused && (
+        <p className="notice" data-tone="warning" role="status">
+          {t.host.inputPaused}
+        </p>
       )}
       {state.publicNeedsAccount && (
         <p className="notice" data-tone="warning">
@@ -525,4 +505,54 @@ function Stat({ label, value }: { label: string; value: string }) {
 function LiveCover({ window }: { window: WindowInfo }) {
   const known = useKnownGame(window.app, window.title)
   return known ? <GameCover sources={[known.header]} className="live__cover" /> : null
+}
+
+/**
+ * A permission macOS has not given yet, with every way out: the settings, a repair for
+ * an entry left over from an earlier version, and a restart, which macOS needs before
+ * some permissions apply.
+ */
+function PermissionNotice({
+  pane,
+  tone,
+  text,
+}: {
+  pane: PermissionPane
+  tone: 'warning' | 'error'
+  text: string
+}) {
+  const [repaired, setRepaired] = useState(false)
+  return (
+    <div className="notice" data-tone={tone} role="status">
+      <p>{repaired ? t.host.permissionRepaired : text}</p>
+      <div className="actions">
+        <button
+          type="button"
+          className="button button--small button--secondary"
+          onClick={() => desktop.openPrivacySettings(pane).catch(console.error)}
+        >
+          {t.host.openSettings}
+        </button>
+        <button
+          type="button"
+          className="button button--small button--secondary"
+          onClick={() =>
+            desktop
+              .repairPermission(pane)
+              .then(() => setRepaired(true))
+              .catch(console.error)
+          }
+        >
+          {t.host.repairPermission}
+        </button>
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => desktop.restartApp().catch(console.error)}
+        >
+          {t.host.restartApp}
+        </button>
+      </div>
+    </div>
+  )
 }

@@ -60,8 +60,11 @@ pub enum Event {
     Opened { code: String, console_key: String },
     /// Every two seconds while streaming.
     Stats(Stats),
-    /// Guests' keyboards and mice cannot reach the game until the system allows it.
-    NoInputPermission,
+    /// Whether guests' keyboards and mice can reach the game: sent at the start, then each
+    /// time the system's answer changes (the host allowed Couchwarp in the settings).
+    InputPermission { allowed: bool },
+    /// Guests' keyboards and mice wait because the game window went behind another one.
+    InputPaused { paused: bool },
     /// The room was asked to be public, but the host is not signed in.
     PublicNeedsAccount,
 }
@@ -93,9 +96,13 @@ pub async fn run(
         );
     }
     info!(app = %window.app, title = %window.title, "sharing this window");
-    if !platform::can_send_keys() {
-        let _ = events.send(Event::NoInputPermission);
+    let input_allowed = platform::input_allowed();
+    if !input_allowed {
+        platform::ask_input_permission();
     }
+    let _ = events.send(Event::InputPermission {
+        allowed: input_allowed,
+    });
 
     let endpoint = net::open_endpoint(options.port, &options.stun)?;
     endpoint.socket.set_nonblocking(true)?;
@@ -151,6 +158,7 @@ pub async fn run(
         Game {
             pid: window.pid,
             focus_lock: !options.ignore_focus,
+            input_allowed,
         },
         control,
         options.settings,

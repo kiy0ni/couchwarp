@@ -13,7 +13,12 @@ function randomTag(): number {
  */
 export async function createUser(
   db: D1Database,
-  profile: { displayName: string; avatarUrl: string | null; ageConfirmedAt?: number | null },
+  profile: {
+    displayName: string
+    avatarUrl: string | null
+    ageConfirmedAt?: number | null
+    email?: string | null
+  },
   more: (userId: string) => D1PreparedStatement[],
 ): Promise<string> {
   const userId = crypto.randomUUID()
@@ -23,8 +28,8 @@ export async function createUser(
       await db.batch([
         db
           .prepare(
-            `INSERT INTO users (id, display_name, avatar_url, tag, age_confirmed_at, created_at)
-             VALUES (?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO users (id, display_name, avatar_url, tag, age_confirmed_at, email, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
           )
           .bind(
             userId,
@@ -32,6 +37,7 @@ export async function createUser(
             profile.avatarUrl,
             randomTag(),
             profile.ageConfirmedAt ?? null,
+            profile.email ?? null,
             now,
           ),
         ...more(userId),

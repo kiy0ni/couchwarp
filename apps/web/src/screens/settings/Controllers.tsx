@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { ControllerSupport } from '../../components/ControllerSupport'
 import { PlayerBadge } from '../../components/PlayerBadge'
 import { SettingRow, Switch } from '../../components/SettingRow'
 import { t } from '../../i18n'
 import { FACE_LABELS, FAMILY_NAMES, familyOf } from '../../lib/controllers'
+import { isDesktop } from '../../lib/desktop'
 import { padName } from '../../lib/gamepads'
 import {
   connectController,
@@ -41,9 +43,10 @@ export function ControllerTesters() {
   const gamepads = useGamepads()
   return (
     <div className="stack stack--loose">
+      {isDesktop && <ControllerSupport />}
       <ControllerSettings />
       {gamepads.length === 0 ? (
-        <section className="card card--feature">
+        <section className="card stack">
           <h2 className="card__title">{t.settings.noController}</h2>
           <p className="card__text">{t.settings.noControllerHelp}</p>
         </section>
@@ -166,32 +169,40 @@ function ControllerSettings() {
           onChange={(nintendoLetters) => setPreferences({ nintendoLetters })}
         />
       </SettingRow>
-      <SettingRow
-        id="pad-motion"
-        title={t.settings.motion}
-        help={
-          hidAvailable()
-            ? connected.length > 0
-              ? t.settings.motionConnected(connected.join(', '))
-              : t.settings.motionHelp
-            : t.settings.motionUnsupported
-        }
-      >
-        <button
+      {/* A phone has its own gyroscope below; a controller's is read through WebHID. */}
+      {!touchScreen && (
+        <SettingRow
           id="pad-motion"
-          type="button"
-          className="button button--secondary button--small"
-          disabled={!hidAvailable()}
-          onClick={() => {
-            setProblem(null)
-            connectController()
-              .then((names) => setConnected((previous) => [...new Set([...previous, ...names])]))
-              .catch(() => setProblem(t.settings.motionFailed))
-          }}
+          title={t.settings.motion}
+          help={
+            hidAvailable()
+              ? connected.length > 0
+                ? t.settings.motionConnected(connected.join(', '))
+                : t.settings.motionHelp
+              : isDesktop
+                ? t.settings.motionUnsupportedApp
+                : t.settings.motionUnsupported
+          }
         >
-          {t.settings.motionConnect}
-        </button>
-      </SettingRow>
+          {hidAvailable() && (
+            <button
+              id="pad-motion"
+              type="button"
+              className="button button--secondary button--small"
+              onClick={() => {
+                setProblem(null)
+                connectController()
+                  .then((names) =>
+                    setConnected((previous) => [...new Set([...previous, ...names])]),
+                  )
+                  .catch(() => setProblem(t.settings.motionFailed))
+              }}
+            >
+              {t.settings.motionConnect}
+            </button>
+          )}
+        </SettingRow>
+      )}
       {touchScreen && (
         <SettingRow id="pad-phone" title={t.settings.phoneMotion} help={t.settings.phoneMotionHelp}>
           <Switch

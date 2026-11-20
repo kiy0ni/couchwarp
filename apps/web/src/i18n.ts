@@ -8,6 +8,41 @@ import type { EndReason } from './lib/session'
 
 const fr: Strings = {
   common: { cancel: 'Annuler' },
+  login: {
+    welcome: 'Content de te revoir',
+    welcomeLead: 'Connecte-toi pour héberger, retrouver tes amis et tes parties.',
+    createTitle: 'Créer un compte',
+    createLead: 'Il te suit sur l’appli et sur le site. Tes invités, eux, n’en ont pas besoin.',
+    appNeedsAccount:
+      'L’appli a besoin d’un compte : il garde tes amis et porte ton nom dans tes parties.',
+    guest: 'Rejoindre une partie sans compte',
+    artTitle: 'Le canapé, à distance.',
+    artLead:
+      'Tu partages la fenêtre de ton jeu. Tes amis le rejoignent depuis leur navigateur, avec leur manette.',
+    ageTitle: 'Une seule question',
+    ageLead: 'Couchwarp est réservé aux personnes de 13 ans ou plus. On ne te le demandera plus.',
+    nameLabel: 'Pseudo',
+    nameHelp: 'Le nom que voient les autres joueurs. Modifiable plus tard.',
+    /** Around two links: « En continuant, tu acceptes les [conditions] et la [confidentialité]. » */
+    legal: ['En continuant, tu acceptes les ', ' et la ', '.'] as [string, string, string],
+    terms: 'conditions d’utilisation',
+    privacy: 'politique de confidentialité',
+  },
+  controllerSupport: {
+    title: 'Manettes des invités',
+    ready: 'Prêtes : les manettes de tes invités jouent dans tes jeux.',
+    stopped: 'Installées. Couchwarp les démarre au lancement de chaque partie.',
+    impossible:
+      'macOS ne permet à aucune appli de créer une manette virtuelle. Tes invités jouent au clavier, converti en touches ou en manette selon le jeu.',
+    missingWindows:
+      'Pour que leurs manettes jouent dans tes jeux, Couchwarp installe VIIPER, un petit service gratuit avec un pilote signé. Windows demande une fois l’accord administrateur, et parfois un redémarrage.',
+    missingLinux:
+      'Pour que leurs touches, souris et manettes atteignent tes jeux, Couchwarp doit pouvoir créer des appareils virtuels. Ton système demande ton mot de passe une fois.',
+    install: 'Installer',
+    allowLinux: 'Autoriser',
+    installing: 'Installation… Accepte la demande de Windows si elle apparaît.',
+    failed: (reason: string) => `Ça n’a pas marché : ${reason}. Réessaie dans un instant.`,
+  },
   update: {
     action: 'Mettre à jour',
     hint: (version: string) =>
@@ -21,7 +56,11 @@ const fr: Strings = {
   bubble: {
     open: (code: string, guests: number) =>
       `Partie ${code}, ${guests === 0 ? 'personne' : guests === 1 ? '1 invité' : `${guests} invités`}. Ouvrir, ou glisser pour déplacer.`,
-    allow: { keyboard: 'Autoriser le clavier', mouse: 'Autoriser la souris' },
+    allow: {
+      pads: 'Autoriser la manette',
+      keyboard: 'Autoriser le clavier',
+      mouse: 'Autoriser la souris',
+    },
     close: 'Réduire',
     copy: 'Copier le lien',
     stats: (fps: string, ms: string) => `${fps} i/s, ${ms} ms`,
@@ -52,29 +91,72 @@ const fr: Strings = {
   },
   password: {
     or: 'ou',
-    title: 'Identifiant et mot de passe',
-    login: 'Identifiant ou e-mail',
-    loginHelp:
-      'Lettres sans accent, chiffres, et . _ - + @. Seulement pour te connecter : les autres voient ton pseudo.',
+    title: 'Mot de passe',
+    email: 'Adresse e-mail',
+    login: 'Adresse e-mail',
+    loginHelp: 'Un compte créé avec un identifiant se connecte aussi avec lui.',
+    emailHelp: 'Pour te connecter et récupérer ton compte. Personne d’autre ne la voit.',
     password: 'Mot de passe',
     passwordHelp: 'Au moins 10 caractères. Une phrase courte se retient mieux qu’un mot compliqué.',
+    current: 'Mot de passe actuel',
+    next: 'Nouveau mot de passe',
+    show: 'Afficher',
+    hide: 'Masquer',
     signIn: 'Se connecter',
     create: 'Créer mon compte',
-    noAccount: 'Pas encore de compte ? En créer un',
-    haveAccount: 'Déjà un compte ? Se connecter',
-    noReset:
-      'Couchwarp n’envoie pas d’e-mail : un mot de passe perdu ne se récupère pas. Lie aussi Discord ou Google pour ne jamais perdre l’accès.',
-    add: 'Ajouter',
+    noAccount: 'Pas encore de compte ?',
+    createOne: 'En créer un',
+    haveAccount: 'Déjà un compte ?',
+    signInInstead: 'Se connecter',
+    forgot: 'Mot de passe oublié ?',
+    forgotTitle: 'Mot de passe oublié',
+    forgotLead:
+      'Donne l’adresse de ton compte : on t’y envoie un lien pour choisir un nouveau mot de passe.',
+    forgotSend: 'Envoyer le lien',
+    forgotSent: (email: string) =>
+      `Si un compte utilise ${email}, un lien vient d’y partir. Il marche une heure. Pense à regarder les indésirables.`,
+    forgotUnavailable:
+      'Ce serveur n’envoie pas encore d’e-mails. Connecte-toi avec Discord ou Google si tu les as liés.',
+    back: 'Retour',
+    resetTitle: 'Nouveau mot de passe',
+    resetLead: 'Choisis ton nouveau mot de passe. Tes autres appareils seront déconnectés.',
+    resetSave: 'Enregistrer et me connecter',
+    confirmTitle: 'Confirmation de l’adresse',
+    confirming: 'Confirmation…',
+    confirmed: (email: string) => `C’est confirmé : ${email} est l’adresse de ton compte.`,
+    continue: 'Continuer',
+    add: 'Ajouter un mot de passe',
+    addLead: 'Pour te connecter aussi sans Discord ni Google.',
+    save: 'Enregistrer',
+    changeTitle: 'Changer le mot de passe',
+    changed: 'Mot de passe changé. Tes autres appareils sont déconnectés.',
+    emailTitle: 'Adresse e-mail',
+    emailNone: 'Aucune adresse. Ajoute-en une pour pouvoir récupérer ton compte.',
+    emailVerified: 'Confirmée',
+    emailUnverified: 'Pas encore confirmée : clique sur le lien reçu par e-mail.',
+    resend: 'Renvoyer le lien',
+    resent: 'Lien renvoyé. Regarde aussi les indésirables.',
+    changeEmail: 'Changer d’adresse',
+    addEmail: 'Ajouter une adresse',
+    newEmail: 'Nouvelle adresse',
+    emailSent: (email: string) =>
+      `Un lien vient de partir vers ${email}. L’adresse change dès que tu cliques dessus.`,
+    needsCurrent: 'Pour confirmer que c’est bien toi, donne ton mot de passe actuel.',
     errors: {
-      'invalid-login':
-        'L’identifiant fait de 3 à 64 caractères : lettres sans accent, chiffres, . _ - + @.',
+      'invalid-email': 'Cette adresse e-mail n’a pas l’air complète.',
+      'invalid-login': 'Donne ton adresse e-mail, ou l’identifiant de ton compte.',
       'invalid-password': 'Le mot de passe fait au moins 10 caractères.',
       'invalid-name': 'Choisis un pseudo de 2 à 32 caractères.',
       'too-young': 'Couchwarp est réservé aux personnes de 13 ans ou plus.',
-      'login-taken': 'Cet identifiant est déjà pris.',
-      'wrong-login': 'Identifiant ou mot de passe incorrect.',
+      'email-taken':
+        'Un compte utilise déjà cette adresse. Connecte-toi, ou utilise « Mot de passe oublié ».',
+      'same-email': 'C’est déjà l’adresse de ton compte.',
+      'wrong-login': 'Adresse ou mot de passe incorrect.',
+      'wrong-password': 'Ce n’est pas ton mot de passe actuel.',
       'too-many-attempts': 'Trop d’essais. Réessaie dans un quart d’heure.',
-      'already-linked': 'Ce compte a déjà un identifiant.',
+      'already-linked': 'Ce compte a déjà un mot de passe.',
+      'already-confirmed': 'Cette adresse est déjà confirmée.',
+      'link-expired': 'Ce lien a déjà servi ou a expiré. Demandes-en un nouveau.',
       banned: 'Ce compte est suspendu.',
       failed: 'Ça n’a pas marché. Réessaie dans un instant.',
     },
@@ -221,7 +303,9 @@ const fr: Strings = {
       'Pour viser ou conduire en penchant une manette PlayStation ou Switch. Il faut un hôte Windows, et le type PlayStation dans le menu.',
     motionConnected: (names: string) => `Connectées : ${names}.`,
     motionUnsupported:
-      'Ce navigateur ne lit pas le gyroscope des manettes. Utilise Chrome ou Edge sur ordinateur.',
+      'Ce navigateur ne lit pas le gyroscope des manettes. Pour t’en servir, rejoins depuis Chrome ou Edge.',
+    motionUnsupportedApp:
+      'L’appli ne lit pas encore le gyroscope des manettes. Pour t’en servir comme invité, rejoins la partie depuis Chrome ou Edge : tout le reste de ta manette marche ici.',
     motionConnect: 'Connecter une manette',
     motionFailed: 'La manette n’a pas pu être connectée.',
     motionLive: (gyro: string) => `Gyroscope : ${gyro} degrés par seconde`,
@@ -283,7 +367,7 @@ const fr: Strings = {
     refresh: 'Actualiser',
     listing: 'Recherche des fenêtres…',
     screenPermission:
-      'macOS doit autoriser Couchwarp à enregistrer l’écran. Active-le dans Réglages Système, puis relance l’application.',
+      'macOS doit autoriser Couchwarp à enregistrer l’écran. Active-le dans Réglages Système, puis relance l’appli. Si Couchwarp y est déjà coché, utilise « Réparer » : c’est une ancienne version qui est cochée.',
     openSettings: 'Ouvrir les réglages',
     noWindows: 'Aucune fenêtre à partager. Lance le jeu, puis actualise.',
     liveTitle: 'Partie en cours',
@@ -298,10 +382,15 @@ const fr: Strings = {
     ms: (value: string) => `${value} ms`,
     mbps: (value: string) => `${value} Mbit/s`,
     inputPermission:
-      'Les claviers et souris des invités n’atteignent pas encore le jeu : autorise Couchwarp dans Accessibilité.',
+      'Les claviers et souris des invités n’atteignent pas encore le jeu : autorise Couchwarp dans Réglages Système, Accessibilité. Ce message part tout seul dès que c’est fait. Si Couchwarp y est déjà coché, utilise « Réparer ».',
+    permissionRepaired:
+      'C’est réinitialisé. Accepte la demande de macOS qui vient de s’ouvrir, ou coche Couchwarp dans les réglages, puis relance l’appli si rien ne change.',
+    repairPermission: 'Réparer',
+    restartApp: 'Relancer Couchwarp',
+    inputPaused:
+      'Le jeu n’est plus au premier plan : les claviers et souris des invités attendent. Clique sur la fenêtre du jeu pour qu’ils reprennent.',
     inputPermissionLinux:
-      'Les touches, souris et manettes des invités n’atteignent pas le jeu : Couchwarp a besoin d’accéder à /dev/uinput. Installe le paquet steam-devices de ton système (ou la règle du guide), puis vérifie à nouveau.',
-    checkAgain: 'Vérifier à nouveau',
+      'Les touches, souris et manettes des invités n’atteignent pas le jeu : Couchwarp a besoin d’accéder à /dev/uinput. Utilise « Autoriser » dans l’encart Manettes des invités ci-dessous : ce message part tout seul ensuite.',
   },
   account: {
     inBrowser: 'Termine la connexion dans ton navigateur, puis reviens ici.',
@@ -323,6 +412,7 @@ const fr: Strings = {
     ageYes: 'J’ai 13 ans ou plus',
     ageNo: 'J’ai moins de 13 ans',
     linkedTitle: 'Comptes liés',
+    securityTitle: 'Connexion et sécurité',
     link: 'Lier',
     unlink: 'Délier',
     unlinkRefused: 'Garde au moins un compte lié : c’est ta façon de te connecter.',
@@ -369,10 +459,19 @@ const fr: Strings = {
     },
     noSeat: 'Toutes les places sont prises : libère-en une pour le faire jouer.',
     canUse: (inputs: string) => `Peut utiliser : ${inputs}`,
+    noInput: 'Ne peut rien utiliser pour l’instant',
+    inputs: { pads: 'Manette', keyboard: 'Clavier', mouse: 'Souris' },
+    inputsHelp: {
+      pads: 'Ses manettes jouent dans le jeu. Coupe-la si quelqu’un gêne.',
+      keyboard: 'Ses touches vont au jeu, pas seulement sa manette.',
+      mouse: 'Sa souris bouge et clique dans le jeu.',
+    },
     ban: 'Bannir',
     banConfirm: (name: string) =>
       `Bannir ${name} ? Cette personne ne pourra plus revenir dans cette partie.`,
-    mouseHint: 'Clique sur l’image pour jouer à la souris. Échap la libère.',
+    mouseHint: 'Clique sur l’image pour jouer à la souris.',
+    mouseLockedHint: 'Ta souris joue dans le jeu. Échap ou Ctrl+Maj+M la libère.',
+    padsOff: 'L’hôte a coupé ta manette pour l’instant.',
     watching: 'Tu regardes. Lève la main pour prendre une manette quand une place se libère.',
     inLine: (position: number) =>
       position === 1 ? 'Tu es le prochain à jouer.' : `Tu es ${position}e dans la file.`,
@@ -384,7 +483,8 @@ const fr: Strings = {
     padPlayStation: 'PlayStation',
     keyboardNotAllowed:
       'L’hôte n’a pas encore autorisé ton clavier. Il sert de manette en attendant.',
-    keyboardOff: 'L’hôte n’a pas autorisé le clavier, et cet hôte ne transmet pas les manettes.',
+    keyboardOff:
+      'L’hôte n’a pas autorisé ton clavier, et aucune manette n’atteint le jeu pour l’instant.',
     latencyGood: 'bonne',
     latencyFair: 'moyenne',
     latencyPoor: 'élevée',
@@ -403,19 +503,15 @@ const fr: Strings = {
     seatsLabel: 'Places de joueur',
     seatsHelp: 'Les suivants regardent et attendent leur tour.',
     visibilityLabel: 'Qui peut rejoindre',
-    visibilityLink: 'Avec le lien',
-    visibilityPublic: 'Tout le monde (liste publique)',
+    visibilityLink: 'Privée : avec le code ou le lien',
+    visibilityPublic: 'Publique : dans la liste des parties',
     refused: {
       'sign-in-required': 'Connecte l’application hôte à ton compte pour lister la partie.',
       disabled: 'Les parties publiques ne sont pas encore ouvertes sur ce serveur.',
     },
     relayLabel: 'Cacher l’adresse IP des invités',
     relayHelp:
-      'Les invités passent par le relais : tu ne vois pas leur adresse IP, au prix de quelques millisecondes. Toujours le cas dans une partie publique. Les invités ne voient jamais l’adresse des autres invités.',
-    relayMissing:
-      'Ce serveur n’a pas encore de relais : les invités se connectent directement et tu vois leur adresse IP.',
-    relayPublic:
-      'Partie publique : les invités passent toujours par le relais, tu ne vois pas leur adresse IP.',
+      'Activé par défaut. Les invités passent par le relais : tu ne vois pas leur adresse IP, au prix de quelques millisecondes. Décoche-le entre amis proches pour gagner ces millisecondes. Vaut pour les invités qui arrivent ensuite.',
     hotseatLabel: 'Tour par tour',
     hotseatOff: 'Non',
     hotseatManual: 'À la main',
@@ -520,7 +616,7 @@ const fr: Strings = {
     permissionsLead:
       'Ce que cet ami peut utiliser dès qu’il rejoint une de tes parties. Tu peux toujours changer d’avis pendant la partie.',
     pad: 'Manette',
-    padHelp: 'Toujours permise à chaque joueur.',
+    padHelp: 'Permise à l’arrivée de chaque joueur. Tu peux la couper pendant la partie.',
     inputs: { keyboard: 'Clavier', mouse: 'Souris' },
     inputsHelp: {
       keyboard: 'Ses touches vont au jeu, pas seulement sa manette.',
@@ -570,6 +666,9 @@ const fr: Strings = {
     recentTitle: 'Tes dernières parties',
     rejoin: 'Revenir',
     thisComputer: 'Cet ordinateur',
+    hostPhone:
+      'Un téléphone ne peut pas héberger : installe Couchwarp sur le PC ou le Mac qui fait tourner le jeu.',
+    hostPhoneAction: 'Voir comment',
     liveNow: (code: string, guests: number) =>
       `Partie en cours, code ${code}. ${guests === 0 ? 'Personne n’est encore connecté.' : guests === 1 ? '1 invité connecté.' : `${guests} invités connectés.`}`,
     manage: 'Gérer la partie',
@@ -628,7 +727,8 @@ const fr: Strings = {
       'Connexion lente : l’image arrive en retard. Rapproche-toi de la box ou branche un câble.',
     waiting: 'En attente de l’image…',
     latency: 'Latence',
-    paused: 'L’hôte a quitté la fenêtre du jeu. Ton clavier reprend quand il y revient.',
+    paused:
+      'Le jeu n’est plus au premier plan chez l’hôte. Ton clavier et ta souris reprennent dès qu’il y revient.',
     menu: 'Menu',
     closeMenu: 'Fermer le menu',
     fullscreen: 'Plein écran',
@@ -659,9 +759,11 @@ const fr: Strings = {
   },
   ended: {
     title: 'Partie terminée',
+    notFoundTitle: 'Partie introuvable',
     again: 'Rejoindre une autre partie',
     reasons: {
-      'room-not-found': 'Cette partie est fermée.',
+      'room-not-found':
+        'Aucune partie n’est ouverte avec ce code. Vérifie-le avec l’hôte : la partie est peut-être déjà finie.',
       'room-full': 'La partie est complète.',
       'invalid-name': 'Choisis un pseudo de 1 à 24 caractères.',
       'host-already-connected': 'Cette partie a déjà un hôte.',
@@ -683,6 +785,41 @@ type Strings = typeof en
 
 const en = {
   common: { cancel: 'Cancel' },
+  login: {
+    welcome: 'Good to see you again',
+    welcomeLead: 'Sign in to host, and to find your friends and your games.',
+    createTitle: 'Create an account',
+    createLead: 'It follows you on the app and on the site. Your guests do not need one.',
+    appNeedsAccount:
+      'The app needs an account: it keeps your friends and puts your name on your games.',
+    guest: 'Join a game without an account',
+    artTitle: 'The couch, at a distance.',
+    artLead:
+      'You share your game’s window. Your friends join from their browser, with their controller.',
+    ageTitle: 'One question',
+    ageLead: 'Couchwarp is for people aged 13 or over. We will not ask again.',
+    nameLabel: 'Nickname',
+    nameHelp: 'The name other players see. You can change it later.',
+    /** Around two links: “By continuing, you accept the [terms] and the [privacy policy].” */
+    legal: ['By continuing, you accept the ', ' and the ', '.'] as [string, string, string],
+    terms: 'terms of use',
+    privacy: 'privacy policy',
+  },
+  controllerSupport: {
+    title: 'Guests’ controllers',
+    ready: 'Ready: your guests’ controllers play in your games.',
+    stopped: 'Installed. Couchwarp starts them with every game.',
+    impossible:
+      'macOS lets no app create a virtual controller. Your guests play with the keyboard, sent as keys or as a controller depending on the game.',
+    missingWindows:
+      'For their controllers to play in your games, Couchwarp installs VIIPER, a small free service with a signed driver. Windows asks once for administrator approval, sometimes for a restart.',
+    missingLinux:
+      'For their keys, mice and controllers to reach your games, Couchwarp must be able to create virtual devices. Your system asks for your password once.',
+    install: 'Install',
+    allowLinux: 'Allow',
+    installing: 'Installing… Accept the Windows prompt if it shows.',
+    failed: (reason: string) => `That did not work: ${reason}. Try again in a moment.`,
+  },
   update: {
     action: 'Update',
     hint: (version: string) =>
@@ -696,7 +833,11 @@ const en = {
   bubble: {
     open: (code: string, guests: number) =>
       `Game ${code}, ${guests === 0 ? 'nobody' : guests === 1 ? '1 guest' : `${guests} guests`}. Open, or drag to move.`,
-    allow: { keyboard: 'Allow the keyboard', mouse: 'Allow the mouse' },
+    allow: {
+      pads: 'Allow the controller',
+      keyboard: 'Allow the keyboard',
+      mouse: 'Allow the mouse',
+    },
     close: 'Shrink',
     copy: 'Copy the link',
     stats: (fps: string, ms: string) => `${fps} fps, ${ms} ms`,
@@ -728,28 +869,72 @@ const en = {
   },
   password: {
     or: 'or',
-    title: 'Login and password',
-    login: 'Login or email',
-    loginHelp: 'Plain letters, digits, and . _ - + @. Only to sign in: others see your name.',
+    title: 'Password',
+    email: 'E-mail address',
+    login: 'E-mail address',
+    loginHelp: 'An account made with a login name signs in with it too.',
+    emailHelp: 'To sign in and get your account back. No one else sees it.',
     password: 'Password',
     passwordHelp:
       'At least 10 characters. A short sentence is easier to remember than a tricky word.',
+    current: 'Current password',
+    next: 'New password',
+    show: 'Show',
+    hide: 'Hide',
     signIn: 'Sign in',
     create: 'Create my account',
-    noAccount: 'No account yet? Create one',
-    haveAccount: 'Already have an account? Sign in',
-    noReset:
-      'Couchwarp sends no email: a lost password cannot be recovered. Link Discord or Google too, so you never lose access.',
-    add: 'Add',
+    noAccount: 'No account yet?',
+    createOne: 'Create one',
+    haveAccount: 'Already have an account?',
+    signInInstead: 'Sign in',
+    forgot: 'Forgot your password?',
+    forgotTitle: 'Forgotten password',
+    forgotLead: 'Give your account’s address: we send a link there to choose a new password.',
+    forgotSend: 'Send the link',
+    forgotSent: (email: string) =>
+      `If an account uses ${email}, a link is on its way. It works for one hour. Check your spam too.`,
+    forgotUnavailable:
+      'This server does not send e-mails yet. Sign in with Discord or Google if you linked them.',
+    back: 'Back',
+    resetTitle: 'New password',
+    resetLead: 'Choose your new password. Your other devices will be signed out.',
+    resetSave: 'Save and sign in',
+    confirmTitle: 'Confirming your address',
+    confirming: 'Confirming…',
+    confirmed: (email: string) => `Confirmed: ${email} is your account’s address.`,
+    continue: 'Continue',
+    add: 'Add a password',
+    addLead: 'To sign in without Discord or Google too.',
+    save: 'Save',
+    changeTitle: 'Change the password',
+    changed: 'Password changed. Your other devices are signed out.',
+    emailTitle: 'E-mail address',
+    emailNone: 'No address. Add one so you can get your account back.',
+    emailVerified: 'Confirmed',
+    emailUnverified: 'Not confirmed yet: click the link we sent you.',
+    resend: 'Send the link again',
+    resent: 'Link sent again. Check your spam too.',
+    changeEmail: 'Change address',
+    addEmail: 'Add an address',
+    newEmail: 'New address',
+    emailSent: (email: string) =>
+      `A link is on its way to ${email}. The address changes as soon as you click it.`,
+    needsCurrent: 'To make sure it is you, give your current password.',
     errors: {
-      'invalid-login': 'The login has 3 to 64 characters: plain letters, digits, . _ - + @.',
+      'invalid-email': 'This e-mail address does not look complete.',
+      'invalid-login': 'Give your e-mail address, or your account’s login name.',
       'invalid-password': 'The password has at least 10 characters.',
-      'invalid-name': 'Choose a name of 2 to 32 characters.',
-      'too-young': 'Couchwarp is for people 13 or over.',
-      'login-taken': 'That login is already taken.',
-      'wrong-login': 'Wrong login or password.',
+      'invalid-name': 'Choose a nickname of 2 to 32 characters.',
+      'too-young': 'Couchwarp is for people aged 13 or over.',
+      'email-taken':
+        'An account already uses this address. Sign in, or use “Forgot your password?”.',
+      'same-email': 'This is already your account’s address.',
+      'wrong-login': 'Wrong address or password.',
+      'wrong-password': 'This is not your current password.',
       'too-many-attempts': 'Too many tries. Try again in a quarter of an hour.',
-      'already-linked': 'This account already has a login.',
+      'already-linked': 'This account already has a password.',
+      'already-confirmed': 'This address is already confirmed.',
+      'link-expired': 'This link was already used or has expired. Ask for a new one.',
       banned: 'This account is suspended.',
       failed: 'That did not work. Try again in a moment.',
     },
@@ -894,7 +1079,9 @@ const en = {
       'To aim or steer by tilting a PlayStation or Switch controller. Needs a Windows host, and the PlayStation type in the menu.',
     motionConnected: (names: string) => `Connected: ${names}.`,
     motionUnsupported:
-      'This browser cannot read controller gyroscopes. Use Chrome or Edge on a computer.',
+      'This browser cannot read controller gyroscopes. To use one, join from Chrome or Edge.',
+    motionUnsupportedApp:
+      'The app cannot read controller gyroscopes yet. To use one as a guest, join the game from Chrome or Edge: everything else on your controller works here.',
     motionConnect: 'Connect a controller',
     motionFailed: 'The controller could not be connected.',
     motionLive: (gyro: string) => `Gyroscope: ${gyro} degrees per second`,
@@ -953,7 +1140,7 @@ const en = {
     refresh: 'Refresh',
     listing: 'Looking for windows…',
     screenPermission:
-      'macOS must allow Couchwarp to record the screen. Turn it on in System Settings, then restart the app.',
+      'macOS must allow Couchwarp to record the screen. Turn it on in System Settings, then restart the app. If Couchwarp is already ticked there, use Repair: an earlier version is the one ticked.',
     openSettings: 'Open settings',
     noWindows: 'No window to share. Start the game, then refresh.',
     liveTitle: 'Game running',
@@ -968,10 +1155,15 @@ const en = {
     ms: (value: string) => `${value} ms`,
     mbps: (value: string) => `${value} Mbit/s`,
     inputPermission:
-      'Guests’ keyboards and mice cannot reach the game yet: allow Couchwarp in Accessibility.',
+      'Guests’ keyboards and mice cannot reach the game yet: allow Couchwarp in System Settings, Accessibility. This message goes away on its own once done. If Couchwarp is already ticked there, use Repair.',
+    permissionRepaired:
+      'It is reset. Accept the macOS request that just opened, or tick Couchwarp in the settings, then restart the app if nothing changes.',
+    repairPermission: 'Repair',
+    restartApp: 'Restart Couchwarp',
+    inputPaused:
+      'The game is no longer in front: guests’ keyboards and mice wait. Click the game window so they carry on.',
     inputPermissionLinux:
-      'Guests’ keys, mice and controllers cannot reach the game: Couchwarp needs access to /dev/uinput. Install your system’s steam-devices package (or the rule in the guide), then check again.',
-    checkAgain: 'Check again',
+      'Guests’ keys, mice and controllers cannot reach the game: Couchwarp needs access to /dev/uinput. Use Allow in the Guests’ controllers box below: this message goes away on its own afterwards.',
   },
   account: {
     inBrowser: 'Finish signing in in your browser, then come back here.',
@@ -993,6 +1185,7 @@ const en = {
     ageYes: 'I am 13 or over',
     ageNo: 'I am under 13',
     linkedTitle: 'Linked accounts',
+    securityTitle: 'Sign-in and security',
     link: 'Link',
     unlink: 'Unlink',
     unlinkRefused: 'Keep at least one linked account: it is how you sign in.',
@@ -1039,9 +1232,18 @@ const en = {
     },
     noSeat: 'Every seat is taken: free one to let them play.',
     canUse: (inputs: string) => `Can use: ${inputs}`,
+    noInput: 'Cannot use anything for now',
+    inputs: { pads: 'Controller', keyboard: 'Keyboard', mouse: 'Mouse' },
+    inputsHelp: {
+      pads: 'Their controllers play in the game. Turn it off if someone is in the way.',
+      keyboard: 'Their keys reach the game, not only their controller.',
+      mouse: 'Their mouse moves and clicks in the game.',
+    },
     ban: 'Ban',
     banConfirm: (name: string) => `Ban ${name}? They will not be able to come back to this game.`,
-    mouseHint: 'Click the picture to play with the mouse. Escape lets it go.',
+    mouseHint: 'Click the picture to play with the mouse.',
+    mouseLockedHint: 'Your mouse plays in the game. Escape or Ctrl+Shift+M lets it go.',
+    padsOff: 'The host turned your controller off for now.',
     watching: 'You are watching. Raise your hand to take a controller when a seat frees up.',
     inLine: (position: number) =>
       position === 1 ? 'You play next.' : `You are number ${position} in line.`,
@@ -1053,7 +1255,8 @@ const en = {
     padPlayStation: 'PlayStation',
     keyboardNotAllowed:
       'The host has not allowed your keyboard yet. It plays as a controller meanwhile.',
-    keyboardOff: 'The host has not allowed the keyboard, and this host does not pass controllers.',
+    keyboardOff:
+      'The host has not allowed your keyboard, and no controller reaches the game for now.',
     latencyGood: 'good',
     latencyFair: 'fair',
     latencyPoor: 'high',
@@ -1072,19 +1275,15 @@ const en = {
     seatsLabel: 'Player seats',
     seatsHelp: 'Anyone after them watches and waits for a turn.',
     visibilityLabel: 'Who can join',
-    visibilityLink: 'People with the link',
-    visibilityPublic: 'Everyone (public list)',
+    visibilityLink: 'Private: with the code or the link',
+    visibilityPublic: 'Public: in the list of games',
     refused: {
       'sign-in-required': 'Sign the host app in to your account to list the game.',
       disabled: 'Public games are not open on this server yet.',
     },
     relayLabel: 'Hide guests’ IP addresses',
     relayHelp:
-      'Guests go through the relay: you do not see their IP address, for a few milliseconds more. Always the case in a public game. Guests never see each other’s address.',
-    relayMissing:
-      'This server has no relay yet: guests connect directly and you see their IP address.',
-    relayPublic:
-      'Public game: guests always go through the relay, you do not see their IP address.',
+      'On by default. Guests go through the relay: you do not see their IP address, for a few milliseconds more. Untick it among close friends to save those milliseconds. Applies to guests who arrive next.',
     hotseatLabel: 'Take turns',
     hotseatOff: 'No',
     hotseatManual: 'By hand',
@@ -1187,7 +1386,7 @@ const en = {
     permissionsLead:
       'What this friend may use as soon as they join one of your games. You can always change your mind during the game.',
     pad: 'Controller',
-    padHelp: 'Always allowed for every player.',
+    padHelp: 'Allowed for every player who arrives. You can turn it off during the game.',
     inputs: { keyboard: 'Keyboard', mouse: 'Mouse' },
     inputsHelp: {
       keyboard: 'Their keys reach the game, not only their controller.',
@@ -1237,6 +1436,8 @@ const en = {
     recentTitle: 'Your last games',
     rejoin: 'Go back',
     thisComputer: 'This computer',
+    hostPhone: 'A phone cannot host: install Couchwarp on the PC or Mac that runs the game.',
+    hostPhoneAction: 'See how',
     liveNow: (code: string, guests: number) =>
       `Game running, code ${code}. ${guests === 0 ? 'Nobody has connected yet.' : guests === 1 ? '1 guest connected.' : `${guests} guests connected.`}`,
     manage: 'Manage the game',
@@ -1290,7 +1491,8 @@ const en = {
       'Slow connection: the picture arrives late. Move closer to the router or plug in a cable.',
     waiting: 'Waiting for the picture…',
     latency: 'Latency',
-    paused: 'The host left the game window. Your keyboard comes back when they return.',
+    paused:
+      'The game is no longer in front on the host’s computer. Your keyboard and mouse come back as soon as it is.',
     menu: 'Menu',
     closeMenu: 'Close menu',
     fullscreen: 'Full screen',
@@ -1321,9 +1523,11 @@ const en = {
   },
   ended: {
     title: 'Game over',
+    notFoundTitle: 'Game not found',
     again: 'Join another game',
     reasons: {
-      'room-not-found': 'This game is closed.',
+      'room-not-found':
+        'No game is open with this code. Check it with the host: the game may have ended already.',
       'room-full': 'The game is full.',
       'invalid-name': 'Pick a name of 1 to 24 characters.',
       'host-already-connected': 'This game already has a host.',

@@ -21,9 +21,15 @@ pub const KEYS_REACH_GAME_ONLY: bool = false;
 pub fn init() {}
 
 /// Whether guests' keys, mice and controllers can be played on this machine.
-pub fn can_send_keys() -> bool {
+pub fn input_allowed() -> bool {
     input::uinput_writable()
 }
+
+/// Access to `/dev/uinput` comes from a udev rule: there is no prompt to show.
+pub fn ask_input_permission() {}
+
+/// Linux lets any app capture a window: nothing to ask.
+pub fn ask_screen_permission() {}
 
 /// The process of the window in front, as the window manager tells X11 clients.
 pub fn frontmost_pid() -> Option<i32> {

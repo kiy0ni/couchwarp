@@ -10,7 +10,7 @@ import { PlayerBadge } from '../components/PlayerBadge'
 import { RoomCard } from '../components/RoomCard'
 import { Shell } from '../components/Shell'
 import { t } from '../i18n'
-import { useAccount } from '../lib/account'
+import { signInPath, useAccount } from '../lib/account'
 import { desktop, type HostingState, isDesktop } from '../lib/desktop'
 import { fetchRooms, type RoomCard as Room } from '../lib/directory'
 import { type Friend, fetchFriends } from '../lib/friends'
@@ -103,6 +103,12 @@ function JoinCard({ onFound }: { onFound(code: string): void }) {
 }
 
 /** The machine this page runs on: share a game from it, or get the app that can. */
+/** A phone or a tablet, which cannot host: hosting is for the computer that runs the game. */
+const phone =
+  typeof matchMedia === 'function' &&
+  matchMedia('(any-pointer: coarse)').matches &&
+  !matchMedia('(any-pointer: fine)').matches
+
 function ThisComputer() {
   const hosting = useHostingState()
   const live = hosting?.state === 'live' ? hosting : null
@@ -117,17 +123,25 @@ function ThisComputer() {
         </span>
       )}
       <div className="machine__text">
-        <h2 className="card__title">{t.home.thisComputer}</h2>
+        <h2 className="card__title">{phone ? t.home.hostTitle : t.home.thisComputer}</h2>
         <p className="card__text">
           {live
             ? t.home.liveNow(live.code, live.stats?.guests ?? 0)
             : isDesktop
               ? t.home.hostDesktop
-              : t.home.hostWeb}
+              : phone
+                ? t.home.hostPhone
+                : t.home.hostWeb}
         </p>
       </div>
-      <Link to="/host" className={live ? 'button button--secondary' : 'button'}>
-        {live ? t.home.manage : isDesktop ? t.home.hostAction : t.home.downloadAction}
+      <Link to="/host" className={live || phone ? 'button button--secondary' : 'button'}>
+        {live
+          ? t.home.manage
+          : isDesktop
+            ? t.home.hostAction
+            : phone
+              ? t.home.hostPhoneAction
+              : t.home.downloadAction}
       </Link>
     </section>
   )
@@ -187,7 +201,7 @@ function FriendsPlaying() {
       {account === null ? (
         <div className="card card--row">
           <p className="card__text">{t.friends.signedOut}</p>
-          <Link to="/settings/account" className="button button--secondary">
+          <Link to={signInPath()} className="button button--secondary">
             {t.account.signIn}
           </Link>
         </div>

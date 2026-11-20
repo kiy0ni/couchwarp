@@ -14,9 +14,12 @@ export interface User {
   avatarUrl: string | null
   ageConfirmed: boolean
   bannedUntil: number | null
+  email: string | null
+  emailVerified: boolean
 }
 
-function randomToken(): string {
+/** 256 random bits, safe in a URL. */
+export function randomToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32))
   return btoa(String.fromCharCode(...bytes))
     .replace(/\+/g, '-')
@@ -59,6 +62,8 @@ interface UserRow {
   avatar_url: string | null
   age_confirmed_at: number | null
   banned_until: number | null
+  email: string | null
+  email_verified_at: number | null
 }
 
 export function toUser(row: UserRow): User {
@@ -68,6 +73,8 @@ export function toUser(row: UserRow): User {
     avatarUrl: row.avatar_url,
     ageConfirmed: row.age_confirmed_at !== null,
     bannedUntil: row.banned_until,
+    email: row.email,
+    emailVerified: row.email_verified_at !== null,
   }
 }
 

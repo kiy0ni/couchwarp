@@ -35,8 +35,27 @@ export function lockPointer(element: HTMLElement): void {
   request?.catch(() => element.requestPointerLock())
 }
 
+/**
+ * Gives the pointer back to the guest. Every menu and the chat call it first: a locked
+ * pointer is invisible, so a menu opened over the game could not be clicked.
+ */
+export function releasePointer(): void {
+  if (document.pointerLockElement) document.exitPointerLock()
+}
+
+/**
+ * Whether Escape reaches the page while the pointer is locked. Browsers keep it for
+ * themselves (it unlocks the pointer), except in full screen with the keyboard locked,
+ * where the game needs it, and in app web views that never implemented the unlock.
+ */
+function escapeIsOurs(): boolean {
+  return document.fullscreenElement === null
+}
+
 interface Options {
   keyboardMode: KeyboardMode
+  /** The host lets this guest's controllers play. */
+  pads: boolean
   /** Current state of the on-screen controller, or null while it is hidden. */
   touch: RefObject<PadState | null>
   /** The host lets this guest's mouse play: a click locks the pointer to the game. */
@@ -55,7 +74,15 @@ interface Options {
 export function useInputForwarding(
   session: GuestSession | null,
   surface: RefObject<HTMLElement | null>,
-  { keyboardMode, touch, mouse: mouseAllowed, onPadRemoved, onPointerLock, onShortcut }: Options,
+  {
+    keyboardMode,
+    pads: padsAllowed,
+    touch,
+    mouse: mouseAllowed,
+    onPadRemoved,
+    onPointerLock,
+    onShortcut,
+  }: Options,
 ): void {
   // One set of trackers per session: their sequence numbers must keep rising across
   // keyboard mode changes, or the host would take the next packets for late ones.
@@ -98,9 +125,10 @@ export function useInputForwarding(
       const now = performance.now()
       const gamepads = navigator.getGamepads()
       const { packets, removed } = pads.poll(gamepads, now)
-      for (const packet of packets) session.sendInput(packet)
+      // Read anyway, so a controller the host allows again starts from its current state.
+      if (padsAllowed) for (const packet of packets) session.sendInput(packet)
       for (const pad of removed) removePad(pad)
-      if (now - motionSentAt >= MOTION_EVERY_MS) {
+      if (padsAllowed && now - motionSentAt >= MOTION_EVERY_MS) {
         motionSentAt = now
         for (const gamepad of gamepads) {
           const pad = gamepad ? pads.padOf(gamepad.index) : undefined
@@ -134,6 +162,7 @@ export function useInputForwarding(
       if (!locked()) mouse.releaseAll()
       onPointerLock(locked())
     }
+    const onLockError = () => onPointerLock(false)
     const onMouseMove = (event: MouseEvent) => {
       if (!locked()) return
       const speed = preferences().mouseSpeed
@@ -157,6 +186,11 @@ export function useInputForwarding(
     const onKeyDown = (event: KeyboardEvent) => {
       // Typing in the chat or the menu stays there.
       if (event.isComposing || event.target !== element) return
+      if (event.code === 'Escape' && locked() && escapeIsOurs()) {
+        event.preventDefault()
+        document.exitPointerLock()
+        return
+      }
       const shortcut = shortcutOf(event)
       if (shortcut) {
         event.preventDefault()
@@ -193,6 +227,7 @@ export function useInputForwarding(
     element.addEventListener('wheel', onWheel, { passive: false })
     element.addEventListener('contextmenu', onContextMenu)
     document.addEventListener('pointerlockchange', onLockChange)
+    document.addEventListener('pointerlockerror', onLockError)
     element.addEventListener('keydown', onKeyDown)
     element.addEventListener('keyup', onKeyUp)
     element.addEventListener('blur', releaseAll)
@@ -215,6 +250,7 @@ export function useInputForwarding(
       element.removeEventListener('wheel', onWheel)
       element.removeEventListener('contextmenu', onContextMenu)
       document.removeEventListener('pointerlockchange', onLockChange)
+      document.removeEventListener('pointerlockerror', onLockError)
       element.removeEventListener('keydown', onKeyDown)
       element.removeEventListener('keyup', onKeyUp)
       element.removeEventListener('blur', releaseAll)
@@ -223,6 +259,7 @@ export function useInputForwarding(
     session,
     surface,
     keyboardMode,
+    padsAllowed,
     touch,
     mouseAllowed,
     onPadRemoved,

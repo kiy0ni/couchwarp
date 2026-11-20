@@ -9,6 +9,7 @@
 mod awake;
 mod bubble;
 mod commands;
+mod controllers;
 mod hosting;
 mod updates;
 
@@ -69,6 +70,10 @@ fn main() {
             commands::sign_out,
             commands::save_session,
             commands::input_allowed,
+            commands::restart_app,
+            commands::controller_support,
+            commands::install_controller_support,
+            commands::repair_permission,
             commands::open_privacy_settings,
             commands::set_bubble_open,
             commands::show_main_window,

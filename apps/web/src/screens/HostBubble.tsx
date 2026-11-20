@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { ConfirmButton } from '../components/ConfirmButton'
 import { Icon } from '../components/Icon'
+import { GUEST_INPUTS, INPUT_ICONS, inputsOf } from '../components/MemberList'
 import { t } from '../i18n'
 import { ConsoleSession } from '../lib/console-session'
 import { desktop, type HostingState } from '../lib/desktop'
@@ -180,7 +181,7 @@ function Panel({
                   <span className="people__status">{t.room.roles[member.role]}</span>
                 </span>
                 {member.role !== 'spectator' &&
-                  (['keyboard', 'mouse'] as const).map((input) => (
+                  GUEST_INPUTS.map((input) => (
                     <button
                       key={input}
                       type="button"
@@ -191,12 +192,12 @@ function Panel({
                         command({
                           type: 'set-permissions',
                           guestId: member.id,
-                          keyboard: input === 'keyboard' ? !member.keyboard : member.keyboard,
-                          mouse: input === 'mouse' ? !member.mouse : member.mouse,
+                          ...inputsOf(member),
+                          [input]: !member[input],
                         })
                       }
                     >
-                      <Icon name={input} size={18} />
+                      <Icon name={INPUT_ICONS[input]} size={18} />
                       <span className="visually-hidden">{t.bubble.allow[input]}</span>
                     </button>
                   ))}

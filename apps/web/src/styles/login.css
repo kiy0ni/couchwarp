@@ -1,0 +1,367 @@
+/* The way in: a panel on the left, the idea of Couchwarp on the right, as in a desktop
+ * client. The panel takes the whole width on a phone. */
+
+.login {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  background: var(--color-paper);
+}
+
+@media (min-width: 60rem) {
+  .login {
+    grid-template-columns: minmax(26rem, 30rem) minmax(0, 1fr);
+  }
+}
+
+.login__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
+  background: var(--color-rail);
+  border-right: var(--rule-hair) solid var(--color-rule);
+}
+
+@media (max-width: 30rem) {
+  .login__panel {
+    padding-inline: var(--space-md);
+  }
+}
+
+.login__brand {
+  font-size: var(--text-lg);
+}
+
+/* The window buttons of the Mac app sit over the top left corner. */
+.login[data-system="mac"] .login__brand {
+  padding-top: 28px;
+}
+
+.login__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-block: var(--space-lg);
+}
+
+.login__stack,
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.login__stack {
+  gap: var(--space-lg);
+  width: 100%;
+  max-width: 24rem;
+  margin-inline: auto;
+}
+
+.login__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.login__title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.login__lead {
+  color: var(--color-muted);
+}
+
+.login__problem {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-control);
+  border: var(--rule-hair) solid var(--color-error);
+  background: color-mix(in oklab, var(--color-error) 10%, var(--color-paper));
+  font-size: var(--text-sm);
+}
+
+.login__switch {
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.login__switch .link-button {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.login__providers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.login__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2xs);
+  text-align: center;
+}
+
+.login__legal {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  max-width: 24rem;
+}
+
+.login__legal a {
+  color: var(--color-ink-2);
+}
+
+/* Right side. Hidden on narrow screens, where the form is what matters. */
+.login__art {
+  display: none;
+}
+
+@media (min-width: 60rem) {
+  .login__art {
+    position: relative;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: var(--space-xl);
+    padding: var(--space-2xl) var(--space-xl);
+    overflow: hidden;
+    background:
+      radial-gradient(60% 50% at 30% 20%, var(--color-glow), transparent 70%), var(--color-paper);
+  }
+}
+
+.login__scene {
+  width: min(100%, 36rem);
+  height: auto;
+}
+
+.login__wire {
+  fill: none;
+  stroke-width: 2;
+  stroke-dasharray: 2 7;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+.login__screen {
+  fill: var(--color-paper-2);
+  stroke: var(--color-rule);
+  stroke-width: 2;
+}
+
+.login__stand {
+  fill: var(--color-paper-3);
+}
+
+.login__pill {
+  fill: var(--color-shade);
+}
+
+.login__device {
+  fill: var(--color-paper-2);
+  stroke: var(--color-rule);
+  stroke-width: 1.5;
+}
+
+.login__light[data-light="1"],
+.login__wire[data-light="1"] {
+  fill: var(--color-p1);
+  stroke: var(--color-p1);
+}
+
+.login__light[data-light="2"],
+.login__wire[data-light="2"] {
+  fill: var(--color-p2);
+  stroke: var(--color-p2);
+}
+
+.login__light[data-light="3"],
+.login__wire[data-light="3"] {
+  fill: var(--color-p3);
+  stroke: var(--color-p3);
+}
+
+.login__light[data-light="4"],
+.login__wire[data-light="4"] {
+  fill: var(--color-p4);
+  stroke: var(--color-p4);
+}
+
+.login__wire[data-light] {
+  fill: none;
+}
+
+.login__light {
+  stroke: none;
+}
+
+.login__art-text {
+  max-width: 30rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.login__art-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.login__art-lead {
+  color: var(--color-muted);
+}
+
+/* Sign-in buttons in each provider's own colours, as their brand guidelines ask. */
+.provider-button {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding-inline: var(--space-lg);
+  border-radius: var(--radius-control);
+  border: var(--rule-hair) solid transparent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-micro) var(--ease-out),
+    transform var(--dur-micro) var(--ease-out);
+}
+
+.provider-button:active {
+  transform: translateY(1px);
+}
+
+.provider-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.provider-button__mark {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.provider-button[data-provider="discord"] {
+  --discord: oklch(57% 0.2 277);
+  background: var(--discord);
+  color: oklch(100% 0 0);
+}
+
+.provider-button[data-provider="discord"]:hover {
+  background: color-mix(in oklab, var(--discord) 88%, black);
+}
+
+.provider-button[data-provider="google"] {
+  background: oklch(100% 0 0);
+  color: oklch(25% 0 0);
+  border-color: oklch(85% 0 0);
+}
+
+.provider-button[data-provider="google"]:hover {
+  background: oklch(96% 0 0);
+}
+
+/* A password field with its own show/hide control inside the box. */
+.password-input {
+  position: relative;
+  display: flex;
+}
+
+.password-input .input {
+  width: 100%;
+  padding-right: 5.5rem;
+}
+
+.password-input__toggle {
+  position: absolute;
+  inset-block: 4px;
+  right: 4px;
+  padding-inline: var(--space-sm);
+  border: 0;
+  border-radius: calc(var(--radius-control) - 3px);
+  background: none;
+  color: var(--color-ink-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.password-input__toggle:hover {
+  background: var(--color-paper-3);
+}
+
+.field__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.field__row .link-button {
+  min-height: auto;
+  font-size: var(--text-sm);
+}
+
+/* While the app finds out who is signed in: the page colour, nothing else. */
+.splash {
+  min-height: 100dvh;
+  background: var(--color-paper);
+}
+
+.setting__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-width: 28rem;
+  padding-top: var(--space-xs);
+}
+
+/* A setting whose form unfolds under it, across the whole row. */
+.setting--stacked .setting__form,
+.setting--stacked .setting__status {
+  grid-column: 1 / -1;
+}
+
+.setting__value {
+  color: var(--color-ink);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/* A short state beside a value. */
+.tag {
+  display: inline-block;
+  padding: 0 var(--space-xs);
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border: var(--rule-hair) solid var(--tag-color, var(--color-rule));
+  color: var(--tag-color, var(--color-ink-2));
+}
+
+.tag[data-tone="success"] {
+  --tag-color: var(--color-success);
+}
+
+.tag[data-tone="warning"] {
+  --tag-color: var(--color-warning);
+}
+
+.notice[data-tone="success"] {
+  --notice-color: var(--color-success);
+}

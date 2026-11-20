@@ -164,6 +164,7 @@ export class RoomModel {
       avatarUrl: account?.avatarUrl ?? null,
       userId: account?.userId ?? null,
       role: this.seated().length < this.settings.maxPlayers ? 'player' : 'spectator',
+      pads: true,
       keyboard: grants.keyboard,
       mouse: grants.mouse,
       padType: 'xbox360',
@@ -216,6 +217,7 @@ export class RoomModel {
         if (role !== 'host') return FORBIDDEN
         const target = this.find(command.guestId)
         if (!target) return UNKNOWN
+        target.pads = command.pads
         target.keyboard = command.keyboard
         target.mouse = command.mouse
         return DONE

@@ -16,8 +16,8 @@ use objc2_core_foundation::{
 };
 use objc2_core_graphics::{
     CGMainDisplayID, CGPreflightPostEventAccess, CGRectMakeWithDictionaryRepresentation,
-    CGRequestPostEventAccess, CGWindowListCopyWindowInfo, CGWindowListOption, kCGNullWindowID,
-    kCGWindowBounds, kCGWindowLayer, kCGWindowOwnerPID,
+    CGRequestPostEventAccess, CGRequestScreenCaptureAccess, CGWindowListCopyWindowInfo,
+    CGWindowListOption, kCGNullWindowID, kCGWindowBounds, kCGWindowLayer, kCGWindowOwnerPID,
 };
 use tracing::warn;
 
@@ -33,9 +33,19 @@ pub fn init() {
     CGMainDisplayID();
 }
 
-/// Whether this process may send key events. Asks the user the first time.
-pub fn can_send_keys() -> bool {
-    CGPreflightPostEventAccess() || CGRequestPostEventAccess()
+/// Whether this process may send key and mouse events to other apps, without asking.
+pub fn input_allowed() -> bool {
+    CGPreflightPostEventAccess()
+}
+
+/// Shows the system's request for Accessibility, which macOS shows once per app version.
+pub fn ask_input_permission() {
+    CGRequestPostEventAccess();
+}
+
+/// Shows the system's request for screen recording, as for Accessibility.
+pub fn ask_screen_permission() {
+    CGRequestScreenCaptureAccess();
 }
 
 /// The on-screen windows, front to back.

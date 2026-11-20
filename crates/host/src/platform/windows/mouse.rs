@@ -3,6 +3,11 @@
 //! the mouse the cursor is confined to the game window (ClipCursor): a click can never
 //! land in another window. The router sends nothing while the game is behind, and the
 //! confinement ends as soon as it is.
+//!
+//! Windows drops the confinement on its own whenever the foreground changes (a
+//! notification, a UAC prompt, the host's Alt+Tab). It is checked again before each
+//! event: a guest's cursor that left the game would click another window, put the game
+//! behind and pause every guest's mouse with no way back.
 
 use std::mem::size_of;
 
@@ -16,7 +21,9 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL, MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, MOUSEINPUT,
     SendInput,
 };
-use windows::Win32::UI::WindowsAndMessaging::{ClipCursor, GetClientRect, GetForegroundWindow};
+use windows::Win32::UI::WindowsAndMessaging::{
+    ClipCursor, GetClientRect, GetClipCursor, GetForegroundWindow,
+};
 
 use crate::input::button_changes;
 
@@ -78,43 +85,52 @@ impl MouseSink {
     }
 
     /// Keeps the cursor inside the game window, which is in front whenever the router
-    /// lets mouse input through.
+    /// lets mouse input through. Cheap enough to run before every event.
     fn confine(&mut self) {
-        if self.confined {
+        let Some(area) = game_area() else { return };
+        let mut current = RECT::default();
+        // SAFETY: `current` lives on this stack frame for the duration of the call.
+        let unchanged = unsafe { GetClipCursor(&mut current) }.is_ok() && current == area;
+        if self.confined && unchanged {
             return;
         }
-        // SAFETY: plain Win32 queries on the foreground window; the out values live on
-        // this stack frame.
-        unsafe {
-            let window = GetForegroundWindow();
-            let mut client = RECT::default();
-            if window.is_invalid() || GetClientRect(window, &mut client).is_err() {
-                return;
-            }
-            let mut top_left = POINT {
-                x: client.left,
-                y: client.top,
-            };
-            let mut bottom_right = POINT {
-                x: client.right,
-                y: client.bottom,
-            };
-            if !ClientToScreen(window, &mut top_left).as_bool()
-                || !ClientToScreen(window, &mut bottom_right).as_bool()
-            {
-                return;
-            }
-            let area = RECT {
-                left: top_left.x,
-                top: top_left.y,
-                right: bottom_right.x,
-                bottom: bottom_right.y,
-            };
-            match ClipCursor(Some(&area)) {
-                Ok(()) => self.confined = true,
-                Err(error) => warn!(%error, "cursor not confined to the game window"),
-            }
+        // SAFETY: `area` is a valid rectangle on this stack frame.
+        match unsafe { ClipCursor(Some(&area)) } {
+            Ok(()) => self.confined = true,
+            Err(error) => warn!(%error, "cursor not confined to the game window"),
         }
+    }
+}
+
+/// The client area of the window in front, in screen coordinates.
+fn game_area() -> Option<RECT> {
+    // SAFETY: plain Win32 queries on the foreground window; the out values live on this
+    // stack frame.
+    unsafe {
+        let window = GetForegroundWindow();
+        let mut client = RECT::default();
+        if window.is_invalid() || GetClientRect(window, &mut client).is_err() {
+            return None;
+        }
+        let mut top_left = POINT {
+            x: client.left,
+            y: client.top,
+        };
+        let mut bottom_right = POINT {
+            x: client.right,
+            y: client.bottom,
+        };
+        if !ClientToScreen(window, &mut top_left).as_bool()
+            || !ClientToScreen(window, &mut bottom_right).as_bool()
+        {
+            return None;
+        }
+        Some(RECT {
+            left: top_left.x,
+            top: top_left.y,
+            right: bottom_right.x,
+            bottom: bottom_right.y,
+        })
     }
 }
 

@@ -92,6 +92,11 @@ function PreferenceSwitch({ name, title, help }: { name: Flag; title: string; he
   )
 }
 
+/** A touch screen anywhere on this device: only then does the touch controller mean something. */
+const touchScreen = typeof matchMedia === 'function' && matchMedia('(any-pointer: coarse)').matches
+/** A mouse or trackpad: a phone alone has neither, nor a keyboard to play with. */
+const finePointer = typeof matchMedia === 'function' && matchMedia('(any-pointer: fine)').matches
+
 function GameSettings() {
   const preferences = usePreferences()
   const s = t.settings.game
@@ -101,18 +106,20 @@ function GameSettings() {
       <PreferenceSwitch name="latencyOnBubble" title={s.latency} help={s.latencyHelp} />
       <PreferenceSwitch name="connectionWarnings" title={s.warnings} help={s.warningsHelp} />
       <PreferenceSwitch name="chatOverGame" title={s.chat} help={s.chatHelp} />
-      <PreferenceSwitch name="touchPad" title={s.touch} help={s.touchHelp} />
-      <SettingRow id="pref-keyboard" title={s.keyboard} help={s.keyboardHelp}>
-        <Select<Preferences['keyboardMode']>
-          id="pref-keyboard"
-          value={preferences.keyboardMode}
-          options={[
-            ['pad', t.play.keyboardAsPad],
-            ['keys', t.play.keyboardAsKeys],
-          ]}
-          onChange={(keyboardMode) => setPreferences({ keyboardMode })}
-        />
-      </SettingRow>
+      {touchScreen && <PreferenceSwitch name="touchPad" title={s.touch} help={s.touchHelp} />}
+      {finePointer && (
+        <SettingRow id="pref-keyboard" title={s.keyboard} help={s.keyboardHelp}>
+          <Select<Preferences['keyboardMode']>
+            id="pref-keyboard"
+            value={preferences.keyboardMode}
+            options={[
+              ['pad', t.play.keyboardAsPad],
+              ['keys', t.play.keyboardAsKeys],
+            ]}
+            onChange={(keyboardMode) => setPreferences({ keyboardMode })}
+          />
+        </SettingRow>
+      )}
       <SettingRow id="pref-pad" title={s.padType} help={s.padTypeHelp}>
         <Select<Preferences['padType']>
           id="pref-pad"
@@ -124,22 +131,24 @@ function GameSettings() {
           onChange={(padType) => setPreferences({ padType })}
         />
       </SettingRow>
-      <SettingRow id="pref-mouse" title={s.mouse} help={s.mouseHelp}>
-        <span className="range">
-          <input
-            id="pref-mouse"
-            type="range"
-            min={0.25}
-            max={3}
-            step={0.25}
-            value={preferences.mouseSpeed}
-            onChange={(event) => setPreferences({ mouseSpeed: Number(event.target.value) })}
-          />
-          <output htmlFor="pref-mouse" className="num">
-            {s.speed(preferences.mouseSpeed)}
-          </output>
-        </span>
-      </SettingRow>
+      {finePointer && (
+        <SettingRow id="pref-mouse" title={s.mouse} help={s.mouseHelp}>
+          <span className="range">
+            <input
+              id="pref-mouse"
+              type="range"
+              min={0.25}
+              max={3}
+              step={0.25}
+              value={preferences.mouseSpeed}
+              onChange={(event) => setPreferences({ mouseSpeed: Number(event.target.value) })}
+            />
+            <output htmlFor="pref-mouse" className="num">
+              {s.speed(preferences.mouseSpeed)}
+            </output>
+          </span>
+        </SettingRow>
+      )}
       <SettingRow id="pref-bubble" title={s.bubble} help={s.bubbleHelp}>
         <button
           id="pref-bubble"

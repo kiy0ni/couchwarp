@@ -12,7 +12,7 @@ import {
 } from '@couchwarp/protocol'
 import { publish, unpublish } from './directory'
 import { lookUpGame } from './games'
-import { iceServersFor } from './ice'
+import { iceServersFor, relayConfigured } from './ice'
 import { factsFrom } from './reports'
 import {
   type Account,
@@ -27,6 +27,8 @@ import {
 const MAX_NAME_LENGTH = 24
 /** A thumbnail is a small JPEG; anything bigger is refused. */
 const MAX_THUMBNAIL_BYTES = 128 * 1024
+/** Far above an SDP offer or a chat line: anything bigger is not a Couchwarp message. */
+const MAX_TEXT_MESSAGE = 64 * 1024
 /** How often a room wakes up to refresh its public row and check the turn timer. */
 const HEARTBEAT_MS = 60 * 1000
 
@@ -126,6 +128,8 @@ export class Room extends DurableObject<Env> {
       await this.storeThumbnail(model, message)
     } else if (typeof message !== 'string') {
       socket.close(1003, 'text messages only')
+    } else if (message.length > MAX_TEXT_MESSAGE) {
+      socket.close(1009, 'message too big')
     } else if (peer.role === 'host') {
       await this.fromHost(socket, model, message)
     } else if (peer.role === 'guest') {
@@ -522,7 +526,7 @@ export class Room extends DurableObject<Env> {
   private policy(): Policy {
     return {
       publicRoomsEnabled: this.env.PUBLIC_ROOMS === 'on',
-      relayAvailable: Boolean(this.env.TURN_KEY_ID && this.env.TURN_KEY_API_TOKEN),
+      relayAvailable: relayConfigured(this.env),
     }
   }
 

@@ -24,8 +24,8 @@
   // Public settings. Secrets (sign-in, relay, admins) are set with `wrangler secret put`.
   "vars": {
     "PUBLIC_URL": "https://couchwarp.sachapastor34.workers.dev",
-    // "on" opens the public game list; keep it off until reports are handled.
-    "PUBLIC_ROOMS": "off",
+    // "on" opens the public game list. Reports are handled on /moderation.
+    "PUBLIC_ROOMS": "on",
     // The desktop app's releases, for updates and downloads (src/updates.ts). While the
     // repository is private, RELEASES_TOKEN (a read-only token) lets the server read them.
     "RELEASES_REPO": "kiy0ni/couchwarp"

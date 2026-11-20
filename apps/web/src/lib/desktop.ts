@@ -42,6 +42,8 @@ export type HostingState =
       consoleKey: string
       stats: HostStats | null
       noInputPermission: boolean
+      /** The game is behind another window: guests' keyboards and mice wait. */
+      inputPaused: boolean
       publicNeedsAccount: boolean
     }
 
@@ -51,7 +53,6 @@ export interface StartRequest {
   game: string | null
   maxPlayers: number | null
   public: boolean
-  relayOnly: boolean
   turnMinutes: number | null
   fps: number
   bitrateMbps: number
@@ -66,6 +67,12 @@ export interface StartRequest {
   port: number
   stun: string
 }
+
+/** Whether guests' controllers play into games here, as the app finds it. */
+export type ControllerSupport = 'ready' | 'stopped' | 'missing' | 'impossible'
+
+/** The two permissions macOS asks for: recording the screen, sending keys and clicks. */
+export type PermissionPane = 'screen' | 'input'
 
 /** A newer version of the app, published and ready to install. */
 export interface AvailableUpdate {
@@ -94,10 +101,16 @@ export const desktop = {
   signOut: () => invoke<void>('sign_out'),
   /** Keeps a session signed in with a password, for hosting. */
   saveSession: (token: string) => invoke<void>('save_session', { token }),
-  /** Whether guests' keys and mice can reach the game. A Mac asks the first time. */
+  /** Whether guests' keys and mice can reach the game. */
   inputAllowed: () => invoke<boolean>('input_allowed'),
-  openPrivacySettings: (pane: 'screen' | 'input') =>
-    invoke<void>('open_privacy_settings', { pane }),
+  openPrivacySettings: (pane: PermissionPane) => invoke<void>('open_privacy_settings', { pane }),
+  /** Forgets what macOS remembers for this permission, and asks again. */
+  repairPermission: (pane: PermissionPane) => invoke<void>('repair_permission', { pane }),
+  controllerSupport: () => invoke<ControllerSupport>('controller_support'),
+  /** Installs what guests' controllers need (VIIPER on Windows, a udev rule on Linux). */
+  installControllerSupport: () => invoke<ControllerSupport>('install_controller_support'),
+  /** Starts the app again, ending a hosted game. */
+  restartApp: () => invoke<void>('restart_app'),
   /** The version the app found waiting, if any. Apps from before updates cannot answer. */
   updateAvailable: () => invoke<AvailableUpdate | null>('update_available'),
   onUpdate: (handler: (update: AvailableUpdate) => void) =>

@@ -28,7 +28,7 @@ describe('joining', () => {
   it('starts guests with the controller only', () => {
     const model = room()
     const member = model.join(1, 'Léa', null, [], 0)
-    expect(member).toMatchObject({ keyboard: false, mouse: false, padType: 'xbox360' })
+    expect(member).toMatchObject({ pads: true, keyboard: false, mouse: false, padType: 'xbox360' })
   })
 
   it('carries the account name and avatar', () => {
@@ -64,6 +64,24 @@ describe('joining', () => {
   })
 })
 
+describe('what each player may use', () => {
+  it('gives the controller to everyone and lets the host take it back', () => {
+    const model = room()
+    model.join(1, 'Léa', null, [], 0)
+    expect(model.member(1)?.pads).toBe(true)
+    model.apply(
+      HOST,
+      { type: 'set-permissions', guestId: 1, pads: false, keyboard: true, mouse: false },
+      0,
+    )
+    expect(model.member(1)).toMatchObject({ pads: false, keyboard: true, mouse: false })
+  })
+
+  it('hides guests’ addresses by default', () => {
+    expect(DEFAULT_SETTINGS.relayOnly).toBe(true)
+  })
+})
+
 describe('permissions to act', () => {
   it('lets only the host configure, grant keys or close', () => {
     const model = room()
@@ -73,7 +91,7 @@ describe('permissions to act', () => {
     expect(
       model.apply(
         guest(1),
-        { type: 'set-permissions', guestId: 1, keyboard: true, mouse: true },
+        { type: 'set-permissions', guestId: 1, pads: false, keyboard: true, mouse: true },
         0,
       ),
     ).toEqual({ ok: false, reason: 'forbidden' })

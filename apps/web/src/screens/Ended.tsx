@@ -10,7 +10,11 @@ export function Ended({ reason, onAgain }: { reason: EndReason; onAgain(): void 
 
   return (
     <Shell onBack={onAgain}>
-      <Page title={t.ended.title} lead={t.ended.reasons[reason]} width="narrow">
+      <Page
+        title={reason === 'room-not-found' ? t.ended.notFoundTitle : t.ended.title}
+        lead={t.ended.reasons[reason]}
+        width="narrow"
+      >
         <div className="actions">
           <button ref={action} type="button" className="button" onClick={onAgain}>
             {t.ended.again}

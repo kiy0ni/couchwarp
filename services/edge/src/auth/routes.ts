@@ -199,8 +199,14 @@ async function me(request: Request, env: Env): Promise<Response> {
   const extra = await env.DB.prepare('SELECT color, tag, created_at FROM users WHERE id = ?')
     .bind(user.id)
     .first<{ color: string | null; tag: number | null; created_at: number }>()
+  const password = await env.DB.prepare('SELECT 1 FROM passwords WHERE user_id = ?')
+    .bind(user.id)
+    .first()
   return json({
     ...publicUser(user),
+    email: user.email,
+    emailVerified: user.emailVerified,
+    hasPassword: password !== null,
     identities: await identities(env.DB, user.id),
     isAdmin: isAdmin(env, user),
     color: extra?.color ?? null,
@@ -240,7 +246,7 @@ async function exportAccount(env: Env, user: User): Promise<Response> {
     .all()
   const body = {
     exportedAt: new Date().toISOString(),
-    user: publicUser(user),
+    user: { ...publicUser(user), email: user.email },
     identities: await identities(env.DB, user.id),
     sessions: sessions.results,
     history: await history(env, user.id),
