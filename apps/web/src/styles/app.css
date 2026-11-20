@@ -557,7 +557,21 @@
 }
 
 .choice__option input {
-  accent-color: var(--color-ink);
+  accent-color: var(--color-accent);
+}
+
+.choice__option--described {
+  align-items: flex-start;
+  padding-block: var(--space-2xs);
+}
+
+.choice__option--described input {
+  margin-top: 0.35em;
+}
+
+.choice__option--described > span {
+  display: flex;
+  flex-direction: column;
 }
 
 .keyhelp {
@@ -724,18 +738,24 @@ select.input {
   margin: var(--space-sm) 0 0;
   padding: 0;
   list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
+/* One person per row, spaced like cards: who, what they can use, then Manage. */
 .members__item {
-  display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
-  column-gap: var(--space-sm);
+  min-height: 60px;
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
   align-items: center;
-  padding-block: var(--space-sm);
-  border-top: var(--rule-hair) solid var(--color-rule);
+  gap: var(--space-sm);
+  background: var(--color-paper-3);
+  border-radius: var(--radius-control);
 }
 
 .members__who {
+  flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -751,29 +771,14 @@ select.input {
   color: var(--color-muted);
 }
 
-.members__actions {
-  grid-column: 2;
-  margin: var(--space-xs) 0 0;
-  padding: 0;
-  border: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  column-gap: var(--space-md);
-  row-gap: var(--space-2xs);
-  font-size: var(--text-sm);
-}
-
-.members__toggle {
+.members__inputs {
   display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-height: 44px;
-  cursor: pointer;
+  gap: var(--space-2xs);
+  color: var(--color-ink-2);
 }
 
-.members__toggle input {
-  accent-color: var(--color-ink);
+.member-dialog {
+  width: min(28rem, 100vw - 2 * var(--space-md));
 }
 
 .avatar {

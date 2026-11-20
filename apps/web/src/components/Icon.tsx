@@ -53,6 +53,12 @@ const PATHS = {
       <path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M7.5 14h9" />
     </>
   ),
+  mouse: (
+    <>
+      <rect x="6.5" y="3.5" width="11" height="17" rx="5.5" />
+      <path d="M12 7v3.5" />
+    </>
+  ),
   app: (
     <>
       <rect x="3.5" y="3.5" width="17" height="17" rx="3" />

@@ -6,6 +6,11 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+# The Dock and the task manager show the executable's name.
+[[bin]]
+name = "Couchwarp"
+path = "src/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2.5", features = [] }
 

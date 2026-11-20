@@ -1,8 +1,10 @@
 import type { HostCommand, RoomState } from '@couchwarp/protocol'
 import { invoke } from '@tauri-apps/api/core'
-import { useEffect, useState } from 'react'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { useEffect, useRef, useState } from 'react'
+import { Avatar } from '../components/Avatar'
 import { ConfirmButton } from '../components/ConfirmButton'
-import { MemberList } from '../components/MemberList'
+import { Icon } from '../components/Icon'
 import { t } from '../i18n'
 import { ConsoleSession } from '../lib/console-session'
 import { desktop, type HostingState } from '../lib/desktop'
@@ -49,22 +51,46 @@ export function HostBubble() {
   )
 }
 
+/** Past this many pixels, a press on the logo moves the window instead of opening it. */
+const DRAG_THRESHOLD = 4
+
+/** Closed, the bubble is only the logo and how many guests are in. */
 function Pill({ live, onOpen }: { live: Live; onOpen(): void }) {
   const guests = live.stats?.guests ?? 0
+  const press = useRef<{ x: number; y: number } | null>(null)
   return (
-    <div className="host-pill">
-      {/* The lights move the window; the rest of the pill opens the panel. */}
-      <span className="host-pill__grip" data-tauri-drag-region title={t.bubble.move}>
-        <i data-tauri-drag-region />
-        <i data-tauri-drag-region />
-        <i data-tauri-drag-region />
-        <i data-tauri-drag-region />
+    <button
+      type="button"
+      className="host-pill"
+      aria-label={t.bubble.open(live.code, guests)}
+      onPointerDown={(event) => {
+        press.current = { x: event.screenX, y: event.screenY }
+      }}
+      onPointerMove={(event) => {
+        const start = press.current
+        if (!start) return
+        if (Math.hypot(event.screenX - start.x, event.screenY - start.y) < DRAG_THRESHOLD) return
+        press.current = null
+        // The system moves the window from here; the click that follows is not a press.
+        getCurrentWindow().startDragging().catch(console.error)
+      }}
+      onPointerUp={() => {
+        if (press.current) onOpen()
+        press.current = null
+      }}
+    >
+      <span className="host-pill__grip" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+        <i />
       </span>
-      <button type="button" className="host-pill__open" onClick={onOpen}>
-        <span className="host-pill__code">{live.code}</span>
-        <span className="host-pill__guests">{t.bubble.guests(guests)}</span>
-      </button>
-    </div>
+      {guests > 0 && (
+        <span className="count" aria-hidden="true">
+          {guests}
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -125,10 +151,41 @@ function Panel({ live, onClose }: { live: Live; onClose(): void }) {
       </div>
 
       <section className="host-panel__members" aria-label={t.room.membersTitle}>
-        {room ? (
-          <MemberList room={room} viewer="host" onCommand={command} />
-        ) : (
-          <p className="muted">{t.console.connecting}</p>
+        {room === null && <p className="muted">{t.console.connecting}</p>}
+        {room && room.members.length === 0 && <p className="muted">{t.room.nobody}</p>}
+        {room && room.members.length > 0 && (
+          <ul className="people">
+            {room.members.map((member) => (
+              <li key={member.id} className="people__item host-panel__guest">
+                <Avatar name={member.name} url={member.avatarUrl} />
+                <span className="people__who">
+                  <span className="people__name">{member.name}</span>
+                  <span className="people__status">{t.room.roles[member.role]}</span>
+                </span>
+                {member.role !== 'spectator' &&
+                  (['keyboard', 'mouse'] as const).map((input) => (
+                    <button
+                      key={input}
+                      type="button"
+                      className="input-toggle"
+                      aria-pressed={member[input]}
+                      title={t.bubble.allow[input]}
+                      onClick={() =>
+                        command({
+                          type: 'set-permissions',
+                          guestId: member.id,
+                          keyboard: input === 'keyboard' ? !member.keyboard : member.keyboard,
+                          mouse: input === 'mouse' ? !member.mouse : member.mouse,
+                        })
+                      }
+                    >
+                      <Icon name={input} size={18} />
+                      <span className="visually-hidden">{t.bubble.allow[input]}</span>
+                    </button>
+                  ))}
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

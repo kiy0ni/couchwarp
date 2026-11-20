@@ -9,7 +9,7 @@ use crate::Site;
 
 const LABEL: &str = "bubble";
 /// Closed, the bubble is a pill; open, a panel.
-const CLOSED: (f64, f64) = (236.0, 56.0);
+const CLOSED: (f64, f64) = (64.0, 64.0);
 const OPEN: (f64, f64) = (340.0, 520.0);
 /// Distance from the top right corner of the screen.
 const MARGIN: f64 = 24.0;

@@ -1416,20 +1416,29 @@ html[data-surface="bubble"] body {
 }
 
 .host-pill {
-  height: 56px;
-  padding: var(--space-2xs);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2xs);
+  position: relative;
+  width: 52px;
+  height: 52px;
+  margin: 6px;
+  padding: 0;
+  display: grid;
+  place-items: center;
   background: var(--color-paper-2);
   border: var(--rule-hair) solid var(--color-field-edge);
-  border-radius: 999px;
+  border-radius: 50%;
+  cursor: grab;
+}
+
+.host-pill .count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
 }
 
 .host-pill__grip {
   flex: none;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   display: grid;
   grid-template-columns: repeat(2, 8px);
   place-content: center;
@@ -1458,40 +1467,10 @@ html[data-surface="bubble"] body {
   background: var(--color-p4);
 }
 
-.host-pill__open {
-  flex: 1;
-  min-width: 0;
-  height: 44px;
-  padding-inline: var(--space-xs) var(--space-md);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  border: 0;
-  border-radius: 999px;
-  background: none;
-  color: var(--color-ink);
-  font: inherit;
-  cursor: pointer;
-}
-
-@media (hover: hover) {
-  .host-pill__open:hover {
-    background: var(--color-paper-3);
-  }
-}
-
-.host-pill__code,
 .host-panel__code {
   font-family: var(--font-code);
   font-weight: 700;
   letter-spacing: 0.08em;
-}
-
-.host-pill__guests {
-  color: var(--color-muted);
-  font-size: var(--text-sm);
-  white-space: nowrap;
 }
 
 .host-panel {
@@ -1551,4 +1530,28 @@ html[data-surface="bubble"] body {
 .switch:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.host-panel__guest {
+  gap: var(--space-xs);
+}
+
+/* An input the host allows or not, one press each. */
+.input-toggle {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: var(--rule-hair) solid var(--color-field-edge);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.input-toggle[aria-pressed="true"] {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-ink);
 }
