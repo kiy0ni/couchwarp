@@ -11,6 +11,7 @@
  *   use from the start in the games you host
  */
 
+import { handleOf } from '@couchwarp/protocol'
 import { currentUser, type User } from './auth/sessions'
 import { FRESH_FOR_MS } from './directory'
 import { fromOurPages, json, problem } from './http'
@@ -98,15 +99,12 @@ export async function handleFriends(request: Request, env: Env): Promise<Respons
   return problem(404, 'not-found')
 }
 
-/** `Name#123456`: the name as shown, then the six-digit tag. */
-export function parseTag(text: string): { name: string; tag: number } | null {
-  const match = text.trim().match(/^(.{2,32})#(\d{6})$/u)
+/** `Name#123456`: the handle, then the six-digit tag. */
+export function parseTag(text: string): { handle: string; tag: number } | null {
+  const match = text.trim().match(/^(.{1,40})#(\d{6})$/u)
   if (!match?.[1] || !match[2]) return null
-  return { name: match[1].trim(), tag: Number(match[2]) }
+  return { handle: handleOf(match[1]), tag: Number(match[2]) }
 }
-
-const sameName = (a: string, b: string) =>
-  a.normalize('NFC').toLocaleLowerCase('fr') === b.normalize('NFC').toLocaleLowerCase('fr')
 
 /** Adds someone by name and tag. Both must match, so a tag alone finds no one. */
 async function askByTag(env: Env, user: User, text: string): Promise<Response> {
@@ -121,7 +119,8 @@ async function askByTag(env: Env, user: User, text: string): Promise<Response> {
   const other = await env.DB.prepare('SELECT id, display_name FROM users WHERE tag = ?')
     .bind(parsed.tag)
     .first<{ id: string; display_name: string }>()
-  if (!other || !sameName(other.display_name, parsed.name)) return problem(404, 'no-such-player')
+  const same = other && handleOf(other.display_name).toLowerCase() === parsed.handle.toLowerCase()
+  if (!other || !same) return problem(404, 'no-such-player')
   return ask(env, user, other.id, { metInGame: false })
 }
 

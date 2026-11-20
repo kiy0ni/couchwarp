@@ -41,3 +41,16 @@ export function parseReportRequest(value: unknown): ReportRequest | null {
     details: cleanText(details, MAX_REPORT_DETAILS),
   }
 }
+
+/**
+ * The name part of a tag: letters without accents, digits, `_`, `.` and `-`, nothing else.
+ * "KiyOni 🍥" reads KiyOni, so a tag can be typed on any keyboard.
+ */
+export function handleOf(displayName: string): string {
+  const plain = displayName
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9_.-]+/g, '')
+    .slice(0, 24)
+  return plain || 'joueur'
+}

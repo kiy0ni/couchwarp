@@ -211,10 +211,11 @@ describe('friends', () => {
 describe('friends by tag', () => {
   it('adds someone from their name and tag, never from the tag alone', async () => {
     const lea = await signIn('lea-t', 'Léa')
-    await signIn('sam-t', 'Sam')
+    await signIn('sam-t', 'Sâm 🍥')
     await env.DB.prepare('UPDATE users SET tag = ? WHERE id = ?').bind(482913, 'sam-t').run()
     expect((await post('/api/friends', lea, { tag: 'Sam#48291' })).status).toBe(400)
     expect((await post('/api/friends', lea, { tag: 'Bob#482913' })).status).toBe(404)
+    // The handle drops accents, spaces and emoji, and ignores case.
     const asked = await post('/api/friends', lea, { tag: 'sam#482913' })
     expect(asked.status).toBe(200)
     const lists = await asked.json<{ outgoing: { userId: string }[] }>()

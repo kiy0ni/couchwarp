@@ -14,6 +14,7 @@ import { HostBubble } from './screens/HostBubble'
 import { Join } from './screens/Join'
 import { Legal } from './screens/Legal'
 import { Play } from './screens/Play'
+import { BadgesPage, Profile } from './screens/Profile'
 import { Settings } from './screens/Settings'
 
 /** A shared link is `/<code>`; the host console is `/<code>/console#key=…`. */
@@ -50,6 +51,9 @@ export function App() {
     return <Settings path={path === '/compte' ? '/parametres/compte' : path} />
   }
   if (path === '/heberger') return <Host />
+  if (path === '/badges') return <BadgesPage />
+  const profile = path.match(/^\/profil\/([0-9a-zA-Z-]{1,64})$/)?.[1]
+  if (profile) return <Profile userId={profile} />
   if (path === '/bulle' && isDesktop) return <HostBubble />
   if (path === '/parties') return <Browse />
   if (path === '/amis') return <Friends />

@@ -1717,3 +1717,99 @@ html[data-surface="bubble"] body {
   font-weight: 600;
   color: var(--color-ink);
 }
+
+/* A profile page: the person in the middle, their colour as a light behind them. */
+.profile-card {
+  align-items: center;
+  text-align: center;
+  padding-block: var(--space-xl);
+}
+
+.profile-card[data-color] {
+  background:
+    radial-gradient(
+      28rem 12rem at 50% 0%,
+      color-mix(in oklab, var(--ring) 22%, transparent),
+      transparent 75%
+    ),
+    var(--color-paper-2);
+}
+
+.profile-card .page__title {
+  margin-top: var(--space-xs);
+}
+
+.profile__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.badge-grid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(17rem, 100%), 1fr));
+  gap: var(--space-sm);
+}
+
+.badge-card {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+
+.badge-card[data-earned="false"] {
+  opacity: 0.55;
+}
+
+.badge-card__icon {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--color-paper-3);
+  color: var(--badge-color, var(--color-ink));
+}
+
+.badge-card[data-badge="team"] {
+  --badge-color: var(--color-p4);
+}
+
+.badge-card[data-badge="pioneer"] {
+  --badge-color: var(--color-p2);
+}
+
+.badge-card[data-badge="host"],
+.badge-card[data-badge="regular-host"] {
+  --badge-color: var(--color-p1);
+}
+
+.badge-card[data-badge="regular"],
+.badge-card[data-badge="social"] {
+  --badge-color: var(--color-p3);
+}
+
+.badge-card__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: var(--text-sm);
+}
+
+.badge-card__name {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.badge-card__state {
+  flex: none;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-muted);
+}

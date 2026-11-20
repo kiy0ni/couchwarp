@@ -235,6 +235,9 @@ function FriendRow({
           <button type="button" className="button" onClick={() => dialog.current?.close()}>
             {t.friends.done}
           </button>
+          <Link to={`/profil/${friend.userId}`} className="button button--secondary">
+            {t.profilePage.view}
+          </Link>
           <ConfirmButton
             className="button button--danger"
             question={t.friends.removeQuestion(friend.displayName)}

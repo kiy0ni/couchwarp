@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Avatar } from '../../components/Avatar'
 import { Badges } from '../../components/Badges'
+import { Link } from '../../components/Link'
 import { Section } from '../../components/Page'
 import { SettingRow } from '../../components/SettingRow'
 import { t } from '../../i18n'
@@ -292,6 +293,14 @@ function ProfileEditor({ account, onSignOut }: { account: Account; onSignOut(): 
             <span className="profile__tag">{fullTag(account.displayName, account.tag)}</span>
           )}
           <Badges badges={account.badges} />
+          <span className="profile__links">
+            <Link to={`/profil/${account.id}`} className="link-button">
+              {t.profilePage.mine}
+            </Link>
+            <Link to="/badges" className="link-button">
+              {t.profilePage.allBadges}
+            </Link>
+          </span>
         </span>
         <button
           type="button"

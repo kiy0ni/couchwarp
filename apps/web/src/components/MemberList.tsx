@@ -8,6 +8,7 @@ import { Avatar } from './Avatar'
 import { Badges } from './Badges'
 import { ConfirmButton } from './ConfirmButton'
 import { Icon } from './Icon'
+import { Link } from './Link'
 import { SettingRow, Switch } from './SettingRow'
 
 /** Who looks at the list: the host (console), a moderator, or anyone else. */
@@ -228,6 +229,11 @@ function MemberRow({ member, viewer, self, seatsLeft, onCommand, onReport }: Row
               >
                 {t.room.ban}
               </ConfirmButton>
+            )}
+            {member.userId && (
+              <Link to={`/profil/${member.userId}`} className="link-button">
+                {t.profilePage.view}
+              </Link>
             )}
             {report && (
               <button

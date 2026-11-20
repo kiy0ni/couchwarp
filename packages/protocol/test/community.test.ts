@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_REPORT_DETAILS, parseReportRequest } from '../src/community'
+import { handleOf, MAX_REPORT_DETAILS, parseReportRequest } from '../src/community'
 
 describe('parseReportRequest', () => {
   it('accepts a report about a guest or the room', () => {
@@ -22,5 +22,14 @@ describe('parseReportRequest', () => {
     expect(long?.details).toHaveLength(MAX_REPORT_DETAILS)
     expect(parseReportRequest({ guestId: null, reason: 'boring', details: '' })).toBeNull()
     expect(parseReportRequest({ guestId: 0, reason: 'other', details: '' })).toBeNull()
+  })
+})
+
+describe('handleOf', () => {
+  it('keeps letters, digits and a few signs, so a tag can be typed anywhere', () => {
+    expect(handleOf('KiyOni 🍥')).toBe('KiyOni')
+    expect(handleOf('Léa la rapide')).toBe('Lealarapide')
+    expect(handleOf('x_y.z-1')).toBe('x_y.z-1')
+    expect(handleOf('🍥🍥')).toBe('joueur')
   })
 })

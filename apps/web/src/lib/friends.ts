@@ -1,3 +1,4 @@
+import { handleOf } from '@couchwarp/protocol'
 import { accountRequest } from './account'
 import type { ProfileColor } from './profile'
 
@@ -74,7 +75,7 @@ export async function askByTag(tag: string): Promise<AddResult> {
   return { ok: false, reason: body.error ?? 'failed' }
 }
 
-/** How a person writes their tag for others. */
+/** How a person writes their tag for others: the plain handle of their name, then the number. */
 export function fullTag(name: string, tag: number | null): string | null {
-  return tag === null ? null : `${name}#${tag}`
+  return tag === null ? null : `${handleOf(name)}#${tag}`
 }

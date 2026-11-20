@@ -34,6 +34,21 @@ const fr = {
     regular: { name: 'Habitué', help: 'A rejoint au moins dix parties cette année.' },
     social: { name: 'Sociable', help: 'A au moins cinq amis sur Couchwarp.' },
   },
+  profilePage: {
+    missing: 'Ce profil n’existe pas, ou plus.',
+    since: (date: string) => `Sur Couchwarp depuis ${date}`,
+    edit: 'Modifier mon profil',
+    mine: 'Voir mon profil',
+    view: 'Voir le profil',
+    badges: (count: number) => (count === 0 ? 'Badges' : `Badges (${count})`),
+    allBadges: 'Tous les badges',
+    badgesLead:
+      'Ils se gagnent en jouant, en hébergeant et en se faisant des amis. Couchwarp les calcule à partir de ce qu’il garde déjà.',
+    earned: 'Obtenu',
+    locked: 'À obtenir',
+    addRefused:
+      'Pour ajouter quelqu’un depuis son profil, il faut avoir joué ensemble. Sinon, utilise son tag.',
+  },
   nav: {
     label: 'Navigation principale',
     skip: 'Aller au contenu',
@@ -652,6 +667,21 @@ const en: Strings = {
     'regular-host': { name: 'Regular host', help: 'Hosted at least ten games this year.' },
     regular: { name: 'Regular', help: 'Joined at least ten games this year.' },
     social: { name: 'Social', help: 'Has at least five friends on Couchwarp.' },
+  },
+  profilePage: {
+    missing: 'This profile does not exist, or no longer does.',
+    since: (date) => `On Couchwarp since ${date}`,
+    edit: 'Edit my profile',
+    mine: 'See my profile',
+    view: 'See the profile',
+    badges: (count) => (count === 0 ? 'Badges' : `Badges (${count})`),
+    allBadges: 'All badges',
+    badgesLead:
+      'They are earned by playing, hosting and making friends. Couchwarp works them out from what it keeps anyway.',
+    earned: 'Earned',
+    locked: 'To earn',
+    addRefused:
+      'To add someone from their profile, you must have played together. Otherwise, use their tag.',
   },
   nav: {
     label: 'Main navigation',

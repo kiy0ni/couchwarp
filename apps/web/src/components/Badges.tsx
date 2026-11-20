@@ -10,7 +10,17 @@ import {
 import { t } from '../i18n'
 import type { Badge } from '../lib/profile'
 
-const ICONS: Record<Badge, PhosphorIcon> = {
+/** Every badge, in the order pages show them. */
+export const ALL_BADGES: readonly Badge[] = [
+  'team',
+  'pioneer',
+  'host',
+  'regular-host',
+  'regular',
+  'social',
+]
+
+export const BADGE_ICONS: Record<Badge, PhosphorIcon> = {
   team: Crown,
   pioneer: Rocket,
   host: Star,
@@ -31,7 +41,7 @@ export function Badges({
   return (
     <ul className="badges" data-compact={compact || undefined}>
       {badges.map((badge) => {
-        const Glyph = ICONS[badge]
+        const Glyph = BADGE_ICONS[badge]
         return (
           <li key={badge} className="badge" data-badge={badge} title={t.badges[badge].help}>
             <Glyph size={compact ? 14 : 16} weight="duotone" aria-hidden="true" />
