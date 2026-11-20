@@ -3,13 +3,14 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { CodeEntry } from '../components/CodeEntry'
 import { Link } from '../components/Link'
+import { MachineArt } from '../components/MachineArt'
 import { Page, Section } from '../components/Page'
 import { PlayerBadge } from '../components/PlayerBadge'
 import { RoomCard } from '../components/RoomCard'
 import { Shell } from '../components/Shell'
 import { t } from '../i18n'
 import { useAccount } from '../lib/account'
-import { isDesktop } from '../lib/desktop'
+import { desktop, type HostingState, isDesktop } from '../lib/desktop'
 import { fetchRooms, type RoomCard as Room } from '../lib/directory'
 import { type Friend, fetchFriends } from '../lib/friends'
 import { padName } from '../lib/gamepads'
@@ -23,7 +24,7 @@ const SHOWN_GAMES = 5
 const SHOWN_FRIENDS = 6
 const FRIENDS_REFRESH_MS = 30_000
 
-/** Where everything starts: join with a code, host, and what friends are doing. */
+/** Where everything starts: this computer, a code to join, controllers, then friends. */
 export function Home({ onFound }: { onFound(code: string): void }) {
   const { account } = useAccount()
   return (
@@ -32,17 +33,15 @@ export function Home({ onFound }: { onFound(code: string): void }) {
         title={account ? t.home.greeting(account.displayName) : t.home.welcome}
         lead={t.home.lead}
       >
-        <div className="dashboard">
-          <div className="dashboard__main">
-            <JoinCard onFound={onFound} />
-            <RecentGames />
-            <PublicRooms />
-          </div>
-          <div className="dashboard__side">
-            <HostCard />
-            <FriendsCard />
-            <ControllersCard />
-          </div>
+        <div className="machines">
+          <ThisComputer />
+          <JoinCard onFound={onFound} />
+          <ControllersCard />
+        </div>
+        <FriendsPlaying />
+        <div className="columns">
+          <RecentGames />
+          <PublicRooms />
         </div>
       </Page>
     </Shell>
@@ -74,7 +73,7 @@ function JoinCard({ onFound }: { onFound(code: string): void }) {
 
   const error = status.kind === 'error' ? status.message : null
   return (
-    <form className="card card--feature join-card" onSubmit={submit} noValidate>
+    <form className="card join-card" onSubmit={submit} noValidate>
       <h2 className="card__title">{t.home.title}</h2>
       <div className="field">
         <label className="field__label" htmlFor="room-code">
@@ -101,19 +100,55 @@ function JoinCard({ onFound }: { onFound(code: string): void }) {
   )
 }
 
-function HostCard() {
+/** The machine this page runs on: share a game from it, or get the app that can. */
+function ThisComputer() {
+  const hosting = useHostingState()
+  const live = hosting?.state === 'live' ? hosting : null
   return (
-    <section className="card">
-      <h2 className="card__title">{t.home.hostTitle}</h2>
-      <p className="card__text">{isDesktop ? t.home.hostDesktop : t.home.hostWeb}</p>
-      <Link to="/heberger" className="button button--secondary">
-        {isDesktop ? t.home.hostAction : t.home.downloadAction}
+    <section className="card machine">
+      <MachineArt live={live !== null} />
+      <div className="machine__text">
+        <h2 className="card__title">{t.home.thisComputer}</h2>
+        <p className="card__text">
+          {live
+            ? t.home.liveNow(live.code, live.stats?.guests ?? 0)
+            : isDesktop
+              ? t.home.hostDesktop
+              : t.home.hostWeb}
+        </p>
+      </div>
+      <Link to="/heberger" className={live ? 'button button--secondary' : 'button'}>
+        {live ? t.home.manage : isDesktop ? t.home.hostAction : t.home.downloadAction}
       </Link>
     </section>
   )
 }
 
-function FriendsCard() {
+/** In the desktop app, the hosting state, kept up to date; null elsewhere. */
+function useHostingState(): HostingState | null {
+  const [state, setState] = useState<HostingState | null>(null)
+  useEffect(() => {
+    if (!isDesktop) return
+    let stop: (() => void) | undefined
+    let alive = true
+    desktop
+      .onHosting(setState)
+      .then((unlisten) => {
+        if (alive) stop = unlisten
+        else unlisten()
+      })
+      .catch(console.error)
+    desktop.hostingState().then(setState).catch(console.error)
+    return () => {
+      alive = false
+      stop?.()
+    }
+  }, [])
+  return state
+}
+
+/** Friends in a game right now, as cards to join; the rest are on the Friends page. */
+function FriendsPlaying() {
   const { account } = useAccount()
   const [friends, setFriends] = useState<Friend[] | null>(null)
   useEffect(() => {
@@ -128,55 +163,52 @@ function FriendsCard() {
   }, [account])
 
   if (account === undefined) return null
-  if (account === null) {
-    return (
-      <section className="card">
-        <h2 className="card__title">{t.friends.title}</h2>
-        <p className="card__text">{t.friends.signedOut}</p>
-        <Link to="/parametres" className="button button--secondary">
-          {t.account.signIn}
-        </Link>
-      </section>
-    )
-  }
-  // Friends in a game first; the server already sorts by name.
-  const shown = [...(friends ?? [])]
-    .sort((a, b) => Number(b.presence !== null) - Number(a.presence !== null))
-    .slice(0, SHOWN_FRIENDS)
+  const playing = (friends ?? []).filter((friend) => friend.presence !== null)
   return (
-    <section className="card">
-      <header className="card__head">
-        <h2 className="card__title">{t.friends.title}</h2>
-        <Link to="/amis" className="link-button">
-          {t.home.seeAll}
-        </Link>
-      </header>
-      {friends !== null && shown.length === 0 && <p className="card__text">{t.friends.empty}</p>}
-      {shown.length > 0 && (
-        <ul className="people">
-          {shown.map((friend) => (
-            <li key={friend.userId} className="people__item">
+    <Section
+      title={t.home.friendsTitle}
+      actions={
+        account && (
+          <Link to="/amis" className="link-button">
+            {t.home.seeAll}
+          </Link>
+        )
+      }
+    >
+      {account === null ? (
+        <div className="card card--row">
+          <p className="card__text">{t.friends.signedOut}</p>
+          <Link to="/parametres/compte" className="button button--secondary">
+            {t.account.signIn}
+          </Link>
+        </div>
+      ) : friends !== null && playing.length === 0 ? (
+        <p className="muted">{friends.length === 0 ? t.friends.empty : t.home.nobodyPlaying}</p>
+      ) : (
+        <ul className="friend-cards">
+          {playing.slice(0, SHOWN_FRIENDS).map((friend) => (
+            <li key={friend.userId} className="card friend-card">
               <Avatar name={friend.displayName} url={friend.avatarUrl} />
-              <span className="people__who">
+              <span className="friend-card__who">
                 <span className="people__name">{friend.displayName}</span>
-                <span className="people__status" data-online={friend.presence ? true : undefined}>
-                  {friend.presence === null
-                    ? t.friends.offline
-                    : friend.presence.hosting
-                      ? t.friends.hosting(friend.presence.title || friend.presence.game)
-                      : t.friends.playing(friend.presence.title || friend.presence.game)}
+                <span className="people__status" data-online>
+                  {friend.presence?.hosting
+                    ? t.friends.hosting(friend.presence.title || friend.presence.game)
+                    : t.friends.playing(friend.presence?.title || friend.presence?.game || '')}
                 </span>
               </span>
-              {friend.presence?.roomCode && (
+              {friend.presence?.roomCode ? (
                 <Link to={`/${friend.presence.roomCode}`} className="button button--small">
                   {t.friends.join}
                 </Link>
+              ) : (
+                <span className="muted friend-card__note">{t.home.askCode}</span>
               )}
             </li>
           ))}
         </ul>
       )}
-    </section>
+    </Section>
   )
 }
 

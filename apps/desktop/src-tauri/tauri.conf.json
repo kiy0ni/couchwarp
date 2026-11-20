@@ -8,6 +8,7 @@
     "frontendDist": "https://couchwarp.sachapastor34.workers.dev"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [],
     "security": {
       "capabilities": ["site"]

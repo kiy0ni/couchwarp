@@ -3,19 +3,14 @@ import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Choice } from '../components/Choice'
 import { ConfirmButton } from '../components/ConfirmButton'
 import { Icon } from '../components/Icon'
+import { Link } from '../components/Link'
 import { Page, Section } from '../components/Page'
 import { InviteLink, RoomManager } from '../components/RoomManager'
 import { Shell } from '../components/Shell'
 import { t } from '../i18n'
 import { useAccount } from '../lib/account'
-import {
-  desktop,
-  type HostingState,
-  isDesktop,
-  type StartRequest,
-  system,
-  type WindowInfo,
-} from '../lib/desktop'
+import { desktop, type HostingState, isDesktop, system, type WindowInfo } from '../lib/desktop'
+import { usePreferences } from '../lib/preferences'
 
 /** In the desktop app, share a window; in a browser, get the app. */
 export function Host() {
@@ -111,8 +106,7 @@ function HostDesktop() {
 
 const SETTINGS_KEY = 'couchwarp.host'
 
-type Quality = Pick<StartRequest, 'fps' | 'bitrateMbps' | 'maxHeight'>
-interface Draft extends Quality {
+interface Draft {
   title: string
   game: string
   maxPlayers: number
@@ -128,9 +122,6 @@ const DEFAULTS: Draft = {
   public: false,
   relayOnly: false,
   turnMinutes: null,
-  fps: 60,
-  bitrateMbps: 12,
-  maxHeight: 1080,
 }
 
 function savedDraft(): Draft {
@@ -143,6 +134,7 @@ function savedDraft(): Draft {
 
 function Setup({ lastError }: { lastError: string | null }) {
   const { account } = useAccount()
+  const prefs = usePreferences()
   const [draft, setDraft] = useState(savedDraft)
   const [chosen, setChosen] = useState<string | null>(null)
   const [error, setError] = useState(lastError)
@@ -166,9 +158,14 @@ function Setup({ lastError }: { lastError: string | null }) {
         public: draft.public,
         relayOnly: draft.relayOnly,
         turnMinutes: draft.turnMinutes,
-        fps: draft.fps,
-        bitrateMbps: draft.bitrateMbps,
-        maxHeight: draft.maxHeight,
+        fps: prefs.hostFps,
+        bitrateMbps: prefs.hostBitrate,
+        maxHeight: prefs.hostMaxHeight,
+        keepAwake: prefs.hostKeepAwake,
+        focusLock: prefs.hostFocusLock,
+        bubble: prefs.hostBubble,
+        port: prefs.hostPort,
+        stun: prefs.hostStun,
       })
     } catch (reason) {
       setError(String(reason))
@@ -254,40 +251,17 @@ function Setup({ lastError }: { lastError: string | null }) {
               </label>
             </div>
           </Section>
-          <Section title={t.host.qualityTitle}>
-            <div className="card stack">
-              <Choice<string>
-                label={t.host.resolutionLabel}
-                value={String(draft.maxHeight)}
-                options={[
-                  ['720', '720p'],
-                  ['1080', '1080p'],
-                  ['1440', '1440p'],
-                ]}
-                onChange={(height) => change({ maxHeight: Number(height) })}
-              />
-              <Choice<string>
-                label={t.host.fpsLabel}
-                value={String(draft.fps)}
-                options={[
-                  ['30', t.host.fps(30)],
-                  ['60', t.host.fps(60)],
-                ]}
-                onChange={(fps) => change({ fps: Number(fps) })}
-              />
-              <Choice<string>
-                label={t.host.bitrateLabel}
-                value={String(draft.bitrateMbps)}
-                options={[
-                  ['6', t.host.bitrate(6)],
-                  ['12', t.host.bitrate(12)],
-                  ['20', t.host.bitrate(20)],
-                  ['30', t.host.bitrate(30)],
-                ]}
-                onChange={(mbps) => change({ bitrateMbps: Number(mbps) })}
-              />
-              <p className="field__help">{t.host.bitrateHelp}</p>
-            </div>
+          <Section
+            title={t.host.qualityTitle}
+            actions={
+              <Link to="/parametres/hote" className="link-button">
+                {t.host.change}
+              </Link>
+            }
+          >
+            <p className="card card__text">
+              {t.host.quality(prefs.hostMaxHeight, prefs.hostFps, prefs.hostBitrate)}
+            </p>
           </Section>
           <button type="submit" className="button button--large" disabled={!chosen}>
             {chosen ? t.host.start : t.host.chooseFirst}

@@ -1,7 +1,9 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
+import { ConfirmButton } from '../components/ConfirmButton'
 import { Link } from '../components/Link'
 import { Page, Section } from '../components/Page'
+import { SettingRow, Switch } from '../components/SettingRow'
 import { Shell } from '../components/Shell'
 import { t } from '../i18n'
 import { useAccount } from '../lib/account'
@@ -11,7 +13,9 @@ import {
   type Friend,
   type FriendLists,
   fetchFriends,
+  type Permissions,
   type Person,
+  setPermissions,
 } from '../lib/friends'
 import { navigate } from '../lib/router'
 
@@ -64,6 +68,9 @@ export function Friends() {
                         key={friend.userId}
                         friend={friend}
                         onRemove={() => act(dropFriend(friend.userId))}
+                        onPermissions={(permissions) =>
+                          act(setPermissions(friend.userId, permissions))
+                        }
                       />
                     ))}
                   </ul>
@@ -77,6 +84,9 @@ export function Friends() {
                         key={friend.userId}
                         friend={friend}
                         onRemove={() => act(dropFriend(friend.userId))}
+                        onPermissions={(permissions) =>
+                          act(setPermissions(friend.userId, permissions))
+                        }
                       />
                     ))}
                   </ul>
@@ -134,9 +144,18 @@ export function Friends() {
   )
 }
 
-function FriendRow({ friend, onRemove }: { friend: Friend; onRemove(): void }) {
+function FriendRow({
+  friend,
+  onRemove,
+  onPermissions,
+}: {
+  friend: Friend
+  onRemove(): void
+  onPermissions(permissions: Permissions): void
+}) {
   const presence = friend.presence
   const where = presence?.title || presence?.game || ''
+  const dialog = useRef<HTMLDialogElement>(null)
   return (
     <li className="people__item">
       <Avatar name={friend.displayName} url={friend.avatarUrl} />
@@ -160,10 +179,76 @@ function FriendRow({ friend, onRemove }: { friend: Friend; onRemove(): void }) {
             {t.friends.join}
           </button>
         )}
-        <button type="button" className="link-button" onClick={onRemove}>
-          {t.friends.remove}
+        <button
+          type="button"
+          className="button button--secondary button--small"
+          onClick={() => dialog.current?.showModal()}
+        >
+          {t.friends.manage}
         </button>
       </span>
+      <dialog
+        ref={dialog}
+        className="menu friend-dialog"
+        aria-labelledby={`friend-${friend.userId}`}
+      >
+        <div className="friend-dialog__head">
+          <Avatar name={friend.displayName} url={friend.avatarUrl} />
+          <h2 id={`friend-${friend.userId}`} className="menu__title">
+            {friend.displayName}
+          </h2>
+        </div>
+        <p className="menu__note">{t.friends.permissionsLead}</p>
+        <div className="settings__rows">
+          <div className="setting">
+            <div className="setting__text">
+              <span className="setting__title">{t.friends.pad}</span>
+              <p className="setting__help">{t.friends.padHelp}</p>
+            </div>
+            <div className="setting__control">
+              <input
+                type="checkbox"
+                role="switch"
+                className="switch"
+                checked
+                aria-checked
+                disabled
+                aria-label={t.friends.pad}
+              />
+            </div>
+          </div>
+          {(['keyboard', 'mouse'] as const).map((input) => (
+            <SettingRow
+              key={input}
+              id={`friend-${friend.userId}-${input}`}
+              title={t.friends.inputs[input]}
+              help={t.friends.inputsHelp[input]}
+            >
+              <Switch
+                id={`friend-${friend.userId}-${input}`}
+                checked={friend.permissions[input]}
+                onChange={(checked) => onPermissions({ ...friend.permissions, [input]: checked })}
+              />
+            </SettingRow>
+          ))}
+        </div>
+        <div className="menu__actions">
+          <button type="button" className="button" onClick={() => dialog.current?.close()}>
+            {t.friends.done}
+          </button>
+          <ConfirmButton
+            className="button button--danger"
+            question={t.friends.removeQuestion(friend.displayName)}
+            confirmLabel={t.friends.remove}
+            onConfirm={() => {
+              dialog.current?.close()
+              onRemove()
+            }}
+          >
+            {t.friends.remove}
+          </ConfirmButton>
+        </div>
+      </dialog>
     </li>
   )
 }

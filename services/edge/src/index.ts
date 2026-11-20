@@ -132,7 +132,8 @@ async function sha256(text: string): Promise<string> {
 
 function roomRequest(request: Request, path: string, arrival?: Arrival): Request {
   const forwarded = new Request(`https://room/${path}`, request)
-  if (arrival) forwarded.headers.set(ARRIVAL_HEADER, JSON.stringify(arrival))
+  // Encoded: names may hold any character, and header values are ASCII.
+  if (arrival) forwarded.headers.set(ARRIVAL_HEADER, encodeURIComponent(JSON.stringify(arrival)))
   return forwarded
 }
 

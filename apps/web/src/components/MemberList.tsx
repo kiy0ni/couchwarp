@@ -15,7 +15,8 @@ interface Props {
   /** The guest looking at the list, to mark them and keep actions off themselves. */
   selfId?: number | null
   onCommand(command: HostCommand): void
-  onReport(member: Member): void
+  /** Without it, the list offers no report: the host's bubble sends people to the app. */
+  onReport?(member: Member): void
 }
 
 /** Everyone in the room, players first, with what the viewer may do to each. */
@@ -65,9 +66,11 @@ export function MemberList({ room, viewer, selfId = null, onCommand, onReport }:
                   {asked.has(member.userId) ? t.friends.added : t.friends.add}
                 </button>
               )}
-              <button type="button" className="link-button" onClick={() => onReport(member)}>
-                {t.report.open}
-              </button>
+              {onReport && (
+                <button type="button" className="link-button" onClick={() => onReport(member)}>
+                  {t.report.open}
+                </button>
+              )}
             </span>
           )}
         </li>

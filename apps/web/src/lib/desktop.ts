@@ -54,6 +54,15 @@ export interface StartRequest {
   fps: number
   bitrateMbps: number
   maxHeight: number
+  /** The computer and screen stay awake while the game runs. */
+  keepAwake: boolean
+  /** Guests' keys wait while the game window is not in front. */
+  focusLock: boolean
+  /** The small window over the game to manage it. */
+  bubble: boolean
+  /** UDP port for guests, 0 for any. */
+  port: number
+  stun: string
 }
 
 export const desktop = {

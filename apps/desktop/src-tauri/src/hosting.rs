@@ -14,6 +14,9 @@ use tauri::{AppHandle, Emitter};
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
+use crate::awake::KeepAwake;
+use crate::bubble;
+
 /// How long closing the app waits for the room to hear that it closed.
 const FAREWELL: Duration = Duration::from_secs(3);
 
@@ -104,10 +107,18 @@ pub struct StartRequest {
     pub fps: u32,
     pub bitrate_mbps: u32,
     pub max_height: u32,
+    pub keep_awake: bool,
+    /// Guests' keys wait while the game window is not in front.
+    pub focus_lock: bool,
+    /// The small window over the game, while it runs.
+    pub bubble: bool,
+    /// UDP port for guests, 0 for any free one.
+    pub port: u16,
+    pub stun: String,
 }
 
 impl StartRequest {
-    fn options(self, server: &str) -> Options {
+    fn options(&self, server: &str) -> Options {
         let text = |value: Option<String>| {
             value
                 .map(|text| text.trim().to_owned())
@@ -117,9 +128,13 @@ impl StartRequest {
             fps: self.fps.clamp(30, 120),
             bitrate_mbps: self.bitrate_mbps.clamp(2, 50),
             max_height: self.max_height.clamp(480, 2160),
+            port: self.port,
+            stun: text(Some(self.stun.clone())).unwrap_or_else(|| Options::new(server).stun),
+            // Only a Mac sends keys to the game alone, so only there may the lock be off.
+            ignore_focus: !self.focus_lock && couchwarp_host::platform::KEYS_REACH_GAME_ONLY,
             settings: SettingsRequest {
-                title: text(self.title),
-                game: text(self.game),
+                title: text(self.title.clone()),
+                game: text(self.game.clone()),
                 max_players: self.max_players.map(|players| players.clamp(1, 8)),
                 public: self.public,
                 relay_only: self.relay_only,
@@ -169,6 +184,7 @@ impl Hosting {
         let publish = Publisher {
             app,
             state: self.state.clone(),
+            bubble: request.bubble,
         };
         publish.set(HostingState::Starting {
             window: info.clone(),
@@ -176,10 +192,12 @@ impl Hosting {
 
         let (stop_tx, stop) = oneshot::channel();
         let options = request.options(&server);
+        let keep_awake = request.keep_awake;
         let thread = std::thread::Builder::new()
             .name("host".to_owned())
             .spawn(move || {
                 // Found again on this thread: a window handle stays on the thread using it.
+                let _awake = keep_awake.then(KeepAwake::start);
                 let outcome = match find_window(&info.id) {
                     Ok(Some(window)) => run(&window, info, options, &server, stop, &publish),
                     Ok(None) => Err(anyhow::anyhow!("the window closed before the game started")),
@@ -227,10 +245,21 @@ impl Hosting {
 struct Publisher {
     app: AppHandle,
     state: Arc<Mutex<Option<HostingState>>>,
+    /// Shows the bubble while the game is live.
+    bubble: bool,
 }
 
 impl Publisher {
     fn set(&self, state: HostingState) {
+        match state {
+            HostingState::Live { .. } if self.bubble => {
+                if let Err(error) = bubble::open(&self.app) {
+                    warn!(%error, "the bubble did not open");
+                }
+            }
+            HostingState::Idle { .. } => bubble::close(&self.app),
+            _ => {}
+        }
         *self.state.lock().expect("never poisoned") = Some(state.clone());
         if let Err(error) = self.app.emit("hosting", state) {
             warn!(%error, "hosting state not sent to the page");

@@ -1,7 +1,8 @@
 import type { ChatMessage, PadType } from '@couchwarp/protocol'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChatPanel } from '../components/ChatPanel'
 import { Choice } from '../components/Choice'
+import { GameBubble } from '../components/GameBubble'
 import { KeyboardHelp } from '../components/KeyboardHelp'
 import { MemberList } from '../components/MemberList'
 import { PlayerBadge } from '../components/PlayerBadge'
@@ -10,13 +11,13 @@ import { TouchPad } from '../components/TouchPad'
 import { t } from '../i18n'
 import { latencyQuality } from '../lib/latency'
 import type { PadState } from '../lib/pad-state'
+import { preferences, usePreferences } from '../lib/preferences'
 import type { EndReason } from '../lib/session'
 import { useGamepads } from '../lib/use-gamepads'
-import { type KeyboardMode, useInputForwarding } from '../lib/use-input'
+import { type KeyboardMode, type Shortcut, useInputForwarding } from '../lib/use-input'
 import { countdown, useNow } from '../lib/use-now'
 import { type Measures, useStream } from '../lib/use-stream'
 
-const CHROME_IDLE_MS = 3000
 /** How long a chat message stays over the game while the chat is closed. */
 const TOAST_MS = 5000
 
@@ -27,19 +28,6 @@ async function enterFullscreen(element: HTMLElement): Promise<void> {
   await element.requestFullscreen({ navigationUI: 'hide' })
   // Chromium only: Escape and system shortcuts reach the game instead of the browser.
   await (navigator as KeyboardLockNavigator).keyboard?.lock()
-}
-
-/** Shows the top bar while the pointer moves, hides it after a few idle seconds. */
-function useIdleChrome(): [visible: boolean, wake: () => void] {
-  const [visible, setVisible] = useState(true)
-  const timer = useRef(0)
-  const wake = () => {
-    setVisible(true)
-    window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => setVisible(false), CHROME_IDLE_MS)
-  }
-  useEffect(() => () => window.clearTimeout(timer.current), [])
-  return [visible, wake]
 }
 
 function ms(value: number | null): string {
@@ -87,15 +75,16 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
   const { room, me, session } = stream
   const gamepads = useGamepads()
   const [touchScreen] = useState(() => matchMedia('(pointer: coarse)').matches)
+  const prefs = usePreferences()
   const [keyboardChoice, setKeyboardChoice] = useState<'keys' | 'pad' | null>(null)
-  const [touchWanted, setTouchWanted] = useState(true)
+  const [touchWanted, setTouchWanted] = useState(() => preferences().touchPad)
   const touch = useRef<PadState | null>(null)
 
   // Until the room state arrives, the guest is taken as a player: the host checks anyway.
   const playing = me === null || me.role !== 'spectator'
   const keyboardAllowed = me?.keyboard ?? false
   // Playing the keyboard as a controller only helps when the host can play controllers.
-  const preferred = keyboardChoice ?? (stream.virtualPads ? 'pad' : 'keys')
+  const preferred = keyboardChoice ?? (stream.virtualPads ? prefs.keyboardMode : 'keys')
   const keyboardMode: KeyboardMode = !playing
     ? 'off'
     : keyboardAllowed
@@ -109,32 +98,51 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
 
   const mouseAllowed = playing && (me?.mouse ?? false)
   const [pointerLocked, setPointerLocked] = useState(false)
+  const openMenu = useCallback(() => menu.current?.showModal(), [])
+  const openChat = useCallback(() => {
+    chatDialog.current?.showModal()
+    setChatOpen(true)
+  }, [])
+  const onShortcut = useCallback(
+    (shortcut: Shortcut) => {
+      if (shortcut === 'menu') openMenu()
+      else if (shortcut === 'chat') openChat()
+      else if (surface.current) {
+        enterFullscreen(surface.current).catch((error) => console.warn(error))
+      }
+    },
+    [openMenu, openChat],
+  )
   useInputForwarding(playing ? session : null, surface, {
     keyboardMode,
     touch,
     mouse: mouseAllowed,
     onPadRemoved: stream.forgetPad,
     onPointerLock: setPointerLocked,
+    onShortcut,
   })
-  const [chromeVisible, wakeChrome] = useIdleChrome()
   const notices = useChatNotices(stream.chat, chatOpen, me?.id ?? null)
+  // The controller type picked in the settings, sent once the room knows this guest.
+  const myId = me?.id
+  const myPadType = me?.padType
+  const padTypeSentFor = useRef<number | null>(null)
+  useEffect(() => {
+    if (myId === undefined || !stream.virtualPads || padTypeSentFor.current === myId) return
+    padTypeSentFor.current = myId
+    const wanted = preferences().padType
+    if (myPadType !== wanted) {
+      session?.sendRoom({ type: 'set-pad-type', guestId: myId, padType: wanted })
+    }
+  }, [myId, myPadType, stream.virtualPads, session])
   const turnEndsAt = room?.turnEndsAt ?? null
   const now = useNow(turnEndsAt !== null)
-  const showChrome = chromeVisible || !stream.hasPicture || stream.paused || !playing
   const players = [...stream.slots.values()].sort((a, b) => a - b)
   const placeInLine = me ? (room?.queue.indexOf(me.id) ?? -1) + 1 : 0
   const median = stream.measures.median
+  const slow = median !== null && latencyQuality(median) === 'poor'
 
   return (
-    <main
-      ref={surface}
-      className="play"
-      tabIndex={-1}
-      aria-label={t.join.title(code)}
-      data-idle={showChrome ? undefined : true}
-      onPointerMove={wakeChrome}
-      onPointerDown={wakeChrome}
-    >
+    <main ref={surface} className="play" tabIndex={-1} aria-label={t.join.title(code)}>
       {/* biome-ignore lint/a11y/useMediaCaption: a live game stream has no caption source */}
       <video ref={video} className="play__video" playsInline autoPlay disablePictureInPicture />
 
@@ -164,7 +172,17 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
       {mouseAllowed && stream.hasPicture && !pointerLocked && !touchScreen && (
         <p className="play__hint">{t.room.mouseHint}</p>
       )}
-      {notices.toast && (
+      {prefs.connectionWarnings && slow && stream.hasPicture && (
+        <p className="play__notice play__notice--warning" role="status">
+          {t.play.slowConnection}
+        </p>
+      )}
+      {stream.soundBlocked && (
+        <button type="button" className="button play__sound" onClick={stream.enableSound}>
+          {t.play.enableSound}
+        </button>
+      )}
+      {prefs.chatOverGame && notices.toast && (
         <p className="play__toast" role="status">
           <span className="chat__name">{notices.toast.name}</span> {notices.toast.text}
         </p>
@@ -172,57 +190,39 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
 
       {showTouch && <TouchPad state={touch} />}
 
-      <div className="play__bar">
-        <ul className="play__players">
-          {players.map((slot) => (
-            <li key={slot}>
-              <PlayerBadge slot={slot} />
-            </li>
-          ))}
-        </ul>
+      <GameBubble
+        unread={notices.unread}
+        attention={!stream.hasPicture || stream.paused || !playing}
+        onOpen={openMenu}
+        onMoved={() => surface.current?.focus()}
+      >
+        {players.length > 0 && (
+          <span className="bubble__players">
+            {players.map((slot) => (
+              <PlayerBadge key={slot} slot={slot} />
+            ))}
+          </span>
+        )}
         {turnEndsAt !== null && (
-          <p className="play__turn">
-            <span className="play__latency-label">{t.room.turnLeft}</span>
+          <span className="bubble__item">
+            <span className="visually-hidden">{t.room.turnLeft}</span>
             <span className="num">{countdown(turnEndsAt - now)}</span>
-          </p>
+          </span>
         )}
-        {stream.soundBlocked && (
-          <button
-            type="button"
-            className="button button--secondary button--small"
-            onClick={stream.enableSound}
+        {prefs.latencyOnBubble && (
+          <span
+            className="bubble__item play__latency"
+            data-quality={median === null ? undefined : latencyQuality(median)}
           >
-            {t.play.enableSound}
-          </button>
+            <span className="num">{ms(median)}</span>
+            {median !== null && (
+              <span className="visually-hidden">
+                {t.play.latency} {qualityLabel(latencyQuality(median))}
+              </span>
+            )}
+          </span>
         )}
-        <p
-          className="play__latency"
-          data-quality={median === null ? undefined : latencyQuality(median)}
-        >
-          <span className="play__latency-label">{t.play.latency}</span>
-          <span className="num">{ms(median)}</span>
-          {median !== null && (
-            <span className="visually-hidden">{qualityLabel(latencyQuality(median))}</span>
-          )}
-        </p>
-        <button
-          type="button"
-          className="button button--secondary button--small"
-          onClick={() => {
-            chatDialog.current?.showModal()
-            setChatOpen(true)
-          }}
-        >
-          {t.room.chatOpen(notices.unread)}
-        </button>
-        <button
-          type="button"
-          className="button button--secondary button--small"
-          onClick={() => menu.current?.showModal()}
-        >
-          {t.play.menu}
-        </button>
-      </div>
+      </GameBubble>
 
       <ReportDialog target={reporting} onClose={() => setReporting(null)} />
 
@@ -252,6 +252,19 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
       </dialog>
 
       <dialog ref={menu} className="menu" onClose={() => surface.current?.focus()}>
+        <div className="menu__head">
+          <h2 className="menu__title">{t.play.menu}</h2>
+          <button
+            type="button"
+            className="button button--secondary button--small"
+            onClick={() => {
+              menu.current?.close()
+              openChat()
+            }}
+          >
+            {t.room.chatOpen(notices.unread)}
+          </button>
+        </div>
         <h2 className="menu__title">{t.play.controlsTitle}</h2>
         {stream.virtualPads === false && <p className="menu__note">{t.play.padsUnavailable}</p>}
         {playing && !keyboardAllowed && (

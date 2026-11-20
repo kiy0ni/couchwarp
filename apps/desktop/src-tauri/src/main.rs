@@ -5,6 +5,8 @@
 // No console window behind the app on Windows.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod awake;
+mod bubble;
 mod commands;
 mod hosting;
 
@@ -63,6 +65,8 @@ fn main() {
             commands::sign_out,
             commands::input_allowed,
             commands::open_privacy_settings,
+            commands::set_bubble_open,
+            commands::show_main_window,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

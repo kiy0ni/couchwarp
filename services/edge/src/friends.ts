@@ -6,6 +6,8 @@
  * - `GET    /api/friends`
  * - `POST   /api/friends`: `{ userId }`, asks, or accepts their request if there is one
  * - `DELETE /api/friends/:userId`: declines, cancels or ends a friendship
+ * - `PUT    /api/friends/:userId/permissions`: `{ keyboard, mouse }`, what this friend may
+ *   use from the start in the games you host
  */
 
 import { currentUser, type User } from './auth/sessions'
@@ -28,6 +30,8 @@ export interface Friend {
   displayName: string
   avatarUrl: string | null
   presence: Presence | null
+  /** What you let this friend do in your games, beyond the controller. */
+  permissions: { keyboard: boolean; mouse: boolean }
 }
 
 interface FriendRow {
@@ -36,6 +40,8 @@ interface FriendRow {
   avatar_url: string | null
   accepted_at: number | null
   incoming: number
+  keyboard: number | null
+  mouse: number | null
 }
 
 interface PresenceRow {
@@ -61,14 +67,21 @@ export async function handleFriends(request: Request, env: Env): Promise<Respons
     if (typeof body?.userId !== 'string') return problem(400, 'invalid-user')
     return ask(env, user, body.userId)
   }
+  const permissions = pathname.match(/^\/api\/friends\/([0-9a-zA-Z-]{1,64})\/permissions$/)?.[1]
+  if (permissions && request.method === 'PUT') return grant(request, env, user, permissions)
   const target = pathname.match(/^\/api\/friends\/([0-9a-zA-Z-]{1,64})$/)?.[1]
   if (target && request.method === 'DELETE') {
-    await env.DB.prepare(
-      `DELETE FROM friendships WHERE (requester_id = ? AND addressee_id = ?)
-         OR (requester_id = ? AND addressee_id = ?)`,
-    )
-      .bind(user.id, target, target, user.id)
-      .run()
+    await env.DB.batch([
+      env.DB.prepare(
+        `DELETE FROM friendships WHERE (requester_id = ? AND addressee_id = ?)
+           OR (requester_id = ? AND addressee_id = ?)`,
+      ).bind(user.id, target, target, user.id),
+      // Permissions only make sense between friends.
+      env.DB.prepare(
+        `DELETE FROM friend_permissions WHERE (owner_id = ? AND friend_id = ?)
+           OR (owner_id = ? AND friend_id = ?)`,
+      ).bind(user.id, target, target, user.id),
+    ])
     return json(await friends(env, user))
   }
   return problem(404, 'not-found')
@@ -106,13 +119,38 @@ async function ask(env: Env, user: User, otherId: string): Promise<Response> {
   return json(await friends(env, user))
 }
 
+async function grant(request: Request, env: Env, user: User, friendId: string): Promise<Response> {
+  const body = (await request.json().catch(() => null)) as {
+    keyboard?: unknown
+    mouse?: unknown
+  } | null
+  if (typeof body?.keyboard !== 'boolean' || typeof body.mouse !== 'boolean') {
+    return problem(400, 'invalid-permissions')
+  }
+  const friendship = await env.DB.prepare(
+    `SELECT 1 FROM friendships WHERE accepted_at IS NOT NULL
+       AND ((requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?))`,
+  )
+    .bind(user.id, friendId, friendId, user.id)
+    .first()
+  if (!friendship) return problem(404, 'not-a-friend')
+  await env.DB.prepare(
+    `INSERT INTO friend_permissions (owner_id, friend_id, keyboard, mouse) VALUES (?, ?, ?, ?)
+     ON CONFLICT (owner_id, friend_id) DO UPDATE SET keyboard = excluded.keyboard, mouse = excluded.mouse`,
+  )
+    .bind(user.id, friendId, body.keyboard ? 1 : 0, body.mouse ? 1 : 0)
+    .run()
+  return json(await friends(env, user))
+}
+
 /** Friends with their presence, then requests received and sent. */
 export async function friends(env: Env, user: User) {
   const { results } = await env.DB.prepare(
     `SELECT users.id, users.display_name, users.avatar_url, f.accepted_at,
-       (f.addressee_id = ?1) AS incoming
+       (f.addressee_id = ?1) AS incoming, p.keyboard, p.mouse
      FROM friendships f
      JOIN users ON users.id = CASE WHEN f.requester_id = ?1 THEN f.addressee_id ELSE f.requester_id END
+     LEFT JOIN friend_permissions p ON p.owner_id = ?1 AND p.friend_id = users.id
      WHERE f.requester_id = ?1 OR f.addressee_id = ?1
      ORDER BY users.display_name`,
   )
@@ -131,7 +169,11 @@ export async function friends(env: Env, user: User) {
   })
   return {
     friends: accepted.map(
-      (row): Friend => ({ ...person(row), presence: presence.get(row.id) ?? null }),
+      (row): Friend => ({
+        ...person(row),
+        presence: presence.get(row.id) ?? null,
+        permissions: { keyboard: row.keyboard === 1, mouse: row.mouse === 1 },
+      }),
     ),
     incoming: results.filter((row) => row.accepted_at === null && row.incoming).map(person),
     outgoing: results.filter((row) => row.accepted_at === null && !row.incoming).map(person),

@@ -14,6 +14,13 @@ export interface Friend extends Person {
     /** Only for a public game. */
     roomCode: string | null
   } | null
+  /** What you let this friend use in your games, beyond the controller. */
+  permissions: Permissions
+}
+
+export interface Permissions {
+  keyboard: boolean
+  mouse: boolean
 }
 
 export interface FriendLists {
@@ -39,4 +46,18 @@ export async function askFriend(userId: string): Promise<FriendLists> {
 /** Declines, cancels or ends, whichever applies. */
 export async function dropFriend(userId: string): Promise<FriendLists> {
   return lists(await accountRequest(`/api/friends/${encodeURIComponent(userId)}`, 'DELETE'))
+}
+
+/** What this friend may use from the start in the games you host. */
+export async function setPermissions(
+  userId: string,
+  permissions: Permissions,
+): Promise<FriendLists> {
+  return lists(
+    await accountRequest(
+      `/api/friends/${encodeURIComponent(userId)}/permissions`,
+      'PUT',
+      permissions,
+    ),
+  )
 }

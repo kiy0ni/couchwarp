@@ -5,6 +5,7 @@ import { Shell } from '../components/Shell'
 import { t } from '../i18n'
 import { useAccount } from '../lib/account'
 import { padName } from '../lib/gamepads'
+import { preferences } from '../lib/preferences'
 import { lookUpRoom, type RoomPreview } from '../lib/session'
 import { useGamepads } from '../lib/use-gamepads'
 
@@ -89,6 +90,10 @@ export function Join({ code, onPlay, onBack, onClosed }: Props) {
     event.preventDefault()
     if (!trimmed || !webrtc) return
     saveName(trimmed)
+    // The press on Play is the gesture browsers ask for before going full screen.
+    if (preferences().fullscreenOnStart) {
+      document.documentElement.requestFullscreen?.().catch(() => undefined)
+    }
     onPlay(trimmed)
   }
 

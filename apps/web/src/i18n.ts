@@ -2,6 +2,16 @@ import type { EndReason } from './lib/session'
 
 const fr = {
   common: { cancel: 'Annuler' },
+  bubble: {
+    move: 'Glisser pour déplacer',
+    guests: (count: number) =>
+      count === 0 ? 'personne' : count === 1 ? '1 invité' : `${count} invités`,
+    close: 'Réduire',
+    copy: 'Copier le lien',
+    stats: (fps: string, ms: string) => `${fps} i/s, ${ms} ms`,
+    openApp: 'Ouvrir Couchwarp',
+    stopQuestion: 'Arrêter pour tout le monde ?',
+  },
   nav: {
     label: 'Navigation principale',
     skip: 'Aller au contenu',
@@ -14,12 +24,109 @@ const fr = {
     waiting: (count: number) =>
       count === 1 ? '1 demande en attente' : `${count} demandes en attente`,
     accountHint: 'Compte et réglages',
+    joinLabel: 'Code ou lien d’une partie',
+    joinPlaceholder: 'Rejoindre avec un code ou un lien',
+    joinInvalid: 'Ce n’est pas un code de partie.',
   },
   settings: {
     title: 'Paramètres',
-    tabs: { account: 'Compte', controllers: 'Manettes', keyboard: 'Clavier', app: 'Application' },
-    controllersLead:
-      'Chaque manette branchée reçoit un numéro de joueur. Appuie sur ses boutons pour vérifier qu’elle répond.',
+    lead: 'Règle Couchwarp sur cet appareil. Les choix sont gardés ici, pas sur le serveur.',
+    tabs: {
+      game: 'En jeu',
+      host: 'Hôte',
+      network: 'Réseau',
+      shortcuts: 'Raccourcis',
+      controllers: 'Manettes',
+      account: 'Compte',
+      app: 'Application',
+    },
+    headings: {
+      game: 'En jeu',
+      host: 'Quand tu héberges',
+      network: 'Réseau de l’hôte',
+      shortcuts: 'Raccourcis en jeu',
+      controllers: 'Tester tes manettes',
+      account: 'Ton compte',
+      app: 'Application',
+    },
+    leads: {
+      game: 'Ce que tu vois et comment tu joues quand tu rejoins une partie.',
+      host: 'Les réglages de départ de tes parties. L’image s’adapte ensuite toute seule à la connexion des invités.',
+      network: 'À changer seulement si les invités n’arrivent pas à se connecter.',
+      shortcuts:
+        'Ils ne sont jamais envoyés au jeu. Ctrl et Maj ensemble, une combinaison que les jeux n’utilisent presque jamais.',
+      controllers:
+        'Chaque manette branchée reçoit un numéro de joueur. Appuie sur ses boutons pour vérifier qu’elle répond.',
+      account: 'Un compte garde tes amis, ton historique et permet d’héberger en public.',
+      app: 'Langue, version et informations.',
+    },
+    game: {
+      fullscreen: 'Plein écran au lancement',
+      fullscreenHelp: 'La partie s’ouvre en plein écran dès que tu cliques sur Jouer.',
+      latency: 'Latence sur la pastille',
+      latencyHelp:
+        'Le délai entre le jeu et ton écran reste visible sur la pastille. Sinon, il est dans le menu.',
+      warnings: 'Avertissements de connexion',
+      warningsHelp: 'Un message s’affiche quand l’image arrive en retard, avec ce qui peut aider.',
+      chat: 'Messages par-dessus le jeu',
+      chatHelp: 'Les nouveaux messages du chat s’affichent quelques secondes sur l’image.',
+      touch: 'Manette tactile',
+      touchHelp:
+        'Sur un téléphone ou une tablette sans manette, des boutons s’affichent sur l’écran.',
+      keyboard: 'Le clavier joue',
+      keyboardHelp:
+        'Quand l’hôte autorise ton clavier : comme une manette, ou avec les touches du jeu.',
+      padType: 'Manette vue par le jeu',
+      padTypeHelp: 'Le jeu affiche les boutons de cette manette. Il faut un hôte Windows.',
+      mouse: 'Vitesse de la souris',
+      mouseHelp: 'Quand l’hôte autorise ta souris.',
+      speed: (value: number) => `× ${value.toLocaleString('fr')}`,
+      bubble: 'Position de la pastille',
+      bubbleHelp: 'Déplace-la en la faisant glisser pendant la partie.',
+      bubbleReset: 'Remettre en haut',
+    },
+    host: {
+      resolution: 'Définition maximale',
+      resolutionHelp:
+        'L’image envoyée ne dépasse pas cette hauteur. Plus bas, elle passe mieux sur une connexion faible.',
+      fps: 'Images par seconde',
+      fpsHelp: '60 pour les jeux d’action, 30 pour économiser la connexion.',
+      bitrate: 'Débit maximal',
+      bitrateHelp:
+        'Le débit baisse tout seul si la connexion d’un invité ne suit pas, puis remonte.',
+      bubble: 'Pastille pendant la partie',
+      bubbleHelp:
+        'Une petite fenêtre reste au-dessus du jeu : code, invités, permissions, arrêt. Les invités ne la voient pas.',
+      awake: 'Garder l’ordinateur éveillé',
+      awakeHelp: 'L’ordinateur et l’écran ne se mettent pas en veille tant qu’une partie tourne.',
+      focus: 'Pause des claviers hors du jeu',
+      focusHelp:
+        'Les touches des invités attendent quand la fenêtre du jeu n’est plus devant. Sur Mac, elles ne vont de toute façon qu’au jeu.',
+    },
+    network: {
+      port: 'Port UDP',
+      portHelp:
+        'Le port où les invités se connectent. 0 en choisit un libre à chaque partie. Fixe-le pour l’ouvrir dans ta box.',
+      stun: 'Serveur STUN',
+      stunHelp: 'Il donne à ton ordinateur son adresse publique, pour que les invités le trouvent.',
+      reset: 'Valeurs par défaut',
+      resetHelp: 'Port choisi automatiquement, serveur STUN de Cloudflare.',
+      resetButton: 'Rétablir',
+    },
+    shortcuts: {
+      menu: 'Ouvrir le menu',
+      menuHelp: 'Joueurs, chat, réglages de la partie, quitter.',
+      chat: 'Ouvrir le chat',
+      chatHelp: 'Écrire aux autres joueurs.',
+      fullscreen: 'Plein écran',
+      fullscreenHelp: 'Le jeu prend tout l’écran. Échap en sort.',
+      mouse: 'Libérer la souris',
+      mouseHelp: 'Quand ta souris joue, elle reste dans le jeu. Un clic sur l’image la reprend.',
+      escape: 'Échap',
+      keyboardTitle: 'Le clavier comme manette',
+    },
+    keyboardLead:
+      'Sans manette, ton clavier en devient une. Ces touches suivent la disposition de ton clavier.',
     noController: 'Aucune manette détectée',
     noControllerHelp:
       'Branche-la en USB ou en Bluetooth, puis appuie sur un bouton : le navigateur ne la montre qu’après.',
@@ -28,17 +135,14 @@ const fr = {
     rightStick: 'Stick droit',
     nonStandard:
       'Cette manette n’utilise pas la disposition standard : certains boutons peuvent être mélangés en jeu.',
-    keyboardLead:
-      'Sans manette, ton clavier en devient une. Ces touches suivent la disposition de ton clavier.',
-    mouseLead:
-      'Quand l’hôte autorise ta souris, clique sur l’image du jeu pour la capturer. Échap la libère.',
-    languageTitle: 'Langue',
-    languageLabel: 'Langue de l’interface',
+    languageLabel: 'Langue',
+    languageHelp: 'La langue de l’interface. La page se recharge.',
     languages: { auto: 'Celle du système', fr: 'Français', en: 'English' },
-    aboutTitle: 'À propos',
     desktopApp: 'Couchwarp pour ordinateur',
     webApp: 'Couchwarp dans le navigateur',
     version: (version: string) => `Version ${version}`,
+    legalTitle: 'Conditions et confidentialité',
+    legalHelp: 'Ce que Couchwarp garde, combien de temps, et les règles de la communauté.',
   },
   host: {
     title: 'Héberger une partie',
@@ -63,12 +167,11 @@ const fr = {
     publicNeedsAccount:
       'Connecte-toi pour lister la partie publiquement. Sans compte, elle reste accessible avec le lien.',
     qualityTitle: 'Image',
-    resolutionLabel: 'Définition maximale',
-    fpsLabel: 'Images par seconde',
+    change: 'Modifier',
+    quality: (height: number, fps: number, mbps: number) =>
+      `${height}p, ${fps} images par seconde, jusqu’à ${mbps} Mbit/s. L’image s’adapte à la connexion de chaque invité.`,
     fps: (count: number) => `${count} i/s`,
-    bitrateLabel: 'Débit maximal',
     bitrate: (mbps: number) => `${mbps} Mbit/s`,
-    bitrateHelp: 'Le débit baisse tout seul si la connexion d’un invité ne suit pas, puis remonte.',
     start: 'Lancer la partie',
     chooseFirst: 'Choisis une fenêtre',
     windowTitle: 'Fenêtre à partager',
@@ -196,8 +299,9 @@ const fr = {
       'sign-in-required': 'Connecte l’application hôte à ton compte pour lister la partie.',
       disabled: 'Les parties publiques ne sont pas encore ouvertes sur ce serveur.',
     },
-    relayLabel: 'Masquer les adresses',
-    relayHelp: 'Tout passe par le relais : personne ne voit l’adresse IP des autres.',
+    relayLabel: 'Cacher l’adresse IP des invités',
+    relayHelp:
+      'Les invités passent par le relais : tu ne vois pas leur adresse IP, au prix de quelques millisecondes. Toujours le cas dans une partie publique. Les invités ne voient jamais l’adresse des autres invités.',
     relayMissing: 'Aucun relais configuré sur ce serveur.',
     hotseatLabel: 'Tour par tour',
     hotseatOff: 'Non',
@@ -285,6 +389,18 @@ const fr = {
     playing: (title: string) => `Joue à ${title}`,
     hosting: (title: string) => `Héberge ${title}`,
     join: 'Rejoindre',
+    manage: 'Gérer',
+    done: 'Terminé',
+    removeQuestion: (name: string) => `Retirer ${name} de tes amis ?`,
+    permissionsLead:
+      'Ce que cet ami peut utiliser dès qu’il rejoint une de tes parties. Tu peux toujours changer d’avis pendant la partie.',
+    pad: 'Manette',
+    padHelp: 'Toujours permise à chaque joueur.',
+    inputs: { keyboard: 'Clavier', mouse: 'Souris' },
+    inputsHelp: {
+      keyboard: 'Ses touches vont au jeu, pas seulement sa manette.',
+      mouse: 'Sa souris bouge et clique dans le jeu.',
+    },
   },
   admin: {
     title: 'Signalements',
@@ -328,6 +444,13 @@ const fr = {
     noController: 'Aucune manette. Appuie sur un bouton pour la réveiller, ou joue au clavier.',
     recentTitle: 'Tes dernières parties',
     rejoin: 'Revenir',
+    thisComputer: 'Cet ordinateur',
+    liveNow: (code: string, guests: number) =>
+      `Partie en cours, code ${code}. ${guests === 0 ? 'Personne n’est encore connecté.' : guests === 1 ? '1 invité connecté.' : `${guests} invités connectés.`}`,
+    manage: 'Gérer la partie',
+    friendsTitle: 'Amis en jeu',
+    nobodyPlaying: 'Aucun ami ne joue en ce moment.',
+    askCode: 'Demande-lui le code',
     noPublic: 'Aucune partie publique pour l’instant.',
     title: 'Rejoindre une partie',
     codeLabel: 'Code de la partie',
@@ -368,6 +491,13 @@ const fr = {
     back: 'Changer de code',
   },
   play: {
+    bubble: 'Menu de la partie',
+    bubbleUnread: (count: number) =>
+      count === 1
+        ? 'Menu de la partie, 1 message non lu'
+        : `Menu de la partie, ${count} messages non lus`,
+    slowConnection:
+      'Connexion lente : l’image arrive en retard. Rapproche-toi de la box ou branche un câble.',
     waiting: 'En attente de l’image…',
     latency: 'Latence',
     paused: 'L’hôte a quitté la fenêtre du jeu. Ton clavier reprend quand il y revient.',
@@ -425,6 +555,15 @@ type Strings = typeof fr
 
 const en: Strings = {
   common: { cancel: 'Cancel' },
+  bubble: {
+    move: 'Drag to move',
+    guests: (count) => (count === 0 ? 'nobody' : count === 1 ? '1 guest' : `${count} guests`),
+    close: 'Shrink',
+    copy: 'Copy the link',
+    stats: (fps, ms) => `${fps} fps, ${ms} ms`,
+    openApp: 'Open Couchwarp',
+    stopQuestion: 'Stop for everyone?',
+  },
   nav: {
     label: 'Main navigation',
     skip: 'Skip to content',
@@ -436,12 +575,108 @@ const en: Strings = {
     moderation: 'Moderation',
     waiting: (count) => (count === 1 ? '1 request waiting' : `${count} requests waiting`),
     accountHint: 'Account and settings',
+    joinLabel: 'Game code or link',
+    joinPlaceholder: 'Join with a code or a link',
+    joinInvalid: 'That is not a game code.',
   },
   settings: {
     title: 'Settings',
-    tabs: { account: 'Account', controllers: 'Controllers', keyboard: 'Keyboard', app: 'App' },
-    controllersLead:
-      'Each connected controller gets a player number. Press its buttons to check it answers.',
+    lead: 'Set up Couchwarp on this device. Choices stay here, not on the server.',
+    tabs: {
+      game: 'In game',
+      host: 'Host',
+      network: 'Network',
+      shortcuts: 'Shortcuts',
+      controllers: 'Controllers',
+      account: 'Account',
+      app: 'App',
+    },
+    headings: {
+      game: 'In game',
+      host: 'When you host',
+      network: 'Host network',
+      shortcuts: 'In-game shortcuts',
+      controllers: 'Test your controllers',
+      account: 'Your account',
+      app: 'App',
+    },
+    leads: {
+      game: 'What you see and how you play when you join a game.',
+      host: 'The starting settings of your games. The picture then adapts to the guests’ connections on its own.',
+      network: 'Change these only if guests cannot connect.',
+      shortcuts:
+        'They never reach the game. Ctrl and Shift together, a combination games almost never use.',
+      controllers:
+        'Each connected controller gets a player number. Press its buttons to check it answers.',
+      account: 'An account keeps your friends and history, and lets you host publicly.',
+      app: 'Language, version and information.',
+    },
+    game: {
+      fullscreen: 'Full screen at start',
+      fullscreenHelp: 'The game opens full screen as soon as you press Play.',
+      latency: 'Latency on the bubble',
+      latencyHelp:
+        'The delay between the game and your screen stays on the bubble. Otherwise it is in the menu.',
+      warnings: 'Connection warnings',
+      warningsHelp: 'A message shows when the picture arrives late, with what can help.',
+      chat: 'Messages over the game',
+      chatHelp: 'New chat messages show over the picture for a few seconds.',
+      touch: 'Touch controller',
+      touchHelp: 'On a phone or tablet without a controller, buttons show on the screen.',
+      keyboard: 'The keyboard plays',
+      keyboardHelp: 'When the host allows your keyboard: as a controller, or with the game’s keys.',
+      padType: 'Controller the game sees',
+      padTypeHelp: 'The game shows this controller’s buttons. Needs a Windows host.',
+      mouse: 'Mouse speed',
+      mouseHelp: 'When the host allows your mouse.',
+      speed: (value) => `× ${value.toLocaleString('en')}`,
+      bubble: 'Bubble position',
+      bubbleHelp: 'Move it by dragging it during the game.',
+      bubbleReset: 'Back to the top',
+    },
+    host: {
+      resolution: 'Highest resolution',
+      resolutionHelp:
+        'The picture sent is never taller than this. Lower goes through weak connections better.',
+      fps: 'Frames per second',
+      fpsHelp: '60 for action games, 30 to spare the connection.',
+      bitrate: 'Highest bitrate',
+      bitrateHelp:
+        'The bitrate drops on its own when a guest’s connection cannot keep up, then climbs back.',
+      bubble: 'Bubble during the game',
+      bubbleHelp:
+        'A small window stays over the game: code, guests, permissions, stop. Guests do not see it.',
+      awake: 'Keep the computer awake',
+      awakeHelp: 'The computer and screen do not sleep while a game is running.',
+      focus: 'Pause keyboards outside the game',
+      focusHelp:
+        'Guests’ keys wait while the game window is not in front. On a Mac they only reach the game anyway.',
+    },
+    network: {
+      port: 'UDP port',
+      portHelp:
+        'Where guests connect. 0 picks a free one each game. Fix it to open it on your router.',
+      stun: 'STUN server',
+      stunHelp: 'It tells your computer its public address, so guests can find it.',
+      reset: 'Defaults',
+      resetHelp: 'Port picked automatically, Cloudflare’s STUN server.',
+      resetButton: 'Restore',
+    },
+    shortcuts: {
+      menu: 'Open the menu',
+      menuHelp: 'Players, chat, game settings, leave.',
+      chat: 'Open the chat',
+      chatHelp: 'Write to the other players.',
+      fullscreen: 'Full screen',
+      fullscreenHelp: 'The game takes the whole screen. Escape leaves it.',
+      mouse: 'Release the mouse',
+      mouseHelp:
+        'When your mouse plays, it stays in the game. A click on the picture takes it back.',
+      escape: 'Escape',
+      keyboardTitle: 'The keyboard as a controller',
+    },
+    keyboardLead:
+      'Without a controller, your keyboard becomes one. These keys follow your keyboard layout.',
     noController: 'No controller found',
     noControllerHelp:
       'Plug it in over USB or Bluetooth, then press a button: browsers only show it after that.',
@@ -450,17 +685,14 @@ const en: Strings = {
     rightStick: 'Right stick',
     nonStandard:
       'This controller does not use the standard layout: some buttons may be mixed up in game.',
-    keyboardLead:
-      'Without a controller, your keyboard becomes one. These keys follow your keyboard layout.',
-    mouseLead:
-      'When the host allows your mouse, click the game picture to capture it. Escape lets it go.',
-    languageTitle: 'Language',
-    languageLabel: 'Interface language',
+    languageLabel: 'Language',
+    languageHelp: 'The interface language. The page reloads.',
     languages: { auto: 'Same as the system', fr: 'Français', en: 'English' },
-    aboutTitle: 'About',
     desktopApp: 'Couchwarp for desktop',
     webApp: 'Couchwarp in the browser',
     version: (version) => `Version ${version}`,
+    legalTitle: 'Terms and privacy',
+    legalHelp: 'What Couchwarp keeps, for how long, and the community rules.',
   },
   host: {
     title: 'Host a game',
@@ -484,13 +716,11 @@ const en: Strings = {
     publicNeedsAccount:
       'Sign in to list the game publicly. Without an account, it stays open to the link.',
     qualityTitle: 'Picture',
-    resolutionLabel: 'Highest resolution',
-    fpsLabel: 'Frames per second',
+    change: 'Change',
+    quality: (height, fps, mbps) =>
+      `${height}p, ${fps} frames per second, up to ${mbps} Mbit/s. The picture adapts to each guest’s connection.`,
     fps: (count) => `${count} fps`,
-    bitrateLabel: 'Highest bitrate',
     bitrate: (mbps) => `${mbps} Mbit/s`,
-    bitrateHelp:
-      'The bitrate drops on its own when a guest’s connection cannot keep up, then climbs back.',
     start: 'Start the game',
     chooseFirst: 'Pick a window',
     windowTitle: 'Window to share',
@@ -616,8 +846,9 @@ const en: Strings = {
       'sign-in-required': 'Sign the host app in to your account to list the game.',
       disabled: 'Public games are not open on this server yet.',
     },
-    relayLabel: 'Hide addresses',
-    relayHelp: 'Everything goes through the relay: nobody sees anyone else’s IP address.',
+    relayLabel: 'Hide guests’ IP addresses',
+    relayHelp:
+      'Guests go through the relay: you do not see their IP address, for a few milliseconds more. Always the case in a public game. Guests never see each other’s address.',
     relayMissing: 'No relay is set up on this server.',
     hotseatLabel: 'Take turns',
     hotseatOff: 'No',
@@ -703,6 +934,18 @@ const en: Strings = {
     playing: (title) => `Playing ${title}`,
     hosting: (title) => `Hosting ${title}`,
     join: 'Join',
+    manage: 'Manage',
+    done: 'Done',
+    removeQuestion: (name) => `Remove ${name} from your friends?`,
+    permissionsLead:
+      'What this friend may use as soon as they join one of your games. You can always change your mind during the game.',
+    pad: 'Controller',
+    padHelp: 'Always allowed for every player.',
+    inputs: { keyboard: 'Keyboard', mouse: 'Mouse' },
+    inputsHelp: {
+      keyboard: 'Their keys reach the game, not only their controller.',
+      mouse: 'Their mouse moves and clicks in the game.',
+    },
   },
   admin: {
     title: 'Reports',
@@ -746,6 +989,13 @@ const en: Strings = {
     noController: 'No controller. Press a button to wake it, or play with the keyboard.',
     recentTitle: 'Your last games',
     rejoin: 'Go back',
+    thisComputer: 'This computer',
+    liveNow: (code, guests) =>
+      `Game running, code ${code}. ${guests === 0 ? 'Nobody has connected yet.' : guests === 1 ? '1 guest connected.' : `${guests} guests connected.`}`,
+    manage: 'Manage the game',
+    friendsTitle: 'Friends playing',
+    nobodyPlaying: 'No friend is playing right now.',
+    askCode: 'Ask them for the code',
     noPublic: 'No public game right now.',
     title: 'Join a game',
     codeLabel: 'Game code',
@@ -782,6 +1032,11 @@ const en: Strings = {
     back: 'Change code',
   },
   play: {
+    bubble: 'Game menu',
+    bubbleUnread: (count) =>
+      count === 1 ? 'Game menu, 1 unread message' : `Game menu, ${count} unread messages`,
+    slowConnection:
+      'Slow connection: the picture arrives late. Move closer to the router or plug in a cable.',
     waiting: 'Waiting for the picture…',
     latency: 'Latency',
     paused: 'The host left the game window. Your keyboard comes back when they return.',

@@ -5,6 +5,7 @@ import { KeyboardTracker } from './keyboard'
 import { keyboardPadState } from './keyboard-pad'
 import { MouseTracker } from './mouse'
 import { NEUTRAL_PAD, type PadState } from './pad-state'
+import { preferences } from './preferences'
 import type { GuestSession } from './session'
 import { VirtualPad } from './virtual-pad'
 
@@ -28,6 +29,8 @@ interface Options {
   mouse: boolean
   onPadRemoved(pad: number): void
   onPointerLock(locked: boolean): void
+  /** Couchwarp's own shortcuts, never sent to the game. See `SHORTCUTS`. */
+  onShortcut(shortcut: Shortcut): void
 }
 
 /**
@@ -38,7 +41,7 @@ interface Options {
 export function useInputForwarding(
   session: GuestSession | null,
   surface: RefObject<HTMLElement | null>,
-  { keyboardMode, touch, mouse: mouseAllowed, onPadRemoved, onPointerLock }: Options,
+  { keyboardMode, touch, mouse: mouseAllowed, onPadRemoved, onPointerLock, onShortcut }: Options,
 ): void {
   // One set of trackers per session: their sequence numbers must keep rising across
   // keyboard mode changes, or the host would take the next packets for late ones.
@@ -105,7 +108,9 @@ export function useInputForwarding(
       onPointerLock(locked())
     }
     const onMouseMove = (event: MouseEvent) => {
-      if (locked()) mouse.move(event.movementX, event.movementY)
+      if (!locked()) return
+      const speed = preferences().mouseSpeed
+      mouse.move(event.movementX * speed, event.movementY * speed)
     }
     const onMouseButton = (event: MouseEvent) => {
       if (!locked()) return
@@ -124,7 +129,14 @@ export function useInputForwarding(
 
     const onKeyDown = (event: KeyboardEvent) => {
       // Typing in the chat or the menu stays there.
-      if (event.isComposing || event.target !== element || keyboardMode === 'off') return
+      if (event.isComposing || event.target !== element) return
+      const shortcut = shortcutOf(event)
+      if (shortcut) {
+        event.preventDefault()
+        onShortcut(shortcut)
+        return
+      }
+      if (keyboardMode === 'off') return
       // Keys belong to the game: no page scrolling, no browser shortcuts.
       event.preventDefault()
       const now = performance.now()
@@ -180,5 +192,30 @@ export function useInputForwarding(
       element.removeEventListener('keyup', onKeyUp)
       element.removeEventListener('blur', releaseAll)
     }
-  }, [session, surface, keyboardMode, touch, mouseAllowed, onPadRemoved, onPointerLock, trackers])
+  }, [
+    session,
+    surface,
+    keyboardMode,
+    touch,
+    mouseAllowed,
+    onPadRemoved,
+    onPointerLock,
+    onShortcut,
+    trackers,
+  ])
+}
+
+export type Shortcut = 'menu' | 'chat' | 'fullscreen'
+
+/** Ctrl and Shift together with a letter: a combination games almost never use. */
+export const SHORTCUTS: Record<Shortcut, string> = {
+  menu: 'KeyM',
+  chat: 'KeyC',
+  fullscreen: 'KeyF',
+}
+
+function shortcutOf(event: KeyboardEvent): Shortcut | null {
+  if (!event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey) return null
+  const found = Object.entries(SHORTCUTS).find(([, code]) => code === event.code)
+  return found ? (found[0] as Shortcut) : null
 }

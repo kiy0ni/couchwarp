@@ -13,7 +13,15 @@ import {
 import { publish, unpublish } from './directory'
 import { iceServersFor } from './ice'
 import { factsFrom } from './reports'
-import { type Account, type Actor, type Policy, RoomModel, type Snapshot } from './room-model'
+import {
+  type Account,
+  type Actor,
+  type Grants,
+  NO_GRANTS,
+  type Policy,
+  RoomModel,
+  type Snapshot,
+} from './room-model'
 
 const MAX_NAME_LENGTH = 24
 /** A thumbnail is a small JPEG; anything bigger is refused. */
@@ -76,7 +84,8 @@ export class Room extends DurableObject<Env> {
   override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
     const [, code = '', route] = url.pathname.split('/')
-    const arrival = JSON.parse(request.headers.get(ARRIVAL_HEADER) ?? 'null') as Arrival | null
+    const header = request.headers.get(ARRIVAL_HEADER)
+    const arrival = header ? (JSON.parse(decodeURIComponent(header)) as Arrival) : null
     switch (route) {
       case 'info':
         return Response.json(this.info())
@@ -243,7 +252,10 @@ export class Room extends DurableObject<Env> {
     this.ctx.storage.kv.put('meta', { ...meta, nextGuestId: guestId + 1 })
     const banKeys = [`ip:${arrival.addressHash}`]
     if (arrival.account) banKeys.push(`user:${arrival.account.userId}`)
-    const joined = model.join(guestId, name, arrival.account, banKeys, Date.now())
+    const grants = arrival.account
+      ? await this.friendGrants(model, arrival.account.userId)
+      : NO_GRANTS
+    const joined = model.join(guestId, name, arrival.account, banKeys, Date.now(), grants)
     if (typeof joined === 'string') return rejection(joined)
 
     const [client, server] = pair()
@@ -255,7 +267,10 @@ export class Room extends DurableObject<Env> {
         type: 'welcome',
         guestId,
         iceServers,
-        relayOnly: model.settings.relayOnly && hasRelay(iceServers),
+        // Strangers join public games: there, guests always go through the relay.
+        relayOnly:
+          (model.settings.relayOnly || model.settings.visibility === 'public') &&
+          hasRelay(iceServers),
       }),
     )
     for (const message of model.chatHistory) {
@@ -403,6 +418,21 @@ export class Room extends DurableObject<Env> {
     )
       .bind(model.code, actorName, action, target?.name ?? '?', target?.userId ?? null, Date.now())
       .run()
+  }
+
+  /** What the host lets this friend do from the start, when the host is signed in. */
+  private async friendGrants(model: RoomModel, userId: string): Promise<Grants> {
+    if (!model.host.userId || model.host.userId === userId) return NO_GRANTS
+    const row = await this.env.DB.prepare(
+      `SELECT p.keyboard, p.mouse FROM friend_permissions p
+       JOIN friendships f ON f.accepted_at IS NOT NULL
+         AND ((f.requester_id = p.owner_id AND f.addressee_id = p.friend_id)
+           OR (f.requester_id = p.friend_id AND f.addressee_id = p.owner_id))
+       WHERE p.owner_id = ? AND p.friend_id = ?`,
+    )
+      .bind(model.host.userId, userId)
+      .first<{ keyboard: number; mouse: number }>()
+    return row ? { keyboard: row.keyboard === 1, mouse: row.mouse === 1 } : NO_GRANTS
   }
 
   private async recordJoin(model: RoomModel, userId: string, hosted = false): Promise<void> {

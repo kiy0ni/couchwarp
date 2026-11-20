@@ -12,6 +12,8 @@ fn main() {
         "sign_out",
         "input_allowed",
         "open_privacy_settings",
+        "set_bubble_open",
+        "show_main_window",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()
