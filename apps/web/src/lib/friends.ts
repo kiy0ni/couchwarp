@@ -1,4 +1,5 @@
 import { accountRequest } from './account'
+import type { ProfileColor } from './profile'
 
 export interface Person {
   userId: string
@@ -7,6 +8,7 @@ export interface Person {
 }
 
 export interface Friend extends Person {
+  color: ProfileColor | null
   presence: {
     title: string
     game: string
@@ -60,4 +62,19 @@ export async function setPermissions(
       permissions,
     ),
   )
+}
+
+export type AddResult = { ok: true; lists: FriendLists } | { ok: false; reason: string }
+
+/** Adds someone by `Name#123456`, or accepts their request when they asked first. */
+export async function askByTag(tag: string): Promise<AddResult> {
+  const response = await accountRequest('/api/friends', 'POST', { tag })
+  if (response.ok) return { ok: true, lists: (await response.json()) as FriendLists }
+  const body = (await response.json().catch(() => ({}))) as { error?: string }
+  return { ok: false, reason: body.error ?? 'failed' }
+}
+
+/** How a person writes their tag for others. */
+export function fullTag(name: string, tag: number | null): string | null {
+  return tag === null ? null : `${name}#${tag}`
 }

@@ -4,7 +4,8 @@
  * in a game or not, and the code only when that game is public.
  *
  * - `GET    /api/friends`
- * - `POST   /api/friends`: `{ userId }`, asks, or accepts their request if there is one
+ * - `POST   /api/friends`: `{ userId }` for someone met in a game, or `{ tag: "Name#123456" }`;
+ *   asks, or accepts their request if there is one
  * - `DELETE /api/friends/:userId`: declines, cancels or ends a friendship
  * - `PUT    /api/friends/:userId/permissions`: `{ keyboard, mouse }`, what this friend may
  *   use from the start in the games you host
@@ -13,6 +14,10 @@
 import { currentUser, type User } from './auth/sessions'
 import { FRESH_FOR_MS } from './directory'
 import { fromOurPages, json, problem } from './http'
+
+const HOUR_MS = 60 * 60 * 1000
+/** Friend requests one person may send by tag in an hour. */
+const REQUESTS_PER_HOUR = 20
 
 /** Past this, an unclosed history row is a room that crashed, not a presence. */
 const PRESENCE_FOR_MS = 12 * 60 * 60 * 1000
@@ -29,6 +34,7 @@ export interface Friend {
   userId: string
   displayName: string
   avatarUrl: string | null
+  color: string | null
   presence: Presence | null
   /** What you let this friend do in your games, beyond the controller. */
   permissions: { keyboard: boolean; mouse: boolean }
@@ -38,6 +44,7 @@ interface FriendRow {
   id: string
   display_name: string
   avatar_url: string | null
+  color: string | null
   accepted_at: number | null
   incoming: number
   keyboard: number | null
@@ -63,7 +70,11 @@ export async function handleFriends(request: Request, env: Env): Promise<Respons
   if (pathname === '/api/friends' && request.method === 'GET') return json(await friends(env, user))
   if (!fromOurPages(request, env)) return problem(403, 'cross-site')
   if (pathname === '/api/friends' && request.method === 'POST') {
-    const body = (await request.json().catch(() => null)) as { userId?: unknown } | null
+    const body = (await request.json().catch(() => null)) as {
+      userId?: unknown
+      tag?: unknown
+    } | null
+    if (typeof body?.tag === 'string') return askByTag(env, user, body.tag)
     if (typeof body?.userId !== 'string') return problem(400, 'invalid-user')
     return ask(env, user, body.userId)
   }
@@ -87,7 +98,39 @@ export async function handleFriends(request: Request, env: Env): Promise<Respons
   return problem(404, 'not-found')
 }
 
-async function ask(env: Env, user: User, otherId: string): Promise<Response> {
+/** `Name#123456`: the name as shown, then the six-digit tag. */
+export function parseTag(text: string): { name: string; tag: number } | null {
+  const match = text.trim().match(/^(.{2,32})#(\d{6})$/u)
+  if (!match?.[1] || !match[2]) return null
+  return { name: match[1].trim(), tag: Number(match[2]) }
+}
+
+const sameName = (a: string, b: string) =>
+  a.normalize('NFC').toLocaleLowerCase('fr') === b.normalize('NFC').toLocaleLowerCase('fr')
+
+/** Adds someone by name and tag. Both must match, so a tag alone finds no one. */
+async function askByTag(env: Env, user: User, text: string): Promise<Response> {
+  const parsed = parseTag(text)
+  if (!parsed) return problem(400, 'invalid-tag')
+  const recent = await env.DB.prepare(
+    'SELECT COUNT(*) AS count FROM friendships WHERE requester_id = ? AND created_at > ?',
+  )
+    .bind(user.id, Date.now() - HOUR_MS)
+    .first<number>('count')
+  if ((recent ?? 0) >= REQUESTS_PER_HOUR) return problem(429, 'too-many-requests')
+  const other = await env.DB.prepare('SELECT id, display_name FROM users WHERE tag = ?')
+    .bind(parsed.tag)
+    .first<{ id: string; display_name: string }>()
+  if (!other || !sameName(other.display_name, parsed.name)) return problem(404, 'no-such-player')
+  return ask(env, user, other.id, { metInGame: false })
+}
+
+async function ask(
+  env: Env,
+  user: User,
+  otherId: string,
+  { metInGame } = { metInGame: true },
+): Promise<Response> {
   if (otherId === user.id) return problem(400, 'invalid-user')
   const theirRequest = await env.DB.prepare(
     'SELECT accepted_at FROM friendships WHERE requester_id = ? AND addressee_id = ?',
@@ -110,7 +153,8 @@ async function ask(env: Env, user: User, otherId: string): Promise<Response> {
   )
     .bind(user.id, otherId)
     .first()
-  if (!playedTogether) return problem(403, 'never-played-together')
+  // From a game's player list, only people actually met there; by tag, anyone named right.
+  if (metInGame && !playedTogether) return problem(403, 'never-played-together')
   await env.DB.prepare(
     'INSERT OR IGNORE INTO friendships (requester_id, addressee_id, created_at) VALUES (?, ?, ?)',
   )
@@ -146,7 +190,7 @@ async function grant(request: Request, env: Env, user: User, friendId: string): 
 /** Friends with their presence, then requests received and sent. */
 export async function friends(env: Env, user: User) {
   const { results } = await env.DB.prepare(
-    `SELECT users.id, users.display_name, users.avatar_url, f.accepted_at,
+    `SELECT users.id, users.display_name, users.avatar_url, users.color, f.accepted_at,
        (f.addressee_id = ?1) AS incoming, p.keyboard, p.mouse
      FROM friendships f
      JOIN users ON users.id = CASE WHEN f.requester_id = ?1 THEN f.addressee_id ELSE f.requester_id END
@@ -171,6 +215,7 @@ export async function friends(env: Env, user: User) {
     friends: accepted.map(
       (row): Friend => ({
         ...person(row),
+        color: row.color,
         presence: presence.get(row.id) ?? null,
         permissions: { keyboard: row.keyboard === 1, mouse: row.mouse === 1 },
       }),

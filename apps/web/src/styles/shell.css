@@ -1250,29 +1250,28 @@ a.list__title {
 }
 
 .profile {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
+  gap: var(--space-lg);
 }
 
-.profile__picture {
-  width: 64px;
-  height: 64px;
-  flex: none;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--color-paper-3);
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 700;
+.profile[data-color] {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--ring) 14%, transparent), transparent 9rem),
+    var(--color-paper-2);
+}
+
+.profile__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md) var(--space-lg);
 }
 
 .profile__who {
   min-width: 0;
-  flex: 1 1 12rem;
+  flex: 1 1 14rem;
   display: flex;
   flex-direction: column;
+  gap: var(--space-2xs);
 }
 
 .profile__name {
@@ -1280,6 +1279,94 @@ a.list__title {
   font-size: var(--text-xl);
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+
+.profile__name-form {
+  width: 100%;
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.profile__name-form .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.swatches {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ring);
+  cursor: pointer;
+  box-shadow: 0 0 0 2px var(--color-paper-2);
+}
+
+.swatch:has(input:checked) {
+  box-shadow:
+    0 0 0 2px var(--color-paper-2),
+    0 0 0 4px var(--color-ink);
+}
+
+.swatch:has(input:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 4px;
+}
+
+.swatch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.badges {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: 2px var(--space-xs);
+  border-radius: 999px;
+  background: var(--color-paper-3);
+  color: var(--color-ink-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.badge[data-badge="team"] {
+  color: var(--color-p4);
+}
+
+.badge[data-badge="pioneer"] {
+  color: var(--color-p2);
+}
+
+.badge[data-badge="host"],
+.badge[data-badge="regular-host"] {
+  color: var(--color-p1);
+}
+
+.badge[data-badge="regular"],
+.badge[data-badge="social"] {
+  color: var(--color-p3);
+}
+
+.badges[data-compact] .badge {
+  padding: 3px;
 }
 
 /* The controller test: sticks on the sides, buttons in the middle. */
@@ -1524,6 +1611,18 @@ html[data-surface="bubble"] body {
   gap: var(--space-sm);
 }
 
+.friend-dialog__who {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.profile__tag {
+  font-family: var(--font-code);
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+}
+
 .switch:disabled {
   opacity: 0.6;
   cursor: default;
@@ -1566,4 +1665,29 @@ html[data-surface="bubble"] body {
 
 .join__cover {
   border-radius: var(--radius-panel);
+}
+
+.add-friend {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.add-friend .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.my-tag {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: var(--rule-hair) solid var(--color-rule);
+}
+
+.my-tag__value {
+  font-family: var(--font-code);
+  font-weight: 600;
+  color: var(--color-ink);
 }

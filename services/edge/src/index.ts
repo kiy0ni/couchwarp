@@ -10,6 +10,7 @@
  * - `POST /api/rooms/:code/report`: reports, see `reports.ts`.
  * - `/api/auth/*`, `/api/me*`: accounts, see `auth/routes.ts`.
  * - `/api/friends*`: friends and presence, see `friends.ts`.
+ * - `/api/me/profile`, `/api/me/avatar`, `/api/users/:id*`: profiles, see `profiles.ts`.
  * - `/api/admin/*`: report handling, for admins only.
  * - `GET /api/games/lookup?q=`: a known game's title and cover, see `games.ts`.
  * - `GET /api/downloads`: where to get the desktop app, `{ mac, windows }`, null until set.
@@ -27,6 +28,7 @@ import { list } from './directory'
 import { handleFriends } from './friends'
 import { handleGames } from './games'
 import { json } from './http'
+import { handleProfiles } from './profiles'
 import { handleAdmin, report } from './reports'
 import { ARRIVAL_HEADER, type Arrival } from './room'
 import { randomRoomCode } from './room-code'
@@ -40,6 +42,7 @@ export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url)
     const handled =
+      (await handleProfiles(request, env)) ??
       (await handleAccounts(request, env)) ??
       (await handleFriends(request, env)) ??
       (await handleGames(request, env)) ??

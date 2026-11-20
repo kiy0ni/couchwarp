@@ -3,7 +3,9 @@ import { useRef, useState } from 'react'
 import { t } from '../i18n'
 import { useAccount } from '../lib/account'
 import { askFriend } from '../lib/friends'
+import { fetchProfile, type PublicProfile } from '../lib/profile'
 import { Avatar } from './Avatar'
+import { Badges } from './Badges'
 import { ConfirmButton } from './ConfirmButton'
 import { Icon } from './Icon'
 import { SettingRow, Switch } from './SettingRow'
@@ -67,7 +69,14 @@ interface RowProps {
 function MemberRow({ member, viewer, self, seatsLeft, onCommand, onReport }: RowProps) {
   const { account } = useAccount()
   const [asked, setAsked] = useState(false)
+  const [profile, setProfile] = useState<PublicProfile | null>(null)
   const dialog = useRef<HTMLDialogElement>(null)
+  const open = () => {
+    dialog.current?.showModal()
+    if (member.userId && !profile) {
+      fetchProfile(member.userId).then(setProfile).catch(console.error)
+    }
+  }
   const guestId = member.id
   const manage = !self && mayActOn(viewer, member)
   const befriend = !self && account && member.userId && member.userId !== account.id
@@ -92,11 +101,7 @@ function MemberRow({ member, viewer, self, seatsLeft, onCommand, onReport }: Row
       </span>
       {member.role !== 'spectator' && <Inputs member={member} />}
       {hasMenu && (
-        <button
-          type="button"
-          className="button button--secondary button--small"
-          onClick={() => dialog.current?.showModal()}
-        >
+        <button type="button" className="button button--secondary button--small" onClick={open}>
           {manage ? t.room.manage : t.room.more}
         </button>
       )}
@@ -104,10 +109,13 @@ function MemberRow({ member, viewer, self, seatsLeft, onCommand, onReport }: Row
       {hasMenu && (
         <dialog ref={dialog} className="menu member-dialog" aria-labelledby={titleId}>
           <div className="friend-dialog__head">
-            <Avatar name={member.name} url={member.avatarUrl} />
-            <h2 id={titleId} className="menu__title">
-              {member.name}
-            </h2>
+            <Avatar name={member.name} url={member.avatarUrl} color={profile?.color} size={48} />
+            <span className="friend-dialog__who">
+              <h2 id={titleId} className="menu__title">
+                {member.name}
+              </h2>
+              {profile && <Badges badges={profile.badges} />}
+            </span>
           </div>
 
           {manage && (

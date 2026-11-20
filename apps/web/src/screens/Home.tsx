@@ -197,7 +197,7 @@ function FriendsPlaying() {
         <ul className="friend-cards">
           {playing.slice(0, SHOWN_FRIENDS).map((friend) => (
             <li key={friend.userId} className="card friend-card">
-              <Avatar name={friend.displayName} url={friend.avatarUrl} />
+              <Avatar name={friend.displayName} url={friend.avatarUrl} color={friend.color} />
               <span className="friend-card__who">
                 <span className="people__name">{friend.displayName}</span>
                 <span className="people__status" data-online>

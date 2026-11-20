@@ -782,6 +782,7 @@ select.input {
 }
 
 .avatar {
+  flex: none;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -791,6 +792,29 @@ select.input {
   font-size: var(--text-sm);
   font-weight: 600;
   object-fit: cover;
+}
+
+/* The colour a person chose rings their picture, like a controller light. */
+.avatar[data-color] {
+  box-shadow:
+    0 0 0 2px var(--color-paper-2),
+    0 0 0 4px var(--ring);
+}
+
+[data-color="coral"] {
+  --ring: var(--color-p1);
+}
+
+[data-color="sky"] {
+  --ring: var(--color-p2);
+}
+
+[data-color="lime"] {
+  --ring: var(--color-p3);
+}
+
+[data-color="amber"] {
+  --ring: var(--color-p4);
 }
 
 /* In-game additions: the turn timer, the latency grade, notices over the picture. */

@@ -14,6 +14,7 @@
 
 import { friends } from '../friends'
 import { fromOurPages, json, problem, redirect, siteOrigin } from '../http'
+import { badges } from '../profiles'
 import { isAdmin } from '../reports'
 import { enabledProviders, exchangeCode, isProviderId, PROVIDERS, type Provider } from './providers'
 import {
@@ -27,6 +28,12 @@ import {
 } from './sessions'
 
 const STATE_LIFETIME_MS = 10 * 60 * 1000
+const TAG_DRAWS = 5
+
+/** Six digits, so a tag never starts with a zero that people would drop. */
+function randomTag(): number {
+  return 100000 + ((crypto.getRandomValues(new Uint32Array(1))[0] ?? 0) % 900000)
+}
 
 /** Where a sign-in may send the person back: a page of this site, or the host app on loopback. */
 function validReturn(client: SessionKind, returnTo: string): boolean {
@@ -170,17 +177,26 @@ async function attachIdentity(
   }
 
   const userId = crypto.randomUUID()
-  await db.batch([
-    db
-      .prepare('INSERT INTO users (id, display_name, avatar_url, created_at) VALUES (?, ?, ?, ?)')
-      .bind(userId, profile.displayName, profile.avatarUrl, now),
-    db
-      .prepare(
-        'INSERT INTO identities (provider, provider_user_id, user_id, username, created_at) VALUES (?, ?, ?, ?, ?)',
-      )
-      .bind(provider, profile.providerUserId, userId, profile.username, now),
-  ])
-  return { userId }
+  // A random tag; on the rare clash with an existing one, draw again.
+  for (let draw = 0; ; draw++) {
+    try {
+      await db.batch([
+        db
+          .prepare(
+            'INSERT INTO users (id, display_name, avatar_url, tag, created_at) VALUES (?, ?, ?, ?, ?)',
+          )
+          .bind(userId, profile.displayName, profile.avatarUrl, randomTag(), now),
+        db
+          .prepare(
+            'INSERT INTO identities (provider, provider_user_id, user_id, username, created_at) VALUES (?, ?, ?, ?, ?)',
+          )
+          .bind(provider, profile.providerUserId, userId, profile.username, now),
+      ])
+      return { userId }
+    } catch (error) {
+      if (draw >= TAG_DRAWS || !String(error).includes('users.tag')) throw error
+    }
+  }
 }
 
 async function identities(db: D1Database, userId: string) {
@@ -194,10 +210,16 @@ async function identities(db: D1Database, userId: string) {
 async function me(request: Request, env: Env): Promise<Response> {
   const user = await currentUser(request, env.DB)
   if (!user) return problem(401, 'signed-out')
+  const extra = await env.DB.prepare('SELECT color, tag, created_at FROM users WHERE id = ?')
+    .bind(user.id)
+    .first<{ color: string | null; tag: number | null; created_at: number }>()
   return json({
     ...publicUser(user),
     identities: await identities(env.DB, user.id),
     isAdmin: isAdmin(env, user),
+    color: extra?.color ?? null,
+    tag: extra?.tag ?? null,
+    badges: await badges(env, user.id, extra?.created_at ?? Date.now()),
   })
 }
 
