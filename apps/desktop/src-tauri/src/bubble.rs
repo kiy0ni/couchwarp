@@ -2,6 +2,9 @@
 //! copy the code, see guests, change what they may do and stop, without leaving the game.
 //! Window capture only takes the game's own window, so guests never see it.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use serde::Serialize;
 use tauri::webview::Color;
 use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, WebviewUrl, WebviewWindowBuilder};
 
@@ -49,20 +52,122 @@ pub fn close(app: &AppHandle) {
     }
 }
 
-/// Opens the bubble into a panel or closes it back into a pill, keeping its right edge
-/// where it was so it never grows off the screen.
-pub fn set_open(app: &AppHandle, open: bool) -> tauri::Result<()> {
+/// Which way the panel unfolds from the pill.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Direction {
+    Down,
+    Up,
+}
+
+/// The way the open panel went, so closing puts the pill back on the same corner.
+static OPENED_UP: AtomicBool = AtomicBool::new(false);
+
+/// Opens the bubble into a panel or closes it back into a pill. The panel unfolds downward
+/// from a pill in the top half of the screen and upward from one in the bottom half, and
+/// never past the screen's edges. Returns the way it unfolded.
+pub fn set_open(app: &AppHandle, open: bool) -> tauri::Result<Direction> {
     let Some(window) = app.get_webview_window(LABEL) else {
-        return Ok(());
+        return Ok(Direction::Down);
     };
     let scale = window.scale_factor()?;
     let position = window.outer_position()?.to_logical::<f64>(scale);
     let size = window.outer_size()?.to_logical::<f64>(scale);
-    let right = position.x + size.width;
-    let (width, height) = if open { OPEN } else { CLOSED };
-    window.set_size(LogicalSize::new(width, height))?;
-    window.set_position(LogicalPosition::new(right - width, position.y))?;
-    Ok(())
+    let current = Frame {
+        x: position.x,
+        y: position.y,
+        width: size.width,
+        height: size.height,
+    };
+    let screen = window
+        .current_monitor()?
+        .or(app.primary_monitor()?)
+        .map(|monitor| {
+            let scale = monitor.scale_factor();
+            let origin = monitor.position().to_logical::<f64>(scale);
+            let size = monitor.size().to_logical::<f64>(scale);
+            Frame {
+                x: origin.x,
+                y: origin.y,
+                width: size.width,
+                height: size.height,
+            }
+        });
+    let (next, direction) = if open {
+        let (panel, direction) = panel_frame(current, screen);
+        OPENED_UP.store(direction == Direction::Up, Ordering::Relaxed);
+        (panel, direction)
+    } else {
+        let direction = if OPENED_UP.load(Ordering::Relaxed) {
+            Direction::Up
+        } else {
+            Direction::Down
+        };
+        (pill_frame(current, direction, screen), direction)
+    };
+    window.set_size(LogicalSize::new(next.width, next.height))?;
+    window.set_position(LogicalPosition::new(next.x, next.y))?;
+    Ok(direction)
+}
+
+/// A rectangle on the desktop, in logical pixels.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Frame {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+/// The panel opened from `pill`: its right edge on the pill's, its top on the pill's top
+/// when unfolding down, its bottom on the pill's bottom when unfolding up.
+fn panel_frame(pill: Frame, screen: Option<Frame>) -> (Frame, Direction) {
+    let direction = match screen {
+        Some(screen) if pill.y + pill.height / 2.0 >= screen.y + screen.height / 2.0 => {
+            Direction::Up
+        }
+        _ => Direction::Down,
+    };
+    let (width, height) = OPEN;
+    let y = match direction {
+        Direction::Down => pill.y,
+        Direction::Up => pill.y + pill.height - height,
+    };
+    let panel = Frame {
+        x: pill.x + pill.width - width,
+        y,
+        width,
+        height,
+    };
+    (inside(panel, screen), direction)
+}
+
+/// The pill closed from `panel`, back on the corner it unfolded from.
+fn pill_frame(panel: Frame, direction: Direction, screen: Option<Frame>) -> Frame {
+    let (width, height) = CLOSED;
+    let y = match direction {
+        Direction::Down => panel.y,
+        Direction::Up => panel.y + panel.height - height,
+    };
+    let pill = Frame {
+        x: panel.x + panel.width - width,
+        y,
+        width,
+        height,
+    };
+    inside(pill, screen)
+}
+
+/// Moves `frame` back onto the screen, the top left corner first if it cannot fit.
+fn inside(frame: Frame, screen: Option<Frame>) -> Frame {
+    let Some(screen) = screen else { return frame };
+    let fit =
+        |start: f64, length: f64, low: f64, span: f64| start.min(low + span - length).max(low);
+    Frame {
+        x: fit(frame.x, frame.width, screen.x, screen.width),
+        y: fit(frame.y, frame.height, screen.y, screen.height),
+        ..frame
+    }
 }
 
 fn top_right(app: &AppHandle, width: f64) -> (f64, f64) {
@@ -76,4 +181,60 @@ fn top_right(app: &AppHandle, width: f64) -> (f64, f64) {
         origin.x + screen.width - width - MARGIN,
         origin.y + MARGIN * 2.0,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SCREEN: Frame = Frame {
+        x: 0.0,
+        y: 0.0,
+        width: 1440.0,
+        height: 900.0,
+    };
+
+    fn pill(x: f64, y: f64) -> Frame {
+        Frame {
+            x,
+            y,
+            width: CLOSED.0,
+            height: CLOSED.1,
+        }
+    }
+
+    #[test]
+    fn unfolds_down_from_the_top_half() {
+        let (panel, direction) = panel_frame(pill(1352.0, 48.0), Some(SCREEN));
+        assert_eq!(direction, Direction::Down);
+        assert_eq!((panel.x, panel.y), (1352.0 + 64.0 - 340.0, 48.0));
+    }
+
+    #[test]
+    fn unfolds_up_from_the_bottom_half() {
+        let (panel, direction) = panel_frame(pill(600.0, 800.0), Some(SCREEN));
+        assert_eq!(direction, Direction::Up);
+        // Its bottom stays on the pill's bottom.
+        assert_eq!(panel.y + panel.height, 864.0);
+    }
+
+    #[test]
+    fn never_leaves_the_screen_sideways() {
+        // A pill against the left edge: the panel would start off screen.
+        let (panel, _) = panel_frame(pill(10.0, 100.0), Some(SCREEN));
+        assert_eq!(panel.x, 0.0);
+        // A pill at the very bottom: the panel goes up and stays on the screen.
+        let (panel, _) = panel_frame(pill(700.0, 880.0), Some(SCREEN));
+        assert!(panel.y + panel.height <= SCREEN.height);
+    }
+
+    #[test]
+    fn closes_back_onto_the_corner_it_opened_from() {
+        let start = pill(600.0, 800.0);
+        let (panel, direction) = panel_frame(start, Some(SCREEN));
+        assert_eq!(pill_frame(panel, direction, Some(SCREEN)), start);
+        let start = pill(1000.0, 60.0);
+        let (panel, direction) = panel_frame(start, Some(SCREEN));
+        assert_eq!(pill_frame(panel, direction, Some(SCREEN)), start);
+    }
 }

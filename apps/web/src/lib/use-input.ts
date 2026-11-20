@@ -24,6 +24,17 @@ const MOTION_EVERY_MS = 16
  */
 export type KeyboardMode = 'keys' | 'pad' | 'off'
 
+/**
+ * Locks the pointer to the game, with raw movement where the browser offers it. Chrome
+ * returns a promise and rejects options it lacks; Firefox and Safari return nothing.
+ */
+export function lockPointer(element: HTMLElement): void {
+  const request = element.requestPointerLock({ unadjustedMovement: true }) as
+    | Promise<void>
+    | undefined
+  request?.catch(() => element.requestPointerLock())
+}
+
 interface Options {
   keyboardMode: KeyboardMode
   /** Current state of the on-screen controller, or null while it is hidden. */
@@ -117,11 +128,7 @@ export function useInputForwarding(
     const onClick = (event: MouseEvent) => {
       // Only a click on the picture itself: the bar and the menus keep their clicks.
       const onPicture = event.target === element || event.target instanceof HTMLVideoElement
-      if (mouseAllowed && onPicture && !locked()) {
-        element
-          .requestPointerLock({ unadjustedMovement: true })
-          .catch(() => element.requestPointerLock())
-      }
+      if (mouseAllowed && onPicture && !locked()) lockPointer(element)
     }
     const onLockChange = () => {
       if (!locked()) mouse.releaseAll()

@@ -1667,6 +1667,21 @@ html[data-surface="bubble"] body {
   border-top: var(--rule-hair) solid var(--color-rule);
 }
 
+/* Unfolded upward from a pill low on the screen: the head sits where the pill was. */
+.host-panel[data-direction="up"] {
+  flex-direction: column-reverse;
+}
+
+.host-panel[data-direction="up"] .host-panel__head {
+  border-top: var(--rule-hair) solid var(--color-rule);
+  border-bottom: 0;
+}
+
+.host-panel[data-direction="up"] .host-panel__foot {
+  border-top: 0;
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+}
+
 .friend-dialog__head {
   display: flex;
   align-items: center;

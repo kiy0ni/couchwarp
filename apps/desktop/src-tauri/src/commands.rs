@@ -126,9 +126,10 @@ pub fn open_privacy_settings(app: AppHandle, pane: String) -> Result<(), String>
         .map_err(|error| error.to_string())
 }
 
-/// Opens the bubble into its panel, or closes it back into a pill.
+/// Opens the bubble into its panel, or closes it back into a pill. Answers which way the
+/// panel unfolds, so the page can lay it out from that side.
 #[tauri::command]
-pub fn set_bubble_open(app: AppHandle, open: bool) -> Result<(), String> {
+pub fn set_bubble_open(app: AppHandle, open: bool) -> Result<crate::bubble::Direction, String> {
     crate::bubble::set_open(&app, open).map_err(|error| error.to_string())
 }
 

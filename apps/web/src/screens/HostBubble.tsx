@@ -18,6 +18,7 @@ type Live = Extract<HostingState, { state: 'live' }>
 export function HostBubble() {
   const [hosting, setHosting] = useState<HostingState | null>(null)
   const [open, setOpen] = useState(false)
+  const [direction, setDirection] = useState<'down' | 'up'>('down')
 
   useEffect(() => {
     // The window is see-through around the bubble.
@@ -40,12 +41,16 @@ export function HostBubble() {
 
   const toggle = (next: boolean) => {
     setOpen(next)
-    invoke('set_bubble_open', { open: next }).catch(console.error)
+    // The app places the window and says which way the panel unfolds; apps before 0.1.1
+    // answer nothing and always unfold downward.
+    invoke<'down' | 'up' | null>('set_bubble_open', { open: next })
+      .then((way) => setDirection(way === 'up' ? 'up' : 'down'))
+      .catch(console.error)
   }
 
   if (hosting?.state !== 'live') return null
   return open ? (
-    <Panel live={hosting} onClose={() => toggle(false)} />
+    <Panel live={hosting} direction={direction} onClose={() => toggle(false)} />
   ) : (
     <Pill live={hosting} onOpen={() => toggle(true)} />
   )
@@ -94,7 +99,19 @@ function Pill({ live, onOpen }: { live: Live; onOpen(): void }) {
   )
 }
 
-function Panel({ live, onClose }: { live: Live; onClose(): void }) {
+/**
+ * The open bubble. Unfolding upward, from a pill low on the screen, it is laid out bottom
+ * first: the code and the close button stay where the pill was.
+ */
+function Panel({
+  live,
+  direction,
+  onClose,
+}: {
+  live: Live
+  direction: 'down' | 'up'
+  onClose(): void
+}) {
   const [room, setRoom] = useState<RoomState | null>(null)
   const [session, setSession] = useState<ConsoleSession | null>(null)
   const [copied, setCopied] = useState(false)
@@ -114,7 +131,7 @@ function Panel({ live, onClose }: { live: Live; onClose(): void }) {
   const command = (message: HostCommand) => session?.command(message)
 
   return (
-    <div className="host-panel">
+    <div className="host-panel" data-direction={direction}>
       <header className="host-panel__head" data-tauri-drag-region>
         <span className="host-pill__grip" data-tauri-drag-region>
           <i data-tauri-drag-region />

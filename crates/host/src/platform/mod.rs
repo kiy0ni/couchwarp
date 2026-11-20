@@ -16,9 +16,9 @@ mod linux;
 #[cfg(target_os = "linux")]
 pub use linux::*;
 
-/// The software encoder Windows and Linux share.
+/// The software encoder Windows and Linux share, as `platform::encoder` there.
 #[cfg(any(windows, target_os = "linux"))]
-mod openh264;
+pub mod openh264;
 
 #[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
 compile_error!("the host runs on macOS, Windows and Linux");

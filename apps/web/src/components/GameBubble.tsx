@@ -14,7 +14,8 @@ interface Props {
   unread: number
   /** Keeps the bubble bright, for notices the guest must see. */
   attention: boolean
-  onOpen(): void
+  /** With the bubble's place on screen, so the menu unfolds next to it. */
+  onOpen(bubble: DOMRect): void
   /** After a move, so the keyboard goes back to the game. */
   onMoved(): void
 }
@@ -93,10 +94,10 @@ export function GameBubble({ children, unread, attention, onOpen, onMoved }: Pro
       onPointerUp={onPointerUp}
       onPointerEnter={wake}
       onFocus={wake}
-      onClick={() => {
+      onClick={(event) => {
         // A drag ends with a click event too; only a press opens the menu.
         if (dragged.current) dragged.current = false
-        else onOpen()
+        else onOpen(event.currentTarget.getBoundingClientRect())
       }}
     >
       <span className="bubble__grip" aria-hidden="true">

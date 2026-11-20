@@ -100,6 +100,22 @@ describe('a room', () => {
     expect((await host.latestState()).members).toHaveLength(1)
   })
 
+  it('seats a signed-in guest under their account, and a guest without one too', async () => {
+    const { code } = await openRoom()
+    const token = await signIn('guest-1', 'Léa')
+    const signedIn = await connect(`/api/rooms/${code}/guest?name=Léa`, {
+      Authorization: `Bearer ${token}`,
+      'CF-Connecting-IP': '203.0.113.9',
+    })
+    await signedIn.next('welcome')
+    const { guest } = await joined(code, 'Sam')
+    const members = (await guest.latestState()).members
+    expect(members).toEqual([
+      expect.objectContaining({ name: 'Léa', userId: 'guest-1', role: 'player' }),
+      expect.objectContaining({ name: 'Sam', userId: null, role: 'player' }),
+    ])
+  })
+
   it('tells guests when the host leaves', async () => {
     const { host, code } = await openRoom()
     const { guest } = await joined(code, 'Sam')
