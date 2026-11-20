@@ -13,8 +13,9 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
-// A Mac only ever answers `Impossible`.
-#[cfg_attr(target_os = "macos", allow(dead_code))]
+// Each system answers with only some of them: a Mac with `Impossible`, Linux with
+// `Ready` or `Missing`, Windows with all but `Impossible`.
+#[allow(dead_code)]
 pub enum Support {
     /// Guests' controllers play into games.
     Ready,
