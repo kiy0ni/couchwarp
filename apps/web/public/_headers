@@ -1,0 +1,10 @@
+# Security headers for every page and file of the site (Workers static assets).
+# connect-src allows WebSockets (older WebKit, as in the Mac app, does not match them
+# with 'self') and the desktop app's bridge (ipc:, http://ipc.localhost) besides the
+# site itself; images may come from Discord, Google and the Steam store.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' wss: ipc: http://ipc.localhost; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Strict-Transport-Security: max-age=31536000

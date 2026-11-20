@@ -4,8 +4,12 @@ interface Env {
   PUBLIC_URL?: string
   /** "on" lists public rooms. Off until moderation is staffed: rooms then stay link-only. */
   PUBLIC_ROOMS?: string
+  /** Cloudflare's TURN service: a TURN key and its API token. */
   TURN_KEY_ID?: string
   TURN_KEY_API_TOKEN?: string
+  /** Or a TURN server of one's own (coturn): its addresses, comma-separated, and the secret it shares. */
+  TURN_URLS?: string
+  TURN_SECRET?: string
   DISCORD_CLIENT_ID?: string
   DISCORD_CLIENT_SECRET?: string
   GOOGLE_CLIENT_ID?: string
@@ -17,6 +21,10 @@ interface Env {
   RELEASES_REPO?: string
   /** A read-only GitHub token, needed while that repository is private. */
   RELEASES_TOKEN?: string
+  /** E-mails (confirmation, password reset) go through Resend: its API key and the sender. */
+  RESEND_API_KEY?: string
+  /** The sender, e.g. `Couchwarp <no-reply@example.com>`, on a domain verified at Resend. */
+  MAIL_FROM?: string
   /** Comma-separated account ids of the people who handle reports. */
   ADMIN_USER_IDS?: string
 }

@@ -32,15 +32,19 @@ use crate::thumbnail::Thumbnails;
 use crate::video::{EncodedFrame, EncoderControl, StreamClock, unix_ms_now};
 
 const FOCUS_CHECK: Duration = Duration::from_millis(100);
+/// How often the system's input permission is read again, while it is missing.
+const PERMISSION_CHECK: Duration = Duration::from_secs(2);
 const IDLE_WAKE: Duration = Duration::from_millis(100);
 const MAX_DATAGRAM: usize = 2000;
 /// How long the last messages to the room server may take once the host stops.
 const FAREWELL: Duration = Duration::from_secs(2);
 
-/// The shared game: its process, and whether guest keys wait for its window to be in front.
+/// The shared game: its process, whether guest keys wait for its window to be in front,
+/// and whether the system lets this process send it keys at all.
 pub struct Game {
     pub pid: i32,
     pub focus_lock: bool,
+    pub input_allowed: bool,
 }
 
 /// Room settings chosen before the room opens, applied over the room server's defaults.
@@ -90,7 +94,7 @@ impl SettingsRequest {
 fn permissions(state: &RoomState, guest: GuestId) -> Permissions {
     match state.member(guest) {
         Some(member) if member.role != GuestRole::Spectator => Permissions {
-            pads: true,
+            pads: member.pads,
             keyboard: member.keyboard,
             mouse: member.mouse,
         },
@@ -118,6 +122,7 @@ pub struct Host {
     game_pid: i32,
     /// Hold guest keys back while the game window is not in front.
     focus_lock: bool,
+    input_allowed: bool,
     clock: StreamClock,
     encoder: EncoderControl,
     bitrate: BitrateController,
@@ -151,10 +156,11 @@ impl Host {
             peers: Vec::new(),
             names: HashMap::new(),
             slot_owners: HashMap::new(),
-            router: InputRouter::new(!game.focus_lock || frontmost_pid() == Some(game.pid)),
+            router: InputRouter::new(!game.focus_lock || in_front(game.pid)),
             sink: InputSink::new(game.pid),
             game_pid: game.pid,
             focus_lock: game.focus_lock,
+            input_allowed: game.input_allowed,
             clock: StreamClock::start(),
             bitrate: BitrateController::new(encoder.bitrate()),
             encoder,
@@ -181,6 +187,8 @@ impl Host {
         let mut buffer = vec![0u8; MAX_DATAGRAM];
         let mut focus = interval(FOCUS_CHECK);
         focus.set_missed_tick_behavior(MissedTickBehavior::Skip);
+        let mut permission = interval(PERMISSION_CHECK);
+        permission.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let mut room_open = true;
 
         let outcome = loop {
@@ -214,6 +222,7 @@ impl Host {
                 }
                 () = sleep_until(deadline.into()) => self.on_timeout(),
                 _ = focus.tick() => self.check_focus(),
+                _ = permission.tick(), if !self.input_allowed => self.check_permission(),
                 Some(reason) = capture_stopped.recv() => {
                     break Err(anyhow!("the shared window is gone, so the game ended ({reason})"));
                 }
@@ -324,6 +333,7 @@ impl Host {
                 Action::SetMotion { slot, motion } => self.sink.set_motion(slot, &motion),
                 Action::KeyboardPaused(paused) => {
                     info!(paused, "guest keyboards follow the game window focus");
+                    let _ = self.events.send(Event::InputPaused { paused });
                     self.sink.set_paused(paused);
                     for peer in &mut self.peers {
                         peer.send_control(&HostControl::InputPaused { paused });
@@ -460,9 +470,18 @@ impl Host {
         if !self.focus_lock {
             return;
         }
-        let focused = frontmost_pid() == Some(self.game_pid);
-        let actions = self.router.set_game_focused(focused);
+        let actions = self.router.set_game_focused(in_front(self.game_pid));
         self.carry_out(actions);
+    }
+
+    /// The host may allow Couchwarp in the system settings while the game runs: guests'
+    /// keys start reaching the game then, and the warning goes.
+    fn check_permission(&mut self) {
+        if crate::platform::input_allowed() {
+            info!("the system now lets guests' keys reach the game");
+            self.input_allowed = true;
+            let _ = self.events.send(Event::InputPermission { allowed: true });
+        }
     }
 
     fn remove_dead_peers(&mut self) {
@@ -508,6 +527,15 @@ impl Host {
     }
 }
 
+/// Whether guests may type into the game now. Where keys reach the game process alone
+/// (macOS), Couchwarp's own windows in front do not count: the host using the bubble or
+/// the chat must not pause everyone.
+fn in_front(game_pid: i32) -> bool {
+    let front = frontmost_pid();
+    front == Some(game_pid)
+        || (crate::platform::KEYS_REACH_GAME_ONLY && front == Some(std::process::id() as i32))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -534,6 +562,7 @@ mod tests {
             avatar_url: None,
             user_id: None,
             role,
+            pads: true,
             keyboard,
             mouse: false,
             pad_type: PadType::Xbox360,

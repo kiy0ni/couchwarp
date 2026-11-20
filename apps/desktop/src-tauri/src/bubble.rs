@@ -27,7 +27,7 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
     let mut page = site;
     page.set_path("/bubble");
     let (x, y) = top_right(app, CLOSED.0);
-    WebviewWindowBuilder::new(app, LABEL, WebviewUrl::External(page))
+    let builder = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::External(page))
         .title("Couchwarp")
         .inner_size(CLOSED.0, CLOSED.1)
         .position(x, y)
@@ -40,7 +40,13 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
         .visible_on_all_workspaces(true)
         .skip_taskbar(true)
         // The game keeps the keyboard: guests' keys wait while another window is in front.
-        .focused(false)
+        .focused(false);
+    // On Windows and Linux a guest's mouse moves the real cursor, which can pass over the
+    // bubble. A click there must never bring Couchwarp in front of the game: that would
+    // pause every guest's keyboard and mouse, theirs included, with no way back.
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.focusable(false);
+    builder
         .on_navigation(move |url| url.origin() == origin)
         .build()?;
     Ok(())

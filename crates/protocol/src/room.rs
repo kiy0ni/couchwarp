@@ -63,6 +63,9 @@ pub struct Member {
     pub avatar_url: Option<String>,
     pub user_id: Option<String>,
     pub role: GuestRole,
+    /// Missing in rooms opened before the host could take controllers away.
+    #[serde(default = "allowed")]
+    pub pads: bool,
     pub keyboard: bool,
     pub mouse: bool,
     pub pad_type: PadType,
@@ -86,6 +89,10 @@ pub struct RoomState {
     pub turn_ends_at: Option<u64>,
     pub public_refused: Option<PublicRefused>,
     pub relay_available: bool,
+}
+
+fn allowed() -> bool {
+    true
 }
 
 impl RoomState {

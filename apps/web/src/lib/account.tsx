@@ -9,6 +9,10 @@ export interface Account {
   displayName: string
   avatarUrl: string | null
   ageConfirmed: boolean
+  /** Used to sign in, to reset a forgotten password and for warnings about the account. */
+  email: string | null
+  emailVerified: boolean
+  hasPassword: boolean
   isAdmin: boolean
   color: ProfileColor | null
   /** With the name, how friends add this person: `Name#123456`. */
@@ -39,9 +43,14 @@ export function accountRequest(path: string, method: string, body?: unknown): Pr
   })
 }
 
+/** The sign-in page, coming back to this page afterwards. */
+export function signInPath(): string {
+  return `/login?return=${encodeURIComponent(location.pathname)}`
+}
+
 /** Where a sign-in button sends the browser: the provider, then back to this page. */
 export function signInUrl(provider: ProviderId, options: { link?: boolean } = {}): string {
-  const params = new URLSearchParams({ return_to: location.pathname })
+  const params = new URLSearchParams({ return_to: `${location.pathname}${location.search}` })
   if (options.link) params.set('link', '1')
   return `/api/auth/${provider}/start?${params}`
 }

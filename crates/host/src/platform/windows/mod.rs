@@ -23,9 +23,15 @@ pub const KEYS_REACH_GAME_ONLY: bool = false;
 pub fn init() {}
 
 /// SendInput needs no permission.
-pub fn can_send_keys() -> bool {
+pub fn input_allowed() -> bool {
     true
 }
+
+/// Nothing to ask on Windows.
+pub fn ask_input_permission() {}
+
+/// Windows lets any app capture a window: nothing to ask.
+pub fn ask_screen_permission() {}
 
 pub fn frontmost_pid() -> Option<i32> {
     let mut pid = 0u32;

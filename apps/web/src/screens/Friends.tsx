@@ -6,7 +6,7 @@ import { Page, Section } from '../components/Page'
 import { SettingRow, Switch } from '../components/SettingRow'
 import { Shell } from '../components/Shell'
 import { t } from '../i18n'
-import { useAccount } from '../lib/account'
+import { signInPath, useAccount } from '../lib/account'
 import {
   askByTag,
   askFriend,
@@ -48,7 +48,7 @@ export function Friends() {
           <section className="card card--feature stack">
             <p className="card__text">{t.friends.signedOut}</p>
             <div className="actions">
-              <Link to="/settings/account" className="button">
+              <Link to={signInPath()} className="button">
                 {t.account.signIn}
               </Link>
             </div>

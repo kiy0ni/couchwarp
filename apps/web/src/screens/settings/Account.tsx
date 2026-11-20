@@ -17,17 +17,20 @@ import { fullTag } from '../../lib/friends'
 import { playedOn, useHistory } from '../../lib/history'
 import {
   addPassword,
-  LOGIN_PATTERN,
+  changeEmail,
+  changePassword,
+  EMAIL_PATTERN,
   MIN_PASSWORD,
-  signInWithPassword,
-  signUpWithPassword,
+  type PasswordResult,
+  resendConfirmation,
 } from '../../lib/password'
 import { PROFILE_COLORS, removeAvatar, updateProfile, uploadAvatar } from '../../lib/profile'
 import { navigate } from '../../lib/router'
+import { PasswordInput } from '../Login'
 
 const PROVIDER_NAMES: Record<ProviderId, string> = { discord: 'Discord', google: 'Google' }
 
-/** Sign in, confirm the age, or the profile, linked accounts, history and data. */
+/** Signed out, the way to the sign-in page; signed in, the profile, security and data. */
 export function AccountTab() {
   const { account } = useAccount()
   if (account === undefined) {
@@ -37,274 +40,266 @@ export function AccountTab() {
       </p>
     )
   }
-  if (account === null) return <SignIn />
-  if (!account.ageConfirmed) return <AgeGate />
+  if (account === null) {
+    return (
+      <section className="card card--feature stack">
+        <h2 className="card__title">{t.account.signInTitle}</h2>
+        <p className="card__text">{t.account.signInLead}</p>
+        <div className="actions">
+          <Link to={`/login?return=${encodeURIComponent('/settings/account')}`} className="button">
+            {t.account.signIn}
+          </Link>
+          <Link to="/signup" className="button button--secondary">
+            {t.login.createTitle}
+          </Link>
+        </div>
+      </section>
+    )
+  }
   return <Profile account={account} />
 }
 
-function authError(): string | null {
-  const code = new URLSearchParams(location.search).get('auth_error')
-  if (!code) return null
+function errorText(outcome: PasswordResult): string | null {
+  if (outcome.ok) return null
+  const errors = t.password.errors
+  return errors[outcome.reason as keyof typeof errors] ?? errors.failed
+}
+
+/** The address and the password: what gets the account back, and what changes them. */
+function Security({ account, onChanged }: { account: Account; onChanged(): Promise<void> }) {
   return (
-    t.account.errors[code as keyof typeof t.account.errors] ?? t.account.errors['provider-error']
+    <Section title={t.account.securityTitle}>
+      <div className="settings__rows">
+        <EmailRow account={account} onChanged={onChanged} />
+        <PasswordRow account={account} onChanged={onChanged} />
+      </div>
+    </Section>
   )
 }
 
-function SignIn() {
-  const { providers, signIn } = useAccount()
-  const [error, setError] = useState(authError)
-  const [waiting, setWaiting] = useState(false)
-
-  async function choose(provider: ProviderId) {
-    setError(null)
-    setWaiting(isDesktop)
-    try {
-      await signIn(provider)
-    } catch (reason) {
-      console.error(reason)
-      setError(t.account.errors['provider-error'])
-    } finally {
-      setWaiting(false)
-    }
-  }
-
-  return (
-    <section className="card card--feature stack">
-      <h2 className="card__title">{t.account.signInTitle}</h2>
-      <p className="card__text">{t.account.signInLead}</p>
-      {error && (
-        <p className="field__help" data-error>
-          {error}
-        </p>
-      )}
-      {waiting && (
-        <p className="field__help" role="status">
-          {t.account.inBrowser}
-        </p>
-      )}
-      {providers.length > 0 && (
-        <div className="stack">
-          {providers.map((provider) => (
-            <button
-              key={provider}
-              type="button"
-              className="button provider"
-              data-provider={provider}
-              disabled={waiting}
-              onClick={() => choose(provider)}
-            >
-              {t.account.continueWith(PROVIDER_NAMES[provider])}
-            </button>
-          ))}
-        </div>
-      )}
-      {providers.length > 0 && <p className="divider">{t.password.or}</p>}
-      <PasswordForm />
-      <p className="field__help">{t.account.legal}</p>
-    </section>
-  )
-}
-
-/** Sign in or sign up with a login and a password, for people without Discord or Google. */
-function PasswordForm() {
-  const { refresh } = useAccount()
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
-  const [login, setLogin] = useState('')
+function EmailRow({ account, onChanged }: { account: Account; onChanged(): Promise<void> }) {
+  const [editing, setEditing] = useState(false)
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
-  const [atLeast13, setAtLeast13] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const signingUp = mode === 'signup'
+  const [status, setStatus] = useState<{ text: string; error: boolean } | null>(null)
+  const needsPassword = account.hasPassword
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    setError(null)
-    if (!LOGIN_PATTERN.test(login.trim())) return setError(t.password.errors['invalid-login'])
-    if (password.length < MIN_PASSWORD) return setError(t.password.errors['invalid-password'])
-    if (signingUp && !atLeast13) return setError(t.password.errors['too-young'])
-    setBusy(true)
-    const outcome = signingUp
-      ? await signUpWithPassword({ login: login.trim(), password, displayName: name, atLeast13 })
-      : await signInWithPassword(login.trim(), password)
-    setBusy(false)
-    if (!outcome.ok) {
-      const errors = t.password.errors
-      setError(errors[outcome.reason as keyof typeof errors] ?? errors.failed)
-      return
+    if (!EMAIL_PATTERN.test(email.trim())) {
+      return setStatus({ text: t.password.errors['invalid-email'], error: true })
     }
-    await refresh()
+    const outcome = await changeEmail(email.trim(), password)
+    if (!outcome.ok) return setStatus({ text: errorText(outcome) ?? '', error: true })
+    setStatus({ text: t.password.emailSent(email.trim()), error: false })
+    setEditing(false)
+    setPassword('')
+    await onChanged()
   }
 
-  return (
-    <form className="stack" onSubmit={submit} noValidate>
-      <div className="field">
-        <label className="field__label" htmlFor="password-login">
-          {t.password.login}
-        </label>
-        <input
-          id="password-login"
-          className="input"
-          value={login}
-          autoComplete="username"
-          autoCapitalize="none"
-          spellCheck={false}
-          onChange={(event) => setLogin(event.target.value)}
-        />
-        {signingUp && <p className="field__help">{t.password.loginHelp}</p>}
-      </div>
-      <div className="field">
-        <label className="field__label" htmlFor="password-secret">
-          {t.password.password}
-        </label>
-        <input
-          id="password-secret"
-          className="input"
-          type="password"
-          value={password}
-          autoComplete={signingUp ? 'new-password' : 'current-password'}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-        {signingUp && <p className="field__help">{t.password.passwordHelp}</p>}
-      </div>
-      {signingUp && (
-        <div className="field">
-          <label className="field__label" htmlFor="password-name">
-            {t.profile.name}
-          </label>
-          <input
-            id="password-name"
-            className="input"
-            value={name}
-            maxLength={32}
-            autoComplete="nickname"
-            onChange={(event) => setName(event.target.value)}
-          />
-        </div>
-      )}
-      {signingUp && (
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={atLeast13}
-            onChange={(event) => setAtLeast13(event.target.checked)}
-          />
-          <span>{t.account.ageYes}</span>
-        </label>
-      )}
-      {error && (
-        <p className="field__help" data-error role="status">
-          {error}
-        </p>
-      )}
-      <button type="submit" className="button" disabled={busy}>
-        {signingUp ? t.password.create : t.password.signIn}
-      </button>
-      <button
-        type="button"
-        className="link-button"
-        onClick={() => {
-          setMode(signingUp ? 'signin' : 'signup')
-          setError(null)
-        }}
-      >
-        {signingUp ? t.password.haveAccount : t.password.noAccount}
-      </button>
-      {signingUp && <p className="field__help">{t.password.noReset}</p>}
-    </form>
-  )
-}
-
-/** Adds a login and password to an account that has only Discord or Google. */
-function AddPassword({ onAdded }: { onAdded(): void }) {
-  const [open, setOpen] = useState(false)
-  const [login, setLogin] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-
-  if (!open) {
-    return (
-      <button type="button" className="link-button" onClick={() => setOpen(true)}>
-        {t.password.add}
-      </button>
+  async function resend() {
+    const outcome = await resendConfirmation()
+    setStatus(
+      outcome.ok
+        ? { text: t.password.resent, error: false }
+        : { text: errorText(outcome) ?? '', error: true },
     )
   }
+
   return (
-    <form
-      className="add-password"
-      onSubmit={async (event) => {
-        event.preventDefault()
-        if (!LOGIN_PATTERN.test(login.trim())) return setError(t.password.errors['invalid-login'])
-        if (password.length < MIN_PASSWORD) return setError(t.password.errors['invalid-password'])
-        const outcome = await addPassword(login.trim(), password)
-        if (outcome.ok) {
-          setOpen(false)
-          onAdded()
-        } else {
-          const errors = t.password.errors
-          setError(errors[outcome.reason as keyof typeof errors] ?? errors.failed)
-        }
-      }}
-    >
-      <input
-        className="input"
-        aria-label={t.password.login}
-        placeholder={t.password.login}
-        value={login}
-        autoComplete="username"
-        autoCapitalize="none"
-        onChange={(event) => setLogin(event.target.value)}
-      />
-      <input
-        className="input"
-        type="password"
-        aria-label={t.password.password}
-        placeholder={t.password.password}
-        value={password}
-        autoComplete="new-password"
-        onChange={(event) => setPassword(event.target.value)}
-      />
-      <button type="submit" className="button button--small">
-        {t.console.save}
-      </button>
-      {error && (
-        <p className="field__help" data-error role="status">
-          {error}
+    <div className="setting setting--stacked">
+      <div className="setting__text">
+        <span className="setting__title">{t.password.emailTitle}</span>
+        <p className="setting__help">
+          {account.email ? (
+            <>
+              <span className="setting__value">{account.email}</span>{' '}
+              <span className="tag" data-tone={account.emailVerified ? 'success' : 'warning'}>
+                {account.emailVerified ? t.password.emailVerified : t.password.emailUnverified}
+              </span>
+            </>
+          ) : (
+            t.password.emailNone
+          )}
+        </p>
+      </div>
+      <div className="setting__control actions">
+        {account.email && !account.emailVerified && (
+          <button type="button" className="link-button" onClick={resend}>
+            {t.password.resend}
+          </button>
+        )}
+        {!editing && (
+          <button
+            type="button"
+            className="button button--secondary button--small"
+            onClick={() => {
+              setEditing(true)
+              setStatus(null)
+            }}
+          >
+            {account.email ? t.password.changeEmail : t.password.addEmail}
+          </button>
+        )}
+      </div>
+      {editing && (
+        <form className="setting__form" onSubmit={submit} noValidate>
+          <label className="field">
+            <span className="field__label">{t.password.newEmail}</span>
+            <input
+              className="input"
+              type="email"
+              value={email}
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
+          {needsPassword && (
+            <div className="field">
+              <label className="field__label" htmlFor="email-password">
+                {t.password.current}
+              </label>
+              <PasswordInput
+                id="email-password"
+                value={password}
+                autoComplete="current-password"
+                onChange={setPassword}
+              />
+              <p className="field__help">{t.password.needsCurrent}</p>
+            </div>
+          )}
+          <div className="actions">
+            <button type="submit" className="button button--small">
+              {t.password.save}
+            </button>
+            <button type="button" className="link-button" onClick={() => setEditing(false)}>
+              {t.common.cancel}
+            </button>
+          </div>
+        </form>
+      )}
+      {status && (
+        <p
+          className="field__help setting__status"
+          data-error={status.error || undefined}
+          role="status"
+        >
+          {status.text}
         </p>
       )}
-    </form>
+    </div>
   )
 }
 
-function AgeGate() {
-  const { refresh } = useAccount()
-  const [busy, setBusy] = useState(false)
+function PasswordRow({ account, onChanged }: { account: Account; onChanged(): Promise<void> }) {
+  const [editing, setEditing] = useState(false)
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [email, setEmail] = useState('')
+  const [status, setStatus] = useState<{ text: string; error: boolean } | null>(null)
 
-  async function answer(atLeast13: boolean) {
-    setBusy(true)
-    await accountRequest('/api/me/age', 'POST', { atLeast13 })
-    await refresh()
-    setBusy(false)
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (next.length < MIN_PASSWORD) {
+      return setStatus({ text: t.password.errors['invalid-password'], error: true })
+    }
+    if (!account.hasPassword && !account.email && !EMAIL_PATTERN.test(email.trim())) {
+      return setStatus({ text: t.password.errors['invalid-email'], error: true })
+    }
+    const outcome = account.hasPassword
+      ? await changePassword(current, next)
+      : await addPassword(email.trim(), next)
+    if (!outcome.ok) return setStatus({ text: errorText(outcome) ?? '', error: true })
+    setStatus({ text: account.hasPassword ? t.password.changed : t.profile.saved, error: false })
+    setEditing(false)
+    setCurrent('')
+    setNext('')
+    await onChanged()
   }
 
   return (
-    <section className="card card--feature stack">
-      <h2 className="card__title">{t.account.ageTitle}</h2>
-      <p className="card__text">{t.account.ageLead}</p>
-      <div className="actions">
-        <button type="button" className="button" disabled={busy} onClick={() => answer(true)}>
-          {t.account.ageYes}
-        </button>
-        <button
-          type="button"
-          className="button button--secondary"
-          disabled={busy}
-          onClick={() => answer(false)}
-        >
-          {t.account.ageNo}
-        </button>
+    <div className="setting setting--stacked">
+      <div className="setting__text">
+        <span className="setting__title">{t.password.title}</span>
+        <p className="setting__help">
+          {account.hasPassword ? t.password.passwordHelp : t.password.addLead}
+        </p>
       </div>
-    </section>
+      <div className="setting__control">
+        {!editing && (
+          <button
+            type="button"
+            className="button button--secondary button--small"
+            onClick={() => {
+              setEditing(true)
+              setStatus(null)
+            }}
+          >
+            {account.hasPassword ? t.password.changeTitle : t.password.add}
+          </button>
+        )}
+      </div>
+      {editing && (
+        <form className="setting__form" onSubmit={submit} noValidate>
+          {!account.hasPassword && !account.email && (
+            <label className="field">
+              <span className="field__label">{t.password.email}</span>
+              <input
+                className="input"
+                type="email"
+                value={email}
+                autoComplete="email"
+                autoCapitalize="none"
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </label>
+          )}
+          {account.hasPassword && (
+            <div className="field">
+              <label className="field__label" htmlFor="password-current">
+                {t.password.current}
+              </label>
+              <PasswordInput
+                id="password-current"
+                value={current}
+                autoComplete="current-password"
+                onChange={setCurrent}
+              />
+            </div>
+          )}
+          <div className="field">
+            <label className="field__label" htmlFor="password-next">
+              {t.password.next}
+            </label>
+            <PasswordInput
+              id="password-next"
+              value={next}
+              autoComplete="new-password"
+              onChange={setNext}
+            />
+          </div>
+          <div className="actions">
+            <button type="submit" className="button button--small">
+              {t.password.save}
+            </button>
+            <button type="button" className="link-button" onClick={() => setEditing(false)}>
+              {t.common.cancel}
+            </button>
+          </div>
+        </form>
+      )}
+      {status && (
+        <p
+          className="field__help setting__status"
+          data-error={status.error || undefined}
+          role="status"
+        >
+          {status.text}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -329,6 +324,8 @@ function Profile({ account }: { account: Account }) {
   return (
     <div className="stack stack--loose">
       <ProfileEditor account={account} onSignOut={signOut} />
+
+      <Security account={account} onChanged={refresh} />
 
       <Section title={t.account.linkedTitle}>
         <ul className="list">
@@ -358,22 +355,6 @@ function Profile({ account }: { account: Account }) {
                 </li>
               )
             })}
-          <li className="list__item">
-            <span className="list__main">
-              <span className="list__title">{t.password.title}</span>
-              <span className="list__detail">
-                {account.identities.find((item) => item.provider === 'password')?.username ??
-                  t.account.notLinked}
-              </span>
-            </span>
-            {linked.has('password') ? (
-              <button type="button" className="link-button" onClick={() => unlink('password')}>
-                {t.account.unlink}
-              </button>
-            ) : (
-              <AddPassword onAdded={refresh} />
-            )}
-          </li>
         </ul>
         {error && (
           <p className="field__help" data-error>

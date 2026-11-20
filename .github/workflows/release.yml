@@ -11,6 +11,11 @@ name: Release
 #   Its public half is `plugins.updater.pubkey` in apps/desktop/src-tauri/tauri.conf.json.
 #   Without it the installers are still built, but not the update files.
 # - TAURI_SIGNING_PRIVATE_KEY_PASSWORD: only if the key has a password.
+# - APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY: the certificate
+#   the Mac app is signed with, made once by apps/desktop/scripts/macos-signing-certificate.sh.
+#   The same signature on every version lets macOS keep the Screen Recording and
+#   Accessibility permissions across updates. Without it the app is signed ad hoc, and
+#   macOS asks for both again after each update.
 #
 # The tag must match the version in tauri.conf.json, Cargo.toml and package.json.
 on:
@@ -70,6 +75,33 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME does not match the app version $version"
             exit 1
           fi
+
+      # The certificate goes into a keychain of the runner's own, then the tauri CLI signs
+      # with it by name. It is self-signed: codesign accepts it, and the signature it makes
+      # names this certificate, so it stays the same from one version to the next.
+      - name: Sign the Mac app with its own certificate
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          if [ -z "$CERTIFICATE" ]; then
+            echo "::warning::APPLE_CERTIFICATE is not set: the app is signed ad hoc, and macOS will ask for its permissions again after this update"
+            exit 0
+          fi
+          keychain="$RUNNER_TEMP/couchwarp.keychain-db"
+          keychain_password="$(openssl rand -hex 16)"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          printf '%s' "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          echo "APPLE_SIGNING_IDENTITY=$SIGNING_IDENTITY" >> "$GITHUB_ENV"
 
       # Update files must be signed; without the key, build the installers only.
       - name: Choose what to build

@@ -179,10 +179,13 @@ async fn main() -> Result<()> {
                         );
                     }
                 }
-                Event::NoInputPermission => warn!(
+                Event::InputPermission { allowed: false } => warn!(
                     "keyboard input disabled: allow this terminal in System Settings > \
-                     Privacy & Security > Accessibility, then restart it"
+                     Privacy & Security > Accessibility"
                 ),
+                Event::InputPermission { allowed: true } => info!("guests' keys reach the game"),
+                // The host loop already logs it.
+                Event::InputPaused { .. } => {}
                 Event::PublicNeedsAccount => warn!(
                     "--public needs an account: run `couchwarp-host login` first; the game \
                      stays unlisted"

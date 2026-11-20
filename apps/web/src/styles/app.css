@@ -8,6 +8,7 @@
 @import url("./tokens.css");
 @import url("./base.css");
 @import url("./shell.css");
+@import url("./login.css");
 
 .wordmark {
   display: inline-flex;
@@ -324,6 +325,11 @@
   border-radius: var(--radius-control);
   color: var(--color-ink-2);
   font-size: var(--text-sm);
+}
+
+/* Notices only inform: a click on them still reaches the picture. */
+.play__notice:not(.play__notice--watching) {
+  pointer-events: none;
 }
 
 .play__notice--paused {
@@ -1115,6 +1121,17 @@ textarea.input,
   font-size: var(--text-sm);
   color: var(--color-ink-2);
   pointer-events: none;
+}
+
+/* Once the mouse plays, the reminder of how to get it back fades after a few seconds. */
+.play__hint[data-fading] {
+  animation: hint-fade var(--dur-long) var(--ease-out) 4s forwards;
+}
+
+@keyframes hint-fade {
+  to {
+    opacity: 0;
+  }
 }
 
 /* The in-game bubble: the one control over the picture, dragged anywhere, faded while

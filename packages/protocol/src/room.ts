@@ -33,7 +33,8 @@ export const DEFAULT_SETTINGS: RoomSettings = {
   game: '',
   maxPlayers: 4,
   visibility: 'link',
-  relayOnly: false,
+  // Guests' addresses stay hidden unless the host chooses otherwise (when a relay exists).
+  relayOnly: true,
   hotseat: { mode: 'off', minutes: 5 },
 }
 
@@ -44,6 +45,8 @@ export interface Member {
   /** Set when the guest is signed in. */
   userId: string | null
   role: GuestRole
+  /** Controllers are on by default; the host can take them away from one guest. */
+  pads: boolean
   /** Keyboard and mouse are off by default: a controller cannot leave the game. */
   keyboard: boolean
   mouse: boolean
@@ -69,7 +72,7 @@ export interface RoomState {
 export type HostCommand =
   | { type: 'configure'; settings: RoomSettings }
   | { type: 'set-role'; guestId: GuestId; role: GuestRole }
-  | { type: 'set-permissions'; guestId: GuestId; keyboard: boolean; mouse: boolean }
+  | { type: 'set-permissions'; guestId: GuestId; pads: boolean; keyboard: boolean; mouse: boolean }
   | { type: 'set-pad-type'; guestId: GuestId; padType: PadType }
   | { type: 'kick'; guestId: GuestId; ban: boolean }
   | { type: 'next-turn' }
@@ -145,9 +148,16 @@ export function parseHostCommand(value: unknown): HostCommand | null {
         : null
     case 'set-permissions':
       return isInteger(guestId, 0, MAX_GUEST_ID) &&
+        typeof command.pads === 'boolean' &&
         typeof command.keyboard === 'boolean' &&
         typeof command.mouse === 'boolean'
-        ? { type: 'set-permissions', guestId, keyboard: command.keyboard, mouse: command.mouse }
+        ? {
+            type: 'set-permissions',
+            guestId,
+            pads: command.pads,
+            keyboard: command.keyboard,
+            mouse: command.mouse,
+          }
         : null
     case 'set-pad-type':
       return isInteger(guestId, 0, MAX_GUEST_ID) && PAD_TYPES.includes(command.padType as PadType)

@@ -54,6 +54,7 @@
             "avatarUrl": null,
             "userId": null,
             "role": "player",
+            "pads": true,
             "keyboard": false,
             "mouse": false,
             "padType": "xbox360"
@@ -64,6 +65,7 @@
             "avatarUrl": "https://cdn.discordapp.com/avatars/1/a.png",
             "userId": "6b1d2a1e-0000-4000-8000-000000000002",
             "role": "spectator",
+            "pads": true,
             "keyboard": false,
             "mouse": false,
             "padType": "dualshock4"
@@ -116,6 +118,7 @@
     {
       "type": "set-permissions",
       "guestId": 1,
+      "pads": true,
       "keyboard": true,
       "mouse": false
     },
@@ -188,6 +191,7 @@
             "avatarUrl": null,
             "userId": null,
             "role": "player",
+            "pads": true,
             "keyboard": false,
             "mouse": false,
             "padType": "xbox360"
@@ -198,6 +202,7 @@
             "avatarUrl": "https://cdn.discordapp.com/avatars/1/a.png",
             "userId": "6b1d2a1e-0000-4000-8000-000000000002",
             "role": "spectator",
+            "pads": true,
             "keyboard": false,
             "mouse": false,
             "padType": "dualshock4"

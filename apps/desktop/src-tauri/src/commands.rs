@@ -99,10 +99,67 @@ pub async fn sign_out(site: State<'_, Site>) -> Result<(), String> {
     blocking(move || account::sign_out(&server).map(|_| ())).await
 }
 
-/// Whether guests' keys and mice can reach the game. On a Mac, asks the first time.
+/// Whether guests' keys and mice can reach the game. Never shows a system prompt.
 #[tauri::command]
 pub fn input_allowed() -> bool {
-    couchwarp_host::platform::can_send_keys()
+    couchwarp_host::platform::input_allowed()
+}
+
+/// Whether guests' controllers can play into games on this computer.
+#[tauri::command]
+pub async fn controller_support() -> Result<crate::controllers::Support, String> {
+    blocking(|| Ok(crate::controllers::support())).await
+}
+
+/// Installs what guests' controllers need: VIIPER on Windows, a udev rule on Linux.
+#[tauri::command]
+pub async fn install_controller_support() -> Result<crate::controllers::Support, String> {
+    blocking(|| {
+        crate::controllers::install()?;
+        Ok(crate::controllers::support())
+    })
+    .await
+}
+
+/// Starts the app again: macOS applies a permission granted in the settings to new
+/// processes only, and screen recording needs it every time.
+#[tauri::command]
+pub fn restart_app(app: AppHandle, hosting: State<'_, Hosting>) {
+    hosting.stop_and_wait();
+    app.restart();
+}
+
+/// Forgets what macOS remembers about this app for one permission, then asks again.
+///
+/// An app signed without a stable identity (every version before 0.2) looks like a new
+/// app to macOS after each update: the old entry stays ticked in the settings but no
+/// longer matches, and ticking it again does nothing. Resetting removes that entry, and
+/// the request adds one for this version.
+#[tauri::command]
+pub async fn repair_permission(app: AppHandle, pane: String) -> Result<(), String> {
+    let service = match pane.as_str() {
+        "screen" => "ScreenCapture",
+        "input" => "Accessibility",
+        _ => return Err("unknown-pane".to_owned()),
+    };
+    if !cfg!(target_os = "macos") {
+        return Ok(());
+    }
+    let identifier = app.config().identifier.clone();
+    blocking(move || {
+        let status = std::process::Command::new("/usr/bin/tccutil")
+            .args(["reset", service, &identifier])
+            .status()?;
+        anyhow::ensure!(status.success(), "tccutil answered {status}");
+        Ok(())
+    })
+    .await?;
+    if pane == "input" {
+        couchwarp_host::platform::ask_input_permission();
+    } else {
+        couchwarp_host::platform::ask_screen_permission();
+    }
+    Ok(())
 }
 
 /// Opens the system settings where the app is allowed to record the screen or to send

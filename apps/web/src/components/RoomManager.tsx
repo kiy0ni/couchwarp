@@ -262,23 +262,16 @@ function SettingsForm({ room, onSave }: SettingsProps) {
       />
       {room.publicRefused && <p className="menu__note">{t.console.refused[room.publicRefused]}</p>}
 
-      {draft.visibility === 'public' ? (
-        <p className="field__help">
-          {room.relayAvailable ? t.console.relayPublic : t.console.relayMissing}
-        </p>
-      ) : (
+      {draft.visibility === 'link' && room.relayAvailable && (
         <label className="check">
           <input
             type="checkbox"
             checked={draft.relayOnly}
-            disabled={!room.relayAvailable}
             onChange={(event) => change({ relayOnly: event.target.checked })}
           />
           <span>
             {t.console.relayLabel}
-            <span className="field__help">
-              {room.relayAvailable ? t.console.relayHelp : t.console.relayMissing}
-            </span>
+            <span className="field__help">{t.console.relayHelp}</span>
           </span>
         </label>
       )}

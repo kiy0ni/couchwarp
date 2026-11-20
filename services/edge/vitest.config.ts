@@ -16,6 +16,9 @@ export default defineConfig(async () => {
             // Off whatever .dev.vars holds, so tests never depend on local secrets.
             GOOGLE_CLIENT_ID: '',
             GOOGLE_CLIENT_SECRET: '',
+            RESEND_API_KEY: '',
+            TURN_KEY_ID: '',
+            TURN_URLS: '',
             PUBLIC_ROOMS: 'on',
             ADMIN_USER_IDS: 'admin-1',
           },

@@ -685,6 +685,11 @@
     grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
     gap: var(--space-xl);
   }
+
+  /* One block alone (no recent games yet) takes the whole width. */
+  .columns:has(> :only-child) {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Lists: rows on one surface, separated by hairlines. */
@@ -878,6 +883,18 @@ a.list__title {
 
 .notice > p {
   flex: 1 1 20rem;
+}
+
+.notice__title {
+  display: block;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.notice__error {
+  display: block;
+  margin-top: var(--space-2xs);
+  color: var(--color-error);
 }
 
 /* Public games: one bar of filters. */

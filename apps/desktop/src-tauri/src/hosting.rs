@@ -89,6 +89,8 @@ pub enum HostingState {
         console_key: String,
         stats: Option<StatsView>,
         no_input_permission: bool,
+        /// The game is behind another window: guests' keyboards and mice wait.
+        input_paused: bool,
         public_needs_account: bool,
     },
 }
@@ -102,7 +104,6 @@ pub struct StartRequest {
     pub game: Option<String>,
     pub max_players: Option<u8>,
     pub public: bool,
-    pub relay_only: bool,
     pub turn_minutes: Option<u32>,
     pub fps: u32,
     pub bitrate_mbps: u32,
@@ -137,7 +138,8 @@ impl StartRequest {
                 game: text(self.game.clone()),
                 max_players: self.max_players.map(|players| players.clamp(1, 8)),
                 public: self.public,
-                relay_only: self.relay_only,
+                // Hiding guests' addresses is the room's default; the console changes it.
+                relay_only: false,
                 turn_minutes: self.turn_minutes.map(|minutes| minutes.clamp(1, 60)),
             },
             ..Options::new(server)
@@ -198,6 +200,8 @@ impl Hosting {
             .spawn(move || {
                 // Found again on this thread: a window handle stays on the thread using it.
                 let _awake = keep_awake.then(KeepAwake::start);
+                // The host looks for virtual controllers once, as the game starts.
+                crate::controllers::ensure_running();
                 let outcome = match find_window(&info.id) {
                     Ok(Some(window)) => run(&window, info, options, &server, stop, &publish),
                     Ok(None) => Err(anyhow::anyhow!("the window closed before the game started")),
@@ -308,6 +312,7 @@ fn run(
                         console_key,
                         stats: None,
                         no_input_permission,
+                        input_paused: false,
                         public_needs_account,
                     }),
                     Event::Stats(stats) => publish.update(|state| {
@@ -320,7 +325,27 @@ fn run(
                             });
                         }
                     }),
-                    Event::NoInputPermission => no_input_permission = true,
+                    Event::InputPermission { allowed } => {
+                        no_input_permission = !allowed;
+                        publish.update(|state| {
+                            if let HostingState::Live {
+                                no_input_permission: shown,
+                                ..
+                            } = state
+                            {
+                                *shown = !allowed;
+                            }
+                        });
+                    }
+                    Event::InputPaused { paused } => publish.update(|state| {
+                        if let HostingState::Live {
+                            input_paused: shown,
+                            ..
+                        } = state
+                        {
+                            *shown = paused;
+                        }
+                    }),
                     Event::PublicNeedsAccount => public_needs_account = true,
                 }
             }

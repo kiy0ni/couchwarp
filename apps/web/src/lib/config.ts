@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 export interface ServerConfig {
   publicRooms: boolean
   relay: boolean
+  /** E-mails go out: confirmation links and forgotten passwords work. */
+  email: boolean
 }
 
 let cached: Promise<ServerConfig> | null = null
@@ -14,7 +16,7 @@ export function useServerConfig(): ServerConfig | null {
   useEffect(() => {
     cached ??= fetch('/api/config')
       .then((response) => response.json() as Promise<ServerConfig>)
-      .catch(() => ({ publicRooms: false, relay: false }))
+      .catch(() => ({ publicRooms: false, relay: false, email: false }))
     cached.then(setConfig)
   }, [])
   return config

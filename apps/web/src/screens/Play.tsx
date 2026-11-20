@@ -16,7 +16,12 @@ import type { PadState } from '../lib/pad-state'
 import { preferences, usePreferences } from '../lib/preferences'
 import type { EndReason } from '../lib/session'
 import { useGamepads } from '../lib/use-gamepads'
-import { type KeyboardMode, type Shortcut, useInputForwarding } from '../lib/use-input'
+import {
+  type KeyboardMode,
+  releasePointer,
+  type Shortcut,
+  useInputForwarding,
+} from '../lib/use-input'
 import { countdown, useNow } from '../lib/use-now'
 import { type Measures, useStream } from '../lib/use-stream'
 
@@ -85,17 +90,20 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
   // Until the room state arrives, the guest is taken as a player: the host checks anyway.
   const playing = me === null || me.role !== 'spectator'
   const keyboardAllowed = me?.keyboard ?? false
-  // Playing the keyboard as a controller only helps when the host can play controllers.
-  const preferred = keyboardChoice ?? (stream.virtualPads ? prefs.keyboardMode : 'keys')
+  const padsAllowed = playing && (me?.pads ?? true)
+  // A controller, real or played from the keyboard, only helps when it reaches the game.
+  const padsPlay = padsAllowed && stream.virtualPads === true
+  const preferred = keyboardChoice ?? (padsPlay ? prefs.keyboardMode : 'keys')
   const keyboardMode: KeyboardMode = !playing
     ? 'off'
     : keyboardAllowed
-      ? preferred
-      : stream.virtualPads
+      ? padsPlay
+        ? preferred
+        : 'keys'
+      : padsPlay
         ? 'pad'
         : 'off'
-  const showTouch =
-    playing && touchScreen && stream.virtualPads === true && gamepads.length === 0 && touchWanted
+  const showTouch = padsPlay && touchScreen && gamepads.length === 0 && touchWanted
   if (!showTouch) touch.current = null
 
   const mouseAllowed = playing && (me?.mouse ?? false)
@@ -104,6 +112,7 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
   const openMenu = useCallback((bubble?: DOMRect) => {
     const dialog = menu.current
     if (!dialog) return
+    releasePointer()
     delete dialog.dataset.direction
     dialog.showModal()
     if (!bubble) return
@@ -115,6 +124,7 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
     dialog.dataset.direction = place.direction
   }, [])
   const openChat = useCallback(() => {
+    releasePointer()
     chatDialog.current?.showModal()
     setChatOpen(true)
   }, [])
@@ -130,6 +140,7 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
   )
   useInputForwarding(playing ? session : null, surface, {
     keyboardMode,
+    pads: padsAllowed,
     touch,
     mouse: mouseAllowed,
     onPadRemoved: stream.forgetPad,
@@ -190,8 +201,10 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
           </button>
         </div>
       )}
-      {mouseAllowed && stream.hasPicture && !pointerLocked && !touchScreen && (
-        <p className="play__hint">{t.room.mouseHint}</p>
+      {mouseAllowed && stream.hasPicture && !touchScreen && (
+        <p className="play__hint" data-fading={pointerLocked || undefined}>
+          {pointerLocked ? t.room.mouseLockedHint : t.room.mouseHint}
+        </p>
       )}
       {prefs.connectionWarnings && slow && stream.hasPicture && (
         <p className="play__notice play__notice--warning" role="status">
@@ -288,12 +301,11 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
         </div>
         <h2 className="menu__title">{t.play.controlsTitle}</h2>
         {stream.virtualPads === false && <p className="menu__note">{t.play.padsUnavailable}</p>}
+        {playing && !padsAllowed && <p className="menu__note">{t.room.padsOff}</p>}
         {playing && !keyboardAllowed && (
-          <p className="menu__note">
-            {stream.virtualPads ? t.room.keyboardNotAllowed : t.room.keyboardOff}
-          </p>
+          <p className="menu__note">{padsPlay ? t.room.keyboardNotAllowed : t.room.keyboardOff}</p>
         )}
-        {stream.virtualPads && playing && (
+        {padsPlay && (
           <div className="menu__settings">
             {keyboardAllowed && (
               <Choice<'keys' | 'pad'>
