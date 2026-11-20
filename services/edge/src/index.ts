@@ -11,6 +11,7 @@
  * - `/api/auth/*`, `/api/me*`: accounts, see `auth/routes.ts`.
  * - `/api/friends*`: friends and presence, see `friends.ts`.
  * - `/api/admin/*`: report handling, for admins only.
+ * - `GET /api/games/lookup?q=`: a known game's title and cover, see `games.ts`.
  * - `GET /api/downloads`: where to get the desktop app, `{ mac, windows }`, null until set.
  *
  * A daily cron trigger runs `cleanUp`.
@@ -24,6 +25,7 @@ import { currentUser } from './auth/sessions'
 import { cleanUp } from './cleanup'
 import { list } from './directory'
 import { handleFriends } from './friends'
+import { handleGames } from './games'
 import { json } from './http'
 import { handleAdmin, report } from './reports'
 import { ARRIVAL_HEADER, type Arrival } from './room'
@@ -40,6 +42,7 @@ export default {
     const handled =
       (await handleAccounts(request, env)) ??
       (await handleFriends(request, env)) ??
+      (await handleGames(request, env)) ??
       (await handleAdmin(request, env))
     if (handled) return handled
     if (url.pathname === '/api/host') return openRoom(request, env)

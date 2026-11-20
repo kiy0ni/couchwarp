@@ -1,5 +1,7 @@
 /** The public room list in D1, written by the rooms, read by the listing page. */
 
+import { lookUpGame } from './games'
+
 export interface RoomCard {
   code: string
   title: string
@@ -11,6 +13,8 @@ export interface RoomCard {
   continent: string | null
   avatars: (string | null)[]
   thumbnailUrl: string | null
+  /** The game's wide picture when it is a known game; the page has a generic one. */
+  gameHeader: string | null
   /** A rough idea of the ping from the looker's place: same country, same continent, or far. */
   proximity: 'near' | 'region' | 'far'
 }
@@ -106,10 +110,12 @@ export async function list(
     )
     .bind(...values)
     .all<Row>()
+  const known = await knownGames(db, results, now)
   return results.map((row) => ({
     code: row.code,
     title: row.title,
-    game: row.game,
+    game: known.get(row.game)?.name ?? row.game,
+    gameHeader: known.get(row.game)?.header ?? null,
     hostName: row.host_name,
     players: row.players,
     maxPlayers: row.max_players,
@@ -124,4 +130,11 @@ export async function list(
           ? 'region'
           : 'far',
   }))
+}
+
+/** The known games among the listed rooms, by the name each host gave. */
+async function knownGames(db: D1Database, rows: Row[], now: number) {
+  const names = [...new Set(rows.map((row) => row.game).filter(Boolean))]
+  const found = await Promise.all(names.map((name) => lookUpGame(db, name, now)))
+  return new Map(names.map((name, index) => [name, found[index] ?? null]))
 }

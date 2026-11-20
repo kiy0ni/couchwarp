@@ -2,8 +2,9 @@ import { ROOM_CODE_LENGTH } from '@couchwarp/protocol'
 import { type FormEvent, useEffect, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { CodeEntry } from '../components/CodeEntry'
+import { GameCover } from '../components/GameCover'
+import { Icon } from '../components/Icon'
 import { Link } from '../components/Link'
-import { MachineArt } from '../components/MachineArt'
 import { Page, Section } from '../components/Page'
 import { PlayerBadge } from '../components/PlayerBadge'
 import { RoomCard } from '../components/RoomCard'
@@ -14,6 +15,7 @@ import { desktop, type HostingState, isDesktop } from '../lib/desktop'
 import { fetchRooms, type RoomCard as Room } from '../lib/directory'
 import { type Friend, fetchFriends } from '../lib/friends'
 import { padName } from '../lib/gamepads'
+import { useKnownGame } from '../lib/games'
 import { playedOn, useHistory } from '../lib/history'
 import { navigate } from '../lib/router'
 import { isRoomOpen } from '../lib/session'
@@ -104,9 +106,16 @@ function JoinCard({ onFound }: { onFound(code: string): void }) {
 function ThisComputer() {
   const hosting = useHostingState()
   const live = hosting?.state === 'live' ? hosting : null
+  const known = useKnownGame(live?.window.app, live?.window.title)
   return (
     <section className="card machine">
-      <MachineArt live={live !== null} />
+      {live ? (
+        <GameCover sources={[known?.header]} />
+      ) : (
+        <span className="machine__icon">
+          <Icon name="computer" size={44} weight="duotone" />
+        </span>
+      )}
       <div className="machine__text">
         <h2 className="card__title">{t.home.thisComputer}</h2>
         <p className="card__text">

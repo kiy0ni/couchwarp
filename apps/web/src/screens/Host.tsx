@@ -2,6 +2,7 @@ import { MAX_PLAYERS, MAX_TITLE_LENGTH } from '@couchwarp/protocol'
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Choice } from '../components/Choice'
 import { ConfirmButton } from '../components/ConfirmButton'
+import { GameCover } from '../components/GameCover'
 import { Icon } from '../components/Icon'
 import { Link } from '../components/Link'
 import { Page, Section } from '../components/Page'
@@ -10,6 +11,7 @@ import { Shell } from '../components/Shell'
 import { t } from '../i18n'
 import { useAccount } from '../lib/account'
 import { desktop, type HostingState, isDesktop, system, type WindowInfo } from '../lib/desktop'
+import { useKnownGame } from '../lib/games'
 import { usePreferences } from '../lib/preferences'
 
 /** In the desktop app, share a window; in a browser, get the app. */
@@ -136,7 +138,11 @@ function Setup({ lastError }: { lastError: string | null }) {
   const { account } = useAccount()
   const prefs = usePreferences()
   const [draft, setDraft] = useState(savedDraft)
-  const [chosen, setChosen] = useState<string | null>(null)
+  const [chosen, setChosen] = useState<WindowInfo | null>(null)
+  // A known game in the chosen window names the game and brings its cover.
+  const known = useKnownGame(chosen?.app, chosen?.title)
+  const [gameTouched, setGameTouched] = useState(false)
+  const game = gameTouched || !known ? draft.game : known.name
   const [error, setError] = useState(lastError)
   const change = (patch: Partial<Draft>) => setDraft((previous) => ({ ...previous, ...patch }))
 
@@ -151,9 +157,9 @@ function Setup({ lastError }: { lastError: string | null }) {
     setError(null)
     try {
       await desktop.startHosting({
-        windowId: chosen,
+        windowId: chosen.id,
         title: draft.title || (account ? t.host.defaultTitle(account.displayName) : null),
-        game: draft.game || null,
+        game: game || null,
         maxPlayers: draft.maxPlayers,
         public: draft.public,
         relayOnly: draft.relayOnly,
@@ -180,7 +186,7 @@ function Setup({ lastError }: { lastError: string | null }) {
         </p>
       )}
       <form className="host-setup" onSubmit={start}>
-        <WindowPicker chosen={chosen} onChoose={setChosen} />
+        <WindowPicker chosen={chosen?.id ?? null} onChoose={setChosen} />
         <div className="host-setup__side">
           <Section title={t.host.roomTitle}>
             <div className="card stack">
@@ -204,11 +210,19 @@ function Setup({ lastError }: { lastError: string | null }) {
                 <input
                   id="host-game"
                   className="input"
-                  value={draft.game}
+                  value={game}
                   maxLength={MAX_TITLE_LENGTH}
-                  onChange={(event) => change({ game: event.target.value })}
+                  onChange={(event) => {
+                    setGameTouched(true)
+                    change({ game: event.target.value })
+                  }}
+                  aria-describedby="host-game-help"
                 />
+                <p id="host-game-help" className="field__help">
+                  {known && !gameTouched ? t.host.recognised : t.host.gameHelp}
+                </p>
               </div>
+              {chosen && <GameCover sources={[known?.header]} />}
               <div className="field">
                 <label className="field__label" htmlFor="host-seats">
                   {t.console.seatsLabel}
@@ -277,7 +291,13 @@ type Windows =
   | { kind: 'failed'; reason: string }
   | { kind: 'ready'; list: WindowInfo[] }
 
-function WindowPicker({ chosen, onChoose }: { chosen: string | null; onChoose(id: string): void }) {
+function WindowPicker({
+  chosen,
+  onChoose,
+}: {
+  chosen: string | null
+  onChoose(window: WindowInfo): void
+}) {
   const [windows, setWindows] = useState<Windows>({ kind: 'loading' })
   const load = useCallback(() => {
     setWindows({ kind: 'loading' })
@@ -328,7 +348,7 @@ function WindowPicker({ chosen, onChoose }: { chosen: string | null; onChoose(id
               key={window.id}
               window={window}
               chosen={chosen === window.id}
-              onChoose={() => onChoose(window.id)}
+              onChoose={() => onChoose(window)}
             />
           ))}
         </fieldset>
@@ -403,6 +423,7 @@ function Live({ state }: { state: Extract<HostingState, { state: 'live' }> }) {
     >
       <div className="live">
         <section className="card card--feature live__invite">
+          <LiveCover window={state.window} />
           <p className="field__label">{t.host.codeLabel}</p>
           <p className="live__code">{state.code}</p>
           <InviteLink code={state.code} />
@@ -457,4 +478,10 @@ function Stat({ label, value }: { label: string; value: string }) {
       <dd className="num">{value}</dd>
     </div>
   )
+}
+
+/** The shared game's picture, when the window is a known game. */
+function LiveCover({ window }: { window: WindowInfo }) {
+  const known = useKnownGame(window.app, window.title)
+  return known ? <GameCover sources={[known.header]} className="live__cover" /> : null
 }

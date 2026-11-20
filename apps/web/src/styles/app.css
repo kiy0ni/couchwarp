@@ -914,21 +914,6 @@ select.input {
   object-fit: cover;
 }
 
-.room-card__blank {
-  height: 100%;
-  display: grid;
-  place-items: center;
-  padding: var(--space-md);
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  text-align: center;
-  color: var(--color-muted);
-  overflow-wrap: break-word;
-  min-width: 0;
-}
-
 .room-card__proximity {
   position: absolute;
   top: var(--space-xs);

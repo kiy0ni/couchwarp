@@ -109,7 +109,11 @@ export function Shell({ children, onBack }: { children: ReactNode; onBack?: () =
             data-tone={destination.tone}
             aria-current={current(destination.to) ? 'page' : undefined}
           >
-            <Icon name={destination.icon} size={22} />
+            <Icon
+              name={destination.icon}
+              size={24}
+              weight={current(destination.to) ? 'duotone' : 'regular'}
+            />
             <span className="tabbar__label">{destination.label}</span>
           </Link>
         ))}
@@ -126,7 +130,7 @@ function RailItem({ destination, current }: { destination: Destination; current:
       data-tone={destination.tone}
       aria-current={current ? 'page' : undefined}
     >
-      <Icon name={destination.icon} size={22} />
+      <Icon name={destination.icon} size={24} weight={current ? 'duotone' : 'regular'} />
       <span className="rail__label">{destination.label}</span>
     </Link>
   )

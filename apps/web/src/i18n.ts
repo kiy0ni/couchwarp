@@ -164,6 +164,9 @@ const fr = {
     windowGone: 'Cette fenêtre vient de se fermer. Choisis-en une autre.',
     defaultTitle: (name: string) => `Partie de ${name}`,
     roomTitle: 'La partie',
+    recognised:
+      'Jeu reconnu : son nom et sa jaquette s’affichent dans la partie. Tu peux le changer.',
+    gameHelp: 'Affiché aux invités et dans la liste publique.',
     publicNeedsAccount:
       'Connecte-toi pour lister la partie publiquement. Sans compte, elle reste accessible avec le lien.',
     qualityTitle: 'Image',
@@ -718,6 +721,8 @@ const en: Strings = {
     windowGone: 'That window just closed. Pick another one.',
     defaultTitle: (name) => `${name}’s game`,
     roomTitle: 'The game',
+    recognised: 'Game recognised: its name and cover show in the room. You can change it.',
+    gameHelp: 'Shown to guests and in the public list.',
     publicNeedsAccount:
       'Sign in to list the game publicly. Without an account, it stays open to the link.',
     qualityTitle: 'Picture',

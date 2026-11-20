@@ -11,6 +11,7 @@ import {
   type RejectReason,
 } from '@couchwarp/protocol'
 import { publish, unpublish } from './directory'
+import { lookUpGame } from './games'
 import { iceServersFor } from './ice'
 import { factsFrom } from './reports'
 import {
@@ -88,7 +89,7 @@ export class Room extends DurableObject<Env> {
     const arrival = header ? (JSON.parse(decodeURIComponent(header)) as Arrival) : null
     switch (route) {
       case 'info':
-        return Response.json(this.info())
+        return Response.json(await this.info())
       case 'thumbnail':
         return this.thumbnail()
       case 'facts': {
@@ -524,16 +525,21 @@ export class Room extends DurableObject<Env> {
   }
 
   /** What the join page shows before asking a name: the code alone opens this much. */
-  private info() {
+  private async info() {
     const model = this.hostSocket() ? this.load() : null
     if (!model) return { open: false }
     const state = model.state(this.policy())
     const seated = state.members.filter((member) => member.role !== 'spectator').length
+    const known = state.settings.game
+      ? await lookUpGame(this.env.DB, state.settings.game, Date.now())
+      : null
     return {
       open: true,
       room: {
         title: state.settings.title,
-        game: state.settings.game,
+        game: known?.name ?? state.settings.game,
+        cover: known?.cover ?? null,
+        header: known?.header ?? null,
         hostName: state.hostName,
         players: seated,
         maxPlayers: state.settings.maxPlayers,

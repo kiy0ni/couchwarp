@@ -11,6 +11,8 @@ export interface RoomCard {
   /** One per seated player, null when they have no avatar. */
   avatars: (string | null)[]
   thumbnailUrl: string | null
+  /** The game's wide picture, when it is a known game. */
+  gameHeader: string | null
   /** From the looker's country and continent, not a measured ping. */
   proximity: 'near' | 'region' | 'far'
 }

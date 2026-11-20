@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react'
+import { GameCover } from '../components/GameCover'
 import { Page } from '../components/Page'
 import { PlayerBadge } from '../components/PlayerBadge'
 import { Shell } from '../components/Shell'
@@ -142,6 +143,7 @@ export function Join({ code, onPlay, onBack, onClosed }: Props) {
           </form>
 
           <div className="stack stack--loose">
+            {room && <GameCover sources={[room.header, room.cover]} className="join__cover" />}
             {room && (
               <dl className="stats stats--three">
                 <div className="stats__item">

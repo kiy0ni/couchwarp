@@ -524,6 +524,28 @@
   letter-spacing: 0.08em;
 }
 
+/* A game's picture, in a fixed frame so the page never jumps while it loads. */
+.game-cover {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: var(--color-shade);
+  aspect-ratio: 460 / 215;
+}
+
+.game-cover[data-shape="tall"] {
+  aspect-ratio: 2 / 3;
+}
+
+.game-cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 /* Home: the machines first, like a row of consoles under the TV. */
 
 .machines {
@@ -548,43 +570,18 @@
   align-self: stretch;
 }
 
-.machine-art {
-  width: 128px;
-  height: auto;
+.machine__icon {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: color-mix(in oklab, var(--color-accent) 16%, var(--color-paper-3));
+  color: var(--color-accent);
 }
 
-.machine-art__case {
-  fill: var(--color-paper-3);
-  stroke: var(--color-field-edge);
-  stroke-width: 1.5;
-}
-
-.machine-art__glass {
-  fill: var(--color-shade);
-}
-
-.machine-art__stand {
-  fill: var(--color-field-edge);
-}
-
-.machine-art__light {
-  fill: var(--color-light-off);
-}
-
-.machine-art[data-live] .machine-art__light:nth-of-type(1) {
-  fill: var(--color-p1);
-}
-
-.machine-art[data-live] .machine-art__light:nth-of-type(2) {
-  fill: var(--color-p2);
-}
-
-.machine-art[data-live] .machine-art__light:nth-of-type(3) {
-  fill: var(--color-p3);
-}
-
-.machine-art[data-live] .machine-art__light:nth-of-type(4) {
-  fill: var(--color-p4);
+.machine .game-cover {
+  align-self: stretch;
 }
 
 .join-card .button {
@@ -1554,4 +1551,19 @@ html[data-surface="bubble"] body {
   background: var(--color-accent);
   border-color: var(--color-accent);
   color: var(--color-accent-ink);
+}
+
+.room-card__picture .game-cover {
+  position: absolute;
+  inset: 0;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+
+.live__cover {
+  margin-bottom: var(--space-xs);
+}
+
+.join__cover {
+  border-radius: var(--radius-panel);
 }
