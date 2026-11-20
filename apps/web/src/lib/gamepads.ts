@@ -108,3 +108,8 @@ export class PadTracker {
     return removed
   }
 }
+
+/** The controller's name, without the vendor and product numbers browsers add. */
+export function padName(gamepad: Gamepad): string {
+  return gamepad.id.replace(/\s*\(.*\)\s*$/, '').trim() || 'Controller'
+}

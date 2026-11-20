@@ -1,0 +1,486 @@
+import { MAX_PLAYERS, MAX_TITLE_LENGTH } from '@couchwarp/protocol'
+import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { Choice } from '../components/Choice'
+import { ConfirmButton } from '../components/ConfirmButton'
+import { Icon } from '../components/Icon'
+import { Page, Section } from '../components/Page'
+import { InviteLink, RoomManager } from '../components/RoomManager'
+import { Shell } from '../components/Shell'
+import { t } from '../i18n'
+import { useAccount } from '../lib/account'
+import {
+  desktop,
+  type HostingState,
+  isDesktop,
+  type StartRequest,
+  system,
+  type WindowInfo,
+} from '../lib/desktop'
+
+/** In the desktop app, share a window; in a browser, get the app. */
+export function Host() {
+  return <Shell>{isDesktop ? <HostDesktop /> : <GetTheApp />}</Shell>
+}
+
+interface Downloads {
+  mac: string | null
+  windows: string | null
+}
+
+function GetTheApp() {
+  const [downloads, setDownloads] = useState<Downloads | null>(null)
+  useEffect(() => {
+    fetch('/api/downloads')
+      .then((response) => response.json() as Promise<Downloads>)
+      .then(setDownloads)
+      .catch(() => setDownloads({ mac: null, windows: null }))
+  }, [])
+  const platforms = [
+    { id: 'mac', name: 'macOS', note: t.host.macNote, url: downloads?.mac ?? null },
+    { id: 'windows', name: 'Windows', note: t.host.windowsNote, url: downloads?.windows ?? null },
+  ] as const
+  // The visitor's own system first.
+  const ordered = system === 'windows' ? [...platforms].reverse() : platforms
+  return (
+    <Page title={t.host.title} lead={t.host.webLead} width="narrow">
+      <ol className="steps">
+        {t.host.steps.map((step, index) => (
+          <li key={step.title} className="steps__item">
+            <span className="steps__number" aria-hidden="true">
+              {index + 1}
+            </span>
+            <span>
+              <span className="steps__title">{step.title}</span>
+              <span className="steps__text">{step.text}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="downloads">
+        {ordered.map((platform) => (
+          <section key={platform.id} className="card download">
+            <h2 className="card__title">{platform.name}</h2>
+            <p className="card__text">{platform.note}</p>
+            {platform.url ? (
+              <a className="button" href={platform.url}>
+                <Icon name="download" />
+                {t.host.download(platform.name)}
+              </a>
+            ) : (
+              <p className="muted">{downloads ? t.host.soon : t.host.checking}</p>
+            )}
+          </section>
+        ))}
+      </div>
+    </Page>
+  )
+}
+
+function HostDesktop() {
+  const [state, setState] = useState<HostingState | null>(null)
+  useEffect(() => {
+    let stopListening: (() => void) | undefined
+    let alive = true
+    desktop
+      .onHosting(setState)
+      .then((unlisten) => {
+        if (alive) stopListening = unlisten
+        else unlisten()
+      })
+      .catch(console.error)
+    desktop.hostingState().then(setState).catch(console.error)
+    return () => {
+      alive = false
+      stopListening?.()
+    }
+  }, [])
+
+  if (state === null) return null
+  if (state.state === 'idle') return <Setup lastError={state.error} />
+  if (state.state === 'starting') {
+    return (
+      <Page title={t.host.title}>
+        <p className="muted" role="status">
+          {t.host.starting(state.window.app)}
+        </p>
+      </Page>
+    )
+  }
+  return <Live state={state} />
+}
+
+const SETTINGS_KEY = 'couchwarp.host'
+
+type Quality = Pick<StartRequest, 'fps' | 'bitrateMbps' | 'maxHeight'>
+interface Draft extends Quality {
+  title: string
+  game: string
+  maxPlayers: number
+  public: boolean
+  relayOnly: boolean
+  turnMinutes: number | null
+}
+
+const DEFAULTS: Draft = {
+  title: '',
+  game: '',
+  maxPlayers: 4,
+  public: false,
+  relayOnly: false,
+  turnMinutes: null,
+  fps: 60,
+  bitrateMbps: 12,
+  maxHeight: 1080,
+}
+
+function savedDraft(): Draft {
+  try {
+    return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') }
+  } catch {
+    return DEFAULTS
+  }
+}
+
+function Setup({ lastError }: { lastError: string | null }) {
+  const { account } = useAccount()
+  const [draft, setDraft] = useState(savedDraft)
+  const [chosen, setChosen] = useState<string | null>(null)
+  const [error, setError] = useState(lastError)
+  const change = (patch: Partial<Draft>) => setDraft((previous) => ({ ...previous, ...patch }))
+
+  async function start(event: FormEvent) {
+    event.preventDefault()
+    if (!chosen) return
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(draft))
+    } catch {
+      // Remembering the settings is a convenience.
+    }
+    setError(null)
+    try {
+      await desktop.startHosting({
+        windowId: chosen,
+        title: draft.title || (account ? t.host.defaultTitle(account.displayName) : null),
+        game: draft.game || null,
+        maxPlayers: draft.maxPlayers,
+        public: draft.public,
+        relayOnly: draft.relayOnly,
+        turnMinutes: draft.turnMinutes,
+        fps: draft.fps,
+        bitrateMbps: draft.bitrateMbps,
+        maxHeight: draft.maxHeight,
+      })
+    } catch (reason) {
+      setError(String(reason))
+    }
+  }
+
+  return (
+    <Page title={t.host.title} lead={t.host.desktopLead}>
+      {error && (
+        <p className="notice" data-tone="error" role="alert">
+          {error === 'window-gone' ? t.host.windowGone : error}
+        </p>
+      )}
+      <form className="host-setup" onSubmit={start}>
+        <WindowPicker chosen={chosen} onChoose={setChosen} />
+        <div className="host-setup__side">
+          <Section title={t.host.roomTitle}>
+            <div className="card stack">
+              <div className="field">
+                <label className="field__label" htmlFor="host-title">
+                  {t.console.titleLabel}
+                </label>
+                <input
+                  id="host-title"
+                  className="input"
+                  value={draft.title}
+                  maxLength={MAX_TITLE_LENGTH}
+                  placeholder={account ? t.host.defaultTitle(account.displayName) : ''}
+                  onChange={(event) => change({ title: event.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label className="field__label" htmlFor="host-game">
+                  {t.console.gameLabel}
+                </label>
+                <input
+                  id="host-game"
+                  className="input"
+                  value={draft.game}
+                  maxLength={MAX_TITLE_LENGTH}
+                  onChange={(event) => change({ game: event.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label className="field__label" htmlFor="host-seats">
+                  {t.console.seatsLabel}
+                </label>
+                <select
+                  id="host-seats"
+                  className="input"
+                  value={draft.maxPlayers}
+                  onChange={(event) => change({ maxPlayers: Number(event.target.value) })}
+                >
+                  {Array.from({ length: MAX_PLAYERS }, (_, index) => index + 1).map((seats) => (
+                    <option key={seats} value={seats}>
+                      {seats}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Choice<'link' | 'public'>
+                label={t.console.visibilityLabel}
+                value={draft.public ? 'public' : 'link'}
+                options={[
+                  ['link', t.console.visibilityLink],
+                  ['public', t.console.visibilityPublic],
+                ]}
+                onChange={(visibility) => change({ public: visibility === 'public' })}
+              />
+              {draft.public && !account && (
+                <p className="field__help">{t.host.publicNeedsAccount}</p>
+              )}
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={draft.relayOnly}
+                  onChange={(event) => change({ relayOnly: event.target.checked })}
+                />
+                <span>
+                  {t.console.relayLabel}
+                  <span className="field__help">{t.console.relayHelp}</span>
+                </span>
+              </label>
+            </div>
+          </Section>
+          <Section title={t.host.qualityTitle}>
+            <div className="card stack">
+              <Choice<string>
+                label={t.host.resolutionLabel}
+                value={String(draft.maxHeight)}
+                options={[
+                  ['720', '720p'],
+                  ['1080', '1080p'],
+                  ['1440', '1440p'],
+                ]}
+                onChange={(height) => change({ maxHeight: Number(height) })}
+              />
+              <Choice<string>
+                label={t.host.fpsLabel}
+                value={String(draft.fps)}
+                options={[
+                  ['30', t.host.fps(30)],
+                  ['60', t.host.fps(60)],
+                ]}
+                onChange={(fps) => change({ fps: Number(fps) })}
+              />
+              <Choice<string>
+                label={t.host.bitrateLabel}
+                value={String(draft.bitrateMbps)}
+                options={[
+                  ['6', t.host.bitrate(6)],
+                  ['12', t.host.bitrate(12)],
+                  ['20', t.host.bitrate(20)],
+                  ['30', t.host.bitrate(30)],
+                ]}
+                onChange={(mbps) => change({ bitrateMbps: Number(mbps) })}
+              />
+              <p className="field__help">{t.host.bitrateHelp}</p>
+            </div>
+          </Section>
+          <button type="submit" className="button button--large" disabled={!chosen}>
+            {chosen ? t.host.start : t.host.chooseFirst}
+          </button>
+        </div>
+      </form>
+    </Page>
+  )
+}
+
+type Windows =
+  | { kind: 'loading' }
+  | { kind: 'failed'; reason: string }
+  | { kind: 'ready'; list: WindowInfo[] }
+
+function WindowPicker({ chosen, onChoose }: { chosen: string | null; onChoose(id: string): void }) {
+  const [windows, setWindows] = useState<Windows>({ kind: 'loading' })
+  const load = useCallback(() => {
+    setWindows({ kind: 'loading' })
+    desktop
+      .listWindows()
+      .then((list) => setWindows({ kind: 'ready', list }))
+      .catch((reason) => setWindows({ kind: 'failed', reason: String(reason) }))
+  }, [])
+  useEffect(() => load(), [load])
+
+  return (
+    <Section
+      title={t.host.windowTitle}
+      actions={
+        <button type="button" className="link-button" onClick={load}>
+          <Icon name="refresh" size={16} />
+          {t.host.refresh}
+        </button>
+      }
+    >
+      {windows.kind === 'loading' && (
+        <p className="muted" role="status">
+          {t.host.listing}
+        </p>
+      )}
+      {windows.kind === 'failed' && (
+        <div className="notice" data-tone="error">
+          <p>{system === 'mac' ? t.host.screenPermission : windows.reason}</p>
+          {system === 'mac' && (
+            <button
+              type="button"
+              className="button button--small button--secondary"
+              onClick={() => desktop.openPrivacySettings('screen')}
+            >
+              {t.host.openSettings}
+            </button>
+          )}
+        </div>
+      )}
+      {windows.kind === 'ready' && windows.list.length === 0 && (
+        <p className="muted">{t.host.noWindows}</p>
+      )}
+      {windows.kind === 'ready' && windows.list.length > 0 && (
+        <fieldset className="windows">
+          <legend className="visually-hidden">{t.host.windowTitle}</legend>
+          {windows.list.map((window) => (
+            <WindowChoice
+              key={window.id}
+              window={window}
+              chosen={chosen === window.id}
+              onChoose={() => onChoose(window.id)}
+            />
+          ))}
+        </fieldset>
+      )}
+    </Section>
+  )
+}
+
+function WindowChoice({
+  window,
+  chosen,
+  onChoose,
+}: {
+  window: WindowInfo
+  chosen: boolean
+  onChoose(): void
+}) {
+  const [preview, setPreview] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    desktop
+      .windowPreview(window.id)
+      .then((picture) => alive && setPreview(picture))
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [window.id])
+  return (
+    <label className="window-choice" data-chosen={chosen || undefined}>
+      <input
+        type="radio"
+        name="window"
+        className="visually-hidden"
+        checked={chosen}
+        onChange={onChoose}
+      />
+      <span className="window-choice__picture">
+        {preview ? (
+          <img src={preview} alt="" />
+        ) : (
+          <span className="window-choice__blank" aria-hidden="true">
+            {window.app}
+          </span>
+        )}
+      </span>
+      <span className="window-choice__app">{window.app}</span>
+      <span className="window-choice__title">{window.title || window.app}</span>
+    </label>
+  )
+}
+
+function Live({ state }: { state: Extract<HostingState, { state: 'live' }> }) {
+  const [inputAllowed, setInputAllowed] = useState(!state.noInputPermission)
+  // The room ends with the session: the hosting state turns idle on its own.
+  const onEnd = useCallback(() => undefined, [])
+  const stats = state.stats
+  return (
+    <Page
+      title={t.host.liveTitle}
+      lead={t.host.sharing(state.window.app, state.window.title)}
+      actions={
+        <ConfirmButton
+          className="button button--danger"
+          question={t.console.closeConfirm}
+          confirmLabel={t.host.stop}
+          onConfirm={() => desktop.stopHosting().catch(console.error)}
+        >
+          {t.host.stop}
+        </ConfirmButton>
+      }
+    >
+      <div className="live">
+        <section className="card card--feature live__invite">
+          <p className="field__label">{t.host.codeLabel}</p>
+          <p className="live__code">{state.code}</p>
+          <InviteLink code={state.code} />
+        </section>
+        <dl className="stats">
+          <Stat label={t.host.statGuests} value={stats ? String(stats.guests) : '0'} />
+          <Stat label={t.host.statFps} value={stats ? stats.fps.toFixed(0) : '…'} />
+          <Stat
+            label={t.host.statDelay}
+            value={stats ? t.host.ms(stats.medianMs.toFixed(1)) : '…'}
+          />
+          <Stat
+            label={t.host.statBitrate}
+            value={stats ? t.host.mbps(stats.bitrateMbps.toFixed(1)) : '…'}
+          />
+        </dl>
+      </div>
+      {!inputAllowed && (
+        <div className="notice" data-tone="warning">
+          <p>{t.host.inputPermission}</p>
+          <button
+            type="button"
+            className="button button--small button--secondary"
+            onClick={() => {
+              desktop.openPrivacySettings('input').catch(console.error)
+              desktop.inputAllowed().then(setInputAllowed).catch(console.error)
+            }}
+          >
+            {t.host.openSettings}
+          </button>
+        </div>
+      )}
+      {state.publicNeedsAccount && (
+        <p className="notice" data-tone="warning">
+          {t.host.publicNeedsAccount}
+        </p>
+      )}
+      <RoomManager
+        code={state.code}
+        consoleKey={state.consoleKey}
+        onEnd={onEnd}
+        showClose={false}
+      />
+    </Page>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="stats__item">
+      <dt>{label}</dt>
+      <dd className="num">{value}</dd>
+    </div>
+  )
+}

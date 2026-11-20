@@ -2,7 +2,9 @@
 
 Jouer en multijoueur local à distance. L'hôte partage la fenêtre de son jeu, ses amis le rejoignent depuis un navigateur avec un code à six caractères, sans rien installer, et jouent avec leur manette ou leur clavier.
 
-Statut : **jalon 0a terminé, début du jalon 1**. La chaîne complète fonctionne avec un hôte macOS : image et son du jeu, encodage matériel, WebRTC, client web. Les invités jouent au clavier (touches du jeu ou clavier converti en manette), à la manette, ou avec une manette tactile sur téléphone. Le cahier des charges est dans [docs/CAHIER-DES-CHARGES.md](docs/CAHIER-DES-CHARGES.md), le fonctionnement technique dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Couchwarp existe en trois formes : le **site** (rejoindre, parties publiques, amis, paramètres), l'**application pour Mac et Windows** (le site, plus le partage d'une fenêtre de jeu en quelques clics) et l'**hôte en ligne de commande**, pour les serveurs et les tests.
+
+Statut : **jalon 1 en cours**. La chaîne complète fonctionne avec un hôte macOS : image et son du jeu, encodage matériel, WebRTC, client web. Les invités jouent au clavier (touches du jeu ou clavier converti en manette), à la manette, ou avec une manette tactile sur téléphone. Le cahier des charges est dans [docs/CAHIER-DES-CHARGES.md](docs/CAHIER-DES-CHARGES.md), le fonctionnement technique dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Mesures du jalon 0a
 
@@ -18,14 +20,22 @@ Ces chiffres sont mesurés en local, sans réseau entre les deux. La mesure sur 
 
 ## Lancer en local
 
-Prérequis : Node 22 et pnpm (via mise), Rust stable. L'hôte tourne sur macOS 13 ou plus récent, ou sur Windows 10 (version 2004) ou plus récent.
+Prérequis : Node 22 et pnpm (via mise), Rust stable. L'hôte tourne sur macOS 14 ou plus récent, ou sur Windows 10 (version 2004) ou plus récent.
 
 ```sh
 pnpm install
 pnpm dev                 # serveur de salons sur :8787, client web sur :5173
 ```
 
-Dans un autre terminal :
+### L'application
+
+Dans un autre terminal, `pnpm desktop:dev` ouvre l'application branchée sur le site local. Sa page **Héberger** liste les fenêtres avec un aperçu ; on en choisit une, on règle la partie (nom, jeu, places, visibilité, image), puis « Lancer la partie ». La même page montre ensuite le code, le lien, les mesures (images par seconde, délai de l'hôte, débit) et toute la console : joueurs, chat, réglages. La connexion à un compte passe par le navigateur du système.
+
+`pnpm desktop:build` produit l'application et son installateur pour le système courant (`.dmg` sur Mac, `.exe` sous Windows) dans `target/release/bundle`. Pousser une étiquette `v*` les construit tous les deux sur GitHub Actions (`.github/workflows/release.yml`), dans une version brouillon.
+
+L'application affiche le site en ligne (`build.frontendDist` dans `apps/desktop/src-tauri/tauri.conf.json`) : une mise à jour du site lui parvient sans la réinstaller.
+
+### L'hôte en ligne de commande
 
 ```sh
 cargo run -p couchwarp-host -- --list-windows
@@ -59,14 +69,14 @@ Par défaut, un invité joue à la manette seulement : son clavier n'atteint le 
 
 Le clavier des invités est mis en pause dès que la fenêtre du jeu n'est plus au premier plan. Pour tester l'hôte et l'invité sur le même Mac, où le navigateur passe forcément devant le jeu, lance l'hôte avec `--ignore-focus` : les touches continuent d'aller au jeu, et à lui seul.
 
-À la première utilisation, macOS demande deux autorisations pour le terminal qui lance l'hôte :
+À la première utilisation, macOS demande deux autorisations pour l'application (ou le terminal qui lance l'hôte) :
 
 - **Enregistrement de l'écran** (Réglages Système > Confidentialité et sécurité), pour capturer la fenêtre ;
 - **Accessibilité**, pour envoyer les touches des invités au jeu.
 
 Sous Windows, aucune autorisation n'est demandée. Pour que les manettes des invités agissent sur le jeu, installe et lance [VIIPER](https://alia5.github.io/VIIPER/) (il crée les manettes virtuelles : Xbox 360 par défaut, DualShock 4 pour un invité qui choisit « PlayStation » dans son menu) : l'hôte le détecte au démarrage sur `127.0.0.1:3242` et l'annonce aux invités. Sans VIIPER, le clavier fonctionne et les manettes sont reçues sans agir. Pense aussi à lancer l'hôte avec les mêmes droits que le jeu : Windows bloque les touches envoyées à un jeu lancé en administrateur depuis un programme qui ne l'est pas.
 
-Pour les téléphones d'un même réseau, le client doit être servi en HTTPS (l'API Gamepad l'exige) : le plus simple est de déployer (`pnpm deploy`) ou de passer par un tunnel.
+Pour les téléphones d'un même réseau, le client doit être servi en HTTPS (l'API Gamepad l'exige) : le plus simple est de déployer (`pnpm run deploy`) ou de passer par un tunnel.
 
 ## Limites connues
 

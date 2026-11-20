@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Couchwarp",
+  "version": "0.1.0",
+  "identifier": "app.couchwarp.desktop",
+  "build": {
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "https://couchwarp.sachapastor34.workers.dev"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "capabilities": ["site"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "app", "nsis"],
+    "category": "Game",
+    "shortDescription": "Play your PC games with friends who join from a browser",
+    "publisher": "Sacha Pastor",
+    "copyright": "Sacha Pastor",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "infoPlist": "Info.plist"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

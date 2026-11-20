@@ -2,16 +2,17 @@ import { isRoomCode, normalizeRoomCode } from '@couchwarp/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { navigate, usePath } from './lib/router'
 import type { EndReason } from './lib/session'
-import { AccountPage } from './screens/AccountPage'
 import { Admin } from './screens/Admin'
 import { Browse } from './screens/Browse'
 import { Console } from './screens/Console'
 import { Ended } from './screens/Ended'
 import { Friends } from './screens/Friends'
 import { Home } from './screens/Home'
+import { Host } from './screens/Host'
 import { Join } from './screens/Join'
 import { Legal } from './screens/Legal'
 import { Play } from './screens/Play'
+import { Settings } from './screens/Settings'
 
 /** A shared link is `/<code>`; the host console is `/<code>/console#key=…`. */
 function parsePath(pathname: string): { code: string | null; isConsole: boolean } {
@@ -42,7 +43,11 @@ export function App() {
   const onEnd = useCallback((reason: EndReason) => setStage({ name: 'ended', reason }), [])
   const onClosed = useCallback(() => onEnd('room-not-found'), [onEnd])
 
-  if (path === '/compte') return <AccountPage />
+  // `/compte` is the address sign-in links of earlier versions return to.
+  if (path === '/compte' || path === '/parametres' || path.startsWith('/parametres/')) {
+    return <Settings path={path === '/compte' ? '/parametres' : path} />
+  }
+  if (path === '/heberger') return <Host />
   if (path === '/parties') return <Browse />
   if (path === '/amis') return <Friends />
   if (path === '/moderation') return <Admin />

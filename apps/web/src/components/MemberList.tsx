@@ -4,6 +4,7 @@ import { t } from '../i18n'
 import { useAccount } from '../lib/account'
 import { askFriend } from '../lib/friends'
 import { Avatar } from './Avatar'
+import { ConfirmButton } from './ConfirmButton'
 
 /** Who looks at the list: the host (console), a moderator, or anyone else. */
 export type Viewer = 'host' | 'moderator' | 'guest'
@@ -161,16 +162,14 @@ function MemberActions({ member, viewer, seatsLeft, onCommand }: ActionsProps) {
       >
         {t.room.kick}
       </button>
-      <button
-        type="button"
+      <ConfirmButton
         className="link-button link-button--danger"
-        onClick={() => {
-          if (confirm(t.room.banConfirm(member.name)))
-            onCommand({ type: 'kick', guestId, ban: true })
-        }}
+        question={t.room.banConfirm(member.name)}
+        confirmLabel={t.room.ban}
+        onConfirm={() => onCommand({ type: 'kick', guestId, ban: true })}
       >
         {t.room.ban}
-      </button>
+      </ConfirmButton>
     </fieldset>
   )
 }

@@ -121,6 +121,20 @@ describe('sign-in with Discord', () => {
     expect(me.status).toBe(200)
   })
 
+  it('trades the host app token for a cookie in the desktop window', async () => {
+    const callback = await signIn(lea, 'client=host&return_to=http://127.0.0.1:4567/cb')
+    const token = new URL(callback.headers.get('Location') ?? '').searchParams.get('token')
+    expect((await call('/api/auth/app-session', { method: 'POST' })).status).toBe(401)
+    const traded = await call('/api/auth/app-session', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    expect(traded.status).toBe(200)
+    const cookie = traded.headers.get('Set-Cookie')?.split(';')[0] ?? ''
+    const me = await call('/api/me', { headers: { Cookie: cookie } })
+    expect(await me.json()).toMatchObject({ displayName: 'Léa' })
+  })
+
   it('keeps banned people out', async () => {
     const cookie = cookieFrom(await signIn(lea))
     await env.DB.prepare('UPDATE users SET banned_until = ?')

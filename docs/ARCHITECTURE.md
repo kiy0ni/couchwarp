@@ -17,6 +17,20 @@
 
 Le serveur de salons ne voit passer que la négociation (offres SDP, candidats ICE). L'image, les manettes et le clavier vont directement de l'invité à l'hôte.
 
+## L'application pour Mac et Windows
+
+`apps/desktop` est une application Tauri. Sa fenêtre affiche le site lui-même (en ligne, ou `localhost:5173` en développement) : les pages sont les mêmes que dans un navigateur, et une seule mise en ligne les met à jour partout. Ce que le navigateur ne sait pas faire passe par des commandes Rust, que seules les pages du site peuvent appeler (`capabilities/site.json`) :
+
+- lister les fenêtres et en prendre un aperçu ;
+- lancer et arrêter une session d'hôte, qui tourne sur son propre fil et prévient la page à chaque changement (`hosting`) ;
+- se connecter par le navigateur du système, comme l'hôte en ligne de commande. Le jeton obtenu est échangé contre le cookie du site (`POST /api/auth/app-session`), pour que la fenêtre soit connectée elle aussi.
+
+L'hôte est une bibliothèque (`crates/host/src/lib.rs`) : `session::run` prend une fenêtre, des réglages et un signal d'arrêt, et rend compte par des événements (salon ouvert, mesures, autorisations manquantes). La ligne de commande et l'application l'appellent de la même façon.
+
+La page d'une partie en cours réutilise la console de l'hôte (`RoomManager`) : la clé de console n'a pas besoin de passer par un lien, l'application la donne directement.
+
+Côté client web, `lib/desktop.ts` détecte l'application et regroupe ses commandes ; rien n'y est appelé dans un navigateur.
+
 ## Rejoindre une partie
 
 1. L'hôte ouvre un WebSocket sur `/api/host`. Le Worker tire un code de six caractères, crée le salon (un Durable Object nommé par ce code) et renvoie `room-created`.
@@ -110,5 +124,6 @@ Le protocole existe en Rust (`crates/protocol`) et en TypeScript (`packages/prot
 
 - Premier test de l'hôte Windows sur un vrai PC, avec VIIPER, la souris et la manette PlayStation.
 - Encodeurs matériels sous Windows (NVENC, AMF, Quick Sync).
-- Débit adaptatif : la qualité suit l'estimation de bande passante de chaque invité.
+- Signature des applications (certificat Apple, certificat Windows) pour éviter les avertissements à l'installation.
+- Mise à jour automatique de l'application (le site, lui, est toujours à jour).
 - Mesure de latence entre deux réseaux différents, avec relai TURN, une fois le site en ligne.

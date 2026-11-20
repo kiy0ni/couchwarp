@@ -10,6 +10,9 @@ interface Env {
   DISCORD_CLIENT_SECRET?: string
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
+  /** Where the desktop app installers are, shown on the Host page. */
+  DOWNLOAD_MAC_URL?: string
+  DOWNLOAD_WINDOWS_URL?: string
   /** Comma-separated account ids of the people who handle reports. */
   ADMIN_USER_IDS?: string
 }

@@ -1,0 +1,21 @@
+fn main() {
+    // The site's pages call these commands from a remote address: each needs a permission,
+    // granted in `capabilities/site.json`.
+    let commands = &[
+        "list_windows",
+        "window_preview",
+        "hosting_state",
+        "start_hosting",
+        "stop_hosting",
+        "saved_session",
+        "sign_in",
+        "sign_out",
+        "input_allowed",
+        "open_privacy_settings",
+    ];
+    tauri_build::try_build(
+        tauri_build::Attributes::new()
+            .app_manifest(tauri_build::AppManifest::new().commands(commands)),
+    )
+    .expect("the Tauri build step failed");
+}

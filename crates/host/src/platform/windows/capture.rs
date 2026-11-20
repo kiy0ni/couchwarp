@@ -2,6 +2,7 @@
 //! encoder. Only the window is shared, without the yellow capture border.
 
 use std::sync::Arc;
+use std::sync::mpsc::{SyncSender, sync_channel};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow};
@@ -20,15 +21,19 @@ use windows_capture::window::Window;
 use super::encoder::Encoder;
 use super::sound::SoundCapture;
 use crate::audio::AudioPacket;
-use crate::thumbnail::Thumbnails;
+use crate::thumbnail::{Thumbnails, picture_from_bgra};
 
 /// Windows smaller than this are palettes, tooltips and the like, never a game.
 const MIN_WINDOW_SIDE: i32 = 200;
+/// A minimised window sends no frame: past this, it has no preview.
+const PREVIEW_WAIT: Duration = Duration::from_secs(1);
 
 type CaptureError = Box<dyn std::error::Error + Send + Sync>;
 
 pub struct GameWindow {
     window: Window,
+    /// The window handle: stays the same while the window exists.
+    pub id: u64,
     pub title: String,
     pub app: String,
     pub pid: i32,
@@ -42,6 +47,60 @@ impl GameWindow {
     pub fn stream_size(&self, _max_height: u32) -> (u32, u32) {
         ((self.width as u32) & !1, (self.height as u32) & !1)
     }
+
+    /// A small JPEG of the window as it is now, to recognise it in a list.
+    pub fn preview(&self) -> Result<Vec<u8>> {
+        let (picture_tx, picture) = sync_channel(1);
+        let settings = Settings::new(
+            self.window,
+            CursorCaptureSettings::WithoutCursor,
+            DrawBorderSettings::WithoutBorder,
+            SecondaryWindowSettings::Default,
+            MinimumUpdateIntervalSettings::Default,
+            DirtyRegionSettings::Default,
+            ColorFormat::Bgra8,
+            picture_tx,
+        );
+        let control = OneFrame::start_free_threaded(settings)
+            .map_err(|error| anyhow!("window capture failed: {error}"))?;
+        let outcome = picture.recv_timeout(PREVIEW_WAIT);
+        // It may have stopped already, after its frame.
+        let _ = control.stop();
+        outcome.context("the window drew nothing (minimised?)")?
+    }
+}
+
+/// Takes the first frame as a preview, then stops.
+struct OneFrame {
+    picture: SyncSender<Result<Vec<u8>>>,
+    scratch: Vec<u8>,
+}
+
+impl GraphicsCaptureApiHandler for OneFrame {
+    type Flags = SyncSender<Result<Vec<u8>>>;
+    type Error = CaptureError;
+
+    fn new(context: CaptureContext<Self::Flags>) -> Result<Self, Self::Error> {
+        Ok(Self {
+            picture: context.flags,
+            scratch: Vec::new(),
+        })
+    }
+
+    fn on_frame_arrived(
+        &mut self,
+        frame: &mut Frame,
+        control: InternalCaptureControl,
+    ) -> Result<(), Self::Error> {
+        let (width, height) = (frame.width() as usize, frame.height() as usize);
+        let buffer = frame.buffer()?;
+        let pixels = buffer.as_nopadding_buffer(&mut self.scratch);
+        let _ = self
+            .picture
+            .try_send(picture_from_bgra(pixels, width, height));
+        control.stop();
+        Ok(())
+    }
 }
 
 pub fn list_windows() -> Result<Vec<GameWindow>> {
@@ -53,6 +112,7 @@ pub fn list_windows() -> Result<Vec<GameWindow>> {
             let (width, height) = (window.width().ok()?, window.height().ok()?);
             let pid = window.process_id().ok()? as i32;
             (width >= MIN_WINDOW_SIDE && height >= MIN_WINDOW_SIDE).then(|| GameWindow {
+                id: window.as_raw_hwnd() as usize as u64,
                 app: window.process_name().unwrap_or_default(),
                 pid,
                 title,

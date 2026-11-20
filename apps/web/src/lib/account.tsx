@@ -1,4 +1,5 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
+import { adoptAppSession, desktop, isDesktop } from './desktop'
 
 export type ProviderId = 'discord' | 'google'
 
@@ -16,6 +17,8 @@ interface AccountState {
   account: Account | null | undefined
   providers: ProviderId[]
   refresh(): Promise<void>
+  /** In a browser, leaves for the provider's page; in the desktop app, opens the browser. */
+  signIn(provider: ProviderId): Promise<void>
   signOut(): Promise<void>
 }
 
@@ -42,12 +45,31 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [providers, setProviders] = useState<ProviderId[]>([])
 
   const refresh = useCallback(async () => {
-    const response = await fetch('/api/me')
+    let response = await fetch('/api/me')
+    // The desktop app may have signed in before this window had a session of its own.
+    if (response.status === 401 && isDesktop) {
+      const token = await desktop.savedSession()
+      if (token && (await adoptAppSession(token))) response = await fetch('/api/me')
+    }
     setAccount(response.ok ? await response.json() : null)
   }, [])
 
+  const signIn = useCallback(
+    async (provider: ProviderId) => {
+      if (!isDesktop) {
+        location.assign(signInUrl(provider))
+        return
+      }
+      const token = await desktop.signIn(provider)
+      await adoptAppSession(token)
+      await refresh()
+    },
+    [refresh],
+  )
+
   const signOut = useCallback(async () => {
     await accountRequest('/api/auth/logout', 'POST')
+    if (isDesktop) await desktop.signOut()
     setAccount(null)
   }, [])
 
@@ -61,7 +83,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   }, [refresh])
 
   return (
-    <AccountContext.Provider value={{ account, providers, refresh, signOut }}>
+    <AccountContext.Provider value={{ account, providers, refresh, signIn, signOut }}>
       {children}
     </AccountContext.Provider>
   )

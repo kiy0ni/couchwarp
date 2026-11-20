@@ -53,7 +53,10 @@ describe('a room', () => {
   it('relays the negotiation between a guest and the host', async () => {
     const { host, code } = await openRoom()
     const info = await exports.default.fetch(`${SITE}/api/rooms/${code}`)
-    expect(await info.json()).toEqual({ open: true })
+    expect(await info.json()).toMatchObject({
+      open: true,
+      room: { players: 0, spectators: 0, maxPlayers: expect.any(Number) },
+    })
 
     const guest = await join(code.toLowerCase(), 'Léa')
     const welcome = await guest.next('welcome')

@@ -59,23 +59,17 @@ impl Thumbnails {
     #[cfg(any(target_os = "macos", test))]
     pub fn send_nv12(&self, frame: &Nv12<'_>) {
         let (rgb, width, height) = downscale(frame.width, frame.height, |area| frame.rgb(area));
-        self.send(&rgb, width, height);
+        self.send(jpeg(&rgb, width, height));
     }
 
     /// Takes a picture from a BGRA frame with packed rows, as Windows captures.
     #[cfg(any(windows, test))]
     pub fn send_bgra(&self, bgra: &[u8], width: usize, height: usize) {
-        let (rgb, small_width, small_height) = downscale(width, height, |area| {
-            average(area, |x, y| {
-                let pixel = &bgra[(y * width + x) * 4..][..3];
-                [pixel[2], pixel[1], pixel[0]]
-            })
-        });
-        self.send(&rgb, small_width, small_height);
+        self.send(picture_from_bgra(bgra, width, height));
     }
 
-    fn send(&self, rgb: &[u8], width: usize, height: usize) {
-        match jpeg(rgb, width, height) {
+    fn send(&self, picture: Result<Vec<u8>>) {
+        match picture {
             // A full queue means the last picture is still on its way: skip this one.
             Ok(picture) => {
                 let _ = self.out.try_send(picture);
@@ -83,6 +77,18 @@ impl Thumbnails {
             Err(error) => warn!(%error, "room picture not encoded"),
         }
     }
+}
+
+/// A small JPEG of a BGRA frame with packed rows: the room list's pictures, and the
+/// window previews of the desktop app.
+pub fn picture_from_bgra(bgra: &[u8], width: usize, height: usize) -> Result<Vec<u8>> {
+    let (rgb, small_width, small_height) = downscale(width, height, |area| {
+        average(area, |x, y| {
+            let pixel = &bgra[(y * width + x) * 4..][..3];
+            [pixel[2], pixel[1], pixel[0]]
+        })
+    });
+    jpeg(&rgb, small_width, small_height)
 }
 
 /// One NV12 frame: a full-size luma plane, then a half-size plane of interleaved U and V.
