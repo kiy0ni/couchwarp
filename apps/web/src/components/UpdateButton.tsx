@@ -63,6 +63,8 @@ type Check =
   | { kind: 'checking' }
   | { kind: 'latest' }
   | { kind: 'failed' }
+  /** An app from before 0.2.5 cannot look on demand: it looks as it starts. */
+  | { kind: 'older' }
   | { kind: 'found'; update: AvailableUpdate }
 
 /**
@@ -71,6 +73,8 @@ type Check =
  */
 export function VersionCheck() {
   const [version, setVersion] = useState<string | null>(null)
+  // Apps before 0.2.5 have neither the version nor the look on demand.
+  const [older, setOlder] = useState(false)
   const [check, setCheck] = useState<Check>({ kind: 'idle' })
   const waiting = useAvailableUpdate()
   const { progress, failed, install, label } = useInstall()
@@ -78,11 +82,17 @@ export function VersionCheck() {
     desktop
       .appVersion()
       .then(setVersion)
-      .catch(() => setVersion(null))
+      .catch(() => setOlder(true))
   }, [])
 
   async function look() {
     setCheck({ kind: 'checking' })
+    if (older) {
+      // What the app found as it started, if anything.
+      const update = await desktop.updateAvailable().catch(() => null)
+      setCheck(update ? { kind: 'found', update } : { kind: 'older' })
+      return
+    }
     try {
       const update = await desktop.checkForUpdate()
       setCheck(update ? { kind: 'found', update } : { kind: 'latest' })
@@ -99,13 +109,15 @@ export function VersionCheck() {
       ? t.update.latest
       : check.kind === 'failed'
         ? t.update.checkFailed
-        : null
+        : check.kind === 'older'
+          ? t.update.olderApp
+          : null
   return (
     <div className="setting">
       <div className="setting__text">
         <span className="setting__title">{t.settings.desktopApp}</span>
         <p className="setting__help" aria-live="polite">
-          {version ? t.settings.version(version) : '…'}
+          {version ? t.settings.version(version) : older ? t.update.olderVersion : '…'}
           {status && ` · ${status}`}
         </p>
       </div>

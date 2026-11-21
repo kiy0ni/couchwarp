@@ -119,6 +119,9 @@ const fr: Strings = {
     latest: 'À jour',
     available: (version: string) => `Version ${version} disponible`,
     checkFailed: 'Recherche impossible, vérifie ta connexion',
+    olderVersion: 'Version antérieure à 0.2.5',
+    olderApp:
+      'cette version ne cherche qu’à son démarrage : quitte et rouvre l’appli, le bouton Mettre à jour apparaîtra en haut',
   },
   bubble: {
     wantsToJoin: (others: number) =>
@@ -960,6 +963,9 @@ const en = {
     latest: 'Up to date',
     available: (version: string) => `Version ${version} available`,
     checkFailed: 'Could not check, look at your connection',
+    olderVersion: 'A version before 0.2.5',
+    olderApp:
+      'this version only looks as it starts: quit and reopen the app, the Update button will show at the top',
   },
   bubble: {
     wantsToJoin: (others: number) =>
