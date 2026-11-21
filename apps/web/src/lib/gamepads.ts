@@ -1,5 +1,6 @@
 import { Button, type GamepadPacket, nextSeq } from '@couchwarp/protocol'
 import { familyOf } from './controllers'
+import { applyLayout, DEFAULT_LAYOUT, layoutFor, type PadLayout } from './pad-layout'
 import { samePadState } from './pad-state'
 import { preferences } from './preferences'
 
@@ -27,33 +28,41 @@ const BUTTON_BITS: readonly (readonly [index: number, bit: number])[] = [
   [16, Button.guide],
 ]
 
-function axis(value: number | undefined): number {
-  return Math.round(Math.max(-1, Math.min(1, value ?? 0)) * 32767)
+function axis(value: number): number {
+  return Math.round(value * 32767)
 }
 
-function trigger(button: GamepadButton | undefined): number {
+function trigger(button: { value: number } | undefined): number {
   return Math.round((button?.value ?? 0) * 255)
 }
 
 /**
- * State of one controller, with `seq` left at 0 for the caller to fill. With `byLetters`,
- * a Nintendo controller's face buttons follow their letters instead of their places.
+ * State of one controller, with `seq` left at 0 for the caller to fill, once its `layout`
+ * (remapping, dead zone) is applied. With `byLetters`, a Nintendo controller's face
+ * buttons follow their letters instead of their places.
  */
-export function readGamepad(gamepad: Gamepad, pad: number, byLetters = false): GamepadPacket {
+export function readGamepad(
+  gamepad: Gamepad,
+  pad: number,
+  byLetters = false,
+  layout: PadLayout = DEFAULT_LAYOUT,
+): GamepadPacket {
+  const logical = applyLayout(gamepad, layout)
   let buttons = 0
   for (const [index, bit] of BUTTON_BITS) {
-    if (gamepad.buttons[index]?.pressed) buttons |= bit
+    if (logical.buttons[index]?.pressed) buttons |= bit
   }
   if (byLetters && familyOf(gamepad.id ?? '') === 'nintendo') buttons = swapFaceLetters(buttons)
+  const [leftX, leftY, rightX, rightY] = logical.axes
   return {
     kind: 'gamepad',
     pad,
     seq: 0,
     buttons,
-    leftStick: [axis(gamepad.axes[0]), axis(gamepad.axes[1])],
-    rightStick: [axis(gamepad.axes[2]), axis(gamepad.axes[3])],
-    leftTrigger: trigger(gamepad.buttons[6]),
-    rightTrigger: trigger(gamepad.buttons[7]),
+    leftStick: [axis(leftX), axis(leftY)],
+    rightStick: [axis(rightX), axis(rightY)],
+    leftTrigger: trigger(logical.buttons[6]),
+    rightTrigger: trigger(logical.buttons[7]),
   }
 }
 
@@ -96,7 +105,7 @@ export class PadTracker {
     for (const gamepad of connected) {
       const pad = this.padFor(gamepad.index)
       if (pad === undefined) continue
-      const state = readGamepad(gamepad, pad, preferences().nintendoLetters)
+      const state = readGamepad(gamepad, pad, preferences().nintendoLetters, layoutFor(gamepad))
       const tracked = this.pads[pad]
       if (tracked && samePadState(tracked.last, state) && now - tracked.sentAt < RESEND_MS) continue
       this.seq = nextSeq(this.seq)
@@ -135,6 +144,6 @@ export class PadTracker {
 }
 
 /** The controller's name, without the vendor and product numbers browsers add. */
-export function padName(gamepad: Gamepad): string {
+export function padName(gamepad: Pick<Gamepad, 'id'>): string {
   return gamepad.id.replace(/\s*\(.*\)\s*$/, '').trim() || 'Controller'
 }
