@@ -43,6 +43,11 @@ export class Peer {
     return last.state as Record<string, unknown>
   }
 
+  /** How many messages of this type are queued, unread. */
+  received(type: string): number {
+    return this.inbox.filter((message) => message.type === type).length
+  }
+
   send(message: unknown): void {
     this.socket.send(JSON.stringify(message))
   }
@@ -59,9 +64,20 @@ export async function connect(path: string, headers: Record<string, string> = {}
   return new Peer(response.webSocket)
 }
 
-export async function openRoom(headers: Record<string, string> = {}) {
+/**
+ * A room with its host connected. Guests come straight in unless `admission` says
+ * otherwise: most tests are not about the door.
+ */
+export async function openRoom(
+  headers: Record<string, string> = {},
+  admission: 'ask' | 'friends' | 'open' = 'open',
+) {
   const host = await connect('/api/host', headers)
   const created = await host.next('room-created')
+  const state = await host.next('room-state')
+  const settings = (state.state as { settings: Record<string, unknown> }).settings
+  // The state that follows stays queued, as the first one did before, for tests to read.
+  host.send({ type: 'configure', settings: { ...settings, admission } })
   return { host, code: created.code as string, consoleKey: created.consoleKey as string }
 }
 

@@ -60,8 +60,14 @@ pub enum HostToEdge {
     },
     SetPermissions {
         guest_id: GuestId,
+        pads: bool,
         keyboard: bool,
         mouse: bool,
+    },
+    /// Lets someone at the door in, or turns them away.
+    Admit {
+        guest_id: GuestId,
+        accept: bool,
     },
     SetPadType {
         guest_id: GuestId,

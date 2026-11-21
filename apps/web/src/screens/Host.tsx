@@ -3,6 +3,7 @@ import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Choice } from '../components/Choice'
 import { ConfirmButton } from '../components/ConfirmButton'
 import { ControllerSupport } from '../components/ControllerSupport'
+import { FirewallNotice, letGuestsThrough } from '../components/FirewallNotice'
 import { GameCover } from '../components/GameCover'
 import { Icon } from '../components/Icon'
 import { Link } from '../components/Link'
@@ -189,6 +190,7 @@ function Setup({ lastError }: { lastError: string | null }) {
       // Remembering the settings is a convenience.
     }
     setError(null)
+    await letGuestsThrough()
     try {
       await desktop.startHosting({
         windowId: chosen.id,
@@ -218,6 +220,7 @@ function Setup({ lastError }: { lastError: string | null }) {
           {error === 'window-gone' ? t.host.windowGone : error}
         </p>
       )}
+      <FirewallNotice />
       <ControllerSupport quiet />
       <form className="host-setup" onSubmit={start}>
         <WindowPicker chosen={chosen?.id ?? null} onChoose={setChosen} />
@@ -472,6 +475,7 @@ function Live({ state }: { state: Extract<HostingState, { state: 'live' }> }) {
             <ControllerSupport />
           </>
         ))}
+      <FirewallNotice />
       {state.inputPaused && (
         <p className="notice" data-tone="warning" role="status">
           {t.host.inputPaused}

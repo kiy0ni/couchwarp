@@ -1853,3 +1853,68 @@ html[data-app]
 html[data-app] :is(img, a) {
   -webkit-user-drag: none;
 }
+
+/* People at the door: the first thing the host sees, in the warning colour, until answered. */
+.door {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-panel);
+  border: var(--rule-hair) solid var(--color-warning);
+  background: color-mix(in oklab, var(--color-warning) 8%, var(--color-paper-2));
+}
+
+.door[data-compact] {
+  padding: var(--space-sm);
+  border-radius: var(--radius-control);
+}
+
+.door__title {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.door__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.door__guest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+}
+
+.door__who {
+  flex: 1 1 8rem;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.door__name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.door__detail {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+}
+
+.door__actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+/* Closed, the bubble shows someone is knocking with a light in the warning colour. */
+.host-pill[data-knocking] {
+  outline: 3px solid var(--color-warning);
+  outline-offset: 2px;
+}

@@ -44,7 +44,8 @@
           "hotseat": {
             "mode": "off",
             "minutes": 5
-          }
+          },
+          "admission": "ask"
         },
         "hostName": "Kiyo",
         "members": [
@@ -72,6 +73,14 @@
           }
         ],
         "queue": [2],
+        "waiting": [
+          {
+            "id": 3,
+            "name": "Noé",
+            "avatarUrl": null,
+            "userId": null
+          }
+        ],
         "turnEndsAt": null,
         "publicRefused": null,
         "relayAvailable": false
@@ -107,7 +116,8 @@
         "hotseat": {
           "mode": "off",
           "minutes": 5
-        }
+        },
+        "admission": "friends"
       }
     },
     {
@@ -121,6 +131,11 @@
       "pads": true,
       "keyboard": true,
       "mouse": false
+    },
+    {
+      "type": "admit",
+      "guestId": 3,
+      "accept": true
     },
     {
       "type": "set-pad-type",
@@ -169,6 +184,9 @@
       "type": "host-left"
     },
     {
+      "type": "waiting"
+    },
+    {
       "type": "room-state",
       "state": {
         "code": "K7M2QX",
@@ -181,7 +199,8 @@
           "hotseat": {
             "mode": "off",
             "minutes": 5
-          }
+          },
+          "admission": "ask"
         },
         "hostName": "Kiyo",
         "members": [
@@ -209,6 +228,14 @@
           }
         ],
         "queue": [2],
+        "waiting": [
+          {
+            "id": 3,
+            "name": "Noé",
+            "avatarUrl": null,
+            "userId": null
+          }
+        ],
         "turnEndsAt": null,
         "publicRefused": null,
         "relayAvailable": false

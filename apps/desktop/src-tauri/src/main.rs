@@ -10,6 +10,7 @@ mod awake;
 mod bubble;
 mod commands;
 mod controllers;
+mod firewall;
 mod hosting;
 mod motion;
 mod updates;
@@ -72,6 +73,8 @@ fn main() {
             commands::save_session,
             commands::input_allowed,
             commands::restart_app,
+            commands::firewall_allowed,
+            commands::allow_firewall,
             commands::watch_controllers,
             commands::motion_controllers,
             commands::controller_support,

@@ -38,6 +38,16 @@ pub enum HotseatMode {
     Timer,
 }
 
+/// Who comes in without the host's yes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Admission {
+    #[default]
+    Ask,
+    Friends,
+    Open,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Hotseat {
     pub mode: HotseatMode,
@@ -53,6 +63,9 @@ pub struct RoomSettings {
     pub visibility: Visibility,
     pub relay_only: bool,
     pub hotseat: Hotseat,
+    /// Missing from rooms opened before the host could let people in.
+    #[serde(default)]
+    pub admission: Admission,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,6 +84,16 @@ pub struct Member {
     pub pad_type: PadType,
 }
 
+/// Someone at the door, waiting for the host's answer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WaitingGuest {
+    pub id: GuestId,
+    pub name: String,
+    pub avatar_url: Option<String>,
+    pub user_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PublicRefused {
@@ -86,6 +109,8 @@ pub struct RoomState {
     pub host_name: String,
     pub members: Vec<Member>,
     pub queue: Vec<GuestId>,
+    #[serde(default)]
+    pub waiting: Vec<WaitingGuest>,
     pub turn_ends_at: Option<u64>,
     pub public_refused: Option<PublicRefused>,
     pub relay_available: bool,

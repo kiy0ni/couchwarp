@@ -11,6 +11,8 @@ export type GuestRole = 'moderator' | 'player' | 'spectator'
 export type Visibility = 'link' | 'public'
 export type PadType = 'xbox360' | 'dualshock4'
 export type HotseatMode = 'off' | 'manual' | 'timer'
+/** Who comes in without the host's yes: nobody, the host's friends, or everyone. */
+export type Admission = 'ask' | 'friends' | 'open'
 
 export const MAX_PLAYERS = 8
 export const MAX_TITLE_LENGTH = 60
@@ -26,6 +28,7 @@ export interface RoomSettings {
   relayOnly: boolean
   /** Players take turns: by hand, or every `minutes`. */
   hotseat: { mode: HotseatMode; minutes: number }
+  admission: Admission
 }
 
 export const DEFAULT_SETTINGS: RoomSettings = {
@@ -36,6 +39,8 @@ export const DEFAULT_SETTINGS: RoomSettings = {
   // Guests' addresses stay hidden unless the host chooses otherwise (when a relay exists).
   relayOnly: true,
   hotseat: { mode: 'off', minutes: 5 },
+  // Public or private, no one joins without the host saying yes.
+  admission: 'ask',
 }
 
 export interface Member {
@@ -53,6 +58,14 @@ export interface Member {
   padType: PadType
 }
 
+/** Someone who asked to join and waits for the host's answer. */
+export interface WaitingGuest {
+  id: GuestId
+  name: string
+  avatarUrl: string | null
+  userId: string | null
+}
+
 export interface RoomState {
   code: string
   settings: RoomSettings
@@ -60,6 +73,8 @@ export interface RoomState {
   members: Member[]
   /** Spectators waiting for a controller, first in line first. */
   queue: GuestId[]
+  /** People at the door, first come first. */
+  waiting: WaitingGuest[]
   /** When the current turn ends, in Unix ms, with the timer hotseat. */
   turnEndsAt: number | null
   /** Why `public` was turned down, when it was. */
@@ -74,6 +89,7 @@ export type HostCommand =
   | { type: 'set-role'; guestId: GuestId; role: GuestRole }
   | { type: 'set-permissions'; guestId: GuestId; pads: boolean; keyboard: boolean; mouse: boolean }
   | { type: 'set-pad-type'; guestId: GuestId; padType: PadType }
+  | { type: 'admit'; guestId: GuestId; accept: boolean }
   | { type: 'kick'; guestId: GuestId; ban: boolean }
   | { type: 'next-turn' }
   | { type: 'chat'; text: string }
@@ -90,6 +106,7 @@ export interface ChatMessage {
 const ROLES: readonly GuestRole[] = ['moderator', 'player', 'spectator']
 const PAD_TYPES: readonly PadType[] = ['xbox360', 'dualshock4']
 const HOTSEAT_MODES: readonly HotseatMode[] = ['off', 'manual', 'timer']
+const ADMISSIONS: readonly Admission[] = ['ask', 'friends', 'open']
 
 /**
  * Cleans what people type: line breaks and tabs become spaces, other control characters
@@ -118,7 +135,9 @@ export function parseSettings(value: unknown): RoomSettings | null {
     (settings.visibility !== 'link' && settings.visibility !== 'public') ||
     typeof settings.relayOnly !== 'boolean' ||
     !HOTSEAT_MODES.includes(hotseat.mode as HotseatMode) ||
-    !isInteger(hotseat.minutes, 1, 60)
+    !isInteger(hotseat.minutes, 1, 60) ||
+    // Hosts from before admission send none: the room keeps asking.
+    (settings.admission !== undefined && !ADMISSIONS.includes(settings.admission as Admission))
   ) {
     return null
   }
@@ -129,6 +148,7 @@ export function parseSettings(value: unknown): RoomSettings | null {
     visibility: settings.visibility,
     relayOnly: settings.relayOnly,
     hotseat: { mode: hotseat.mode as HotseatMode, minutes: hotseat.minutes },
+    admission: (settings.admission as Admission | undefined) ?? 'ask',
   }
 }
 
@@ -162,6 +182,10 @@ export function parseHostCommand(value: unknown): HostCommand | null {
     case 'set-pad-type':
       return isInteger(guestId, 0, MAX_GUEST_ID) && PAD_TYPES.includes(command.padType as PadType)
         ? { type: 'set-pad-type', guestId, padType: command.padType as PadType }
+        : null
+    case 'admit':
+      return isInteger(guestId, 0, MAX_GUEST_ID) && typeof command.accept === 'boolean'
+        ? { type: 'admit', guestId, accept: command.accept }
         : null
     case 'kick':
       return isInteger(guestId, 0, MAX_GUEST_ID) && typeof command.ban === 'boolean'

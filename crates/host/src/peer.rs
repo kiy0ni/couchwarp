@@ -44,6 +44,14 @@ pub struct Peer {
 }
 
 impl Peer {
+    /// Whether the guest is reached: its control channel opened. A guest whose connection
+    /// never got through is not counted as connected.
+    pub fn connected(&self) -> bool {
+        self.control.is_some()
+    }
+}
+
+impl Peer {
     /// Accepts a guest's offer. Returns the peer and the SDP answer to send back.
     pub fn answer(
         guest_id: GuestId,

@@ -15,6 +15,7 @@ import {
   type RejectReason,
   type RoomSettings,
   type RoomState,
+  type WaitingGuest,
 } from '@couchwarp/protocol'
 
 /** People in a room besides the host, players and spectators together. */
@@ -52,10 +53,18 @@ interface StoredMember extends Member {
   lastChatAt: number
 }
 
+/** Someone at the door, with what joining will need once the host says yes. */
+interface StoredWaiting extends WaitingGuest {
+  account: Account | null
+  banKeys: string[]
+  grants: Grants
+}
+
 export interface Snapshot {
   settings: RoomSettings
   host: HostInfo
   members: StoredMember[]
+  waiting: StoredWaiting[]
   queue: GuestId[]
   bans: string[]
   turnEndsAt: number | null
@@ -63,7 +72,16 @@ export interface Snapshot {
 }
 
 export type Outcome =
-  | { ok: true; chat?: ChatMessage; kicked?: GuestId; closed?: true }
+  | {
+      ok: true
+      chat?: ChatMessage
+      kicked?: GuestId
+      closed?: true
+      /** Let in from the door: the room now sends them what they need to connect. */
+      admitted?: Member
+      /** Turned away at the door. */
+      refused?: GuestId
+    }
   | { ok: false; reason: 'forbidden' | 'unknown-guest' | 'too-fast' | 'not-allowed' }
 
 export interface Policy {
@@ -87,6 +105,7 @@ export class RoomModel {
       settings: { ...DEFAULT_SETTINGS, title: host.name ? `Partie de ${host.name}` : '' },
       host,
       members: [],
+      waiting: [],
       queue: [],
       bans: [],
       turnEndsAt: null,
@@ -95,7 +114,12 @@ export class RoomModel {
   }
 
   static restore(code: string, snapshot: Snapshot): RoomModel {
-    return new RoomModel(code, snapshot)
+    // Rooms saved before the door existed had no one waiting, and let everyone in.
+    return new RoomModel(code, {
+      ...snapshot,
+      waiting: snapshot.waiting ?? [],
+      settings: { ...snapshot.settings, admission: snapshot.settings.admission ?? 'open' },
+    })
   }
 
   save(): Snapshot {
@@ -138,10 +162,56 @@ export class RoomModel {
       hostName: this.host.name,
       members: this.snapshot.members.map(publicMember),
       queue: this.snapshot.queue,
+      waiting: this.snapshot.waiting.map(({ id, name, avatarUrl, userId }) => ({
+        id,
+        name,
+        avatarUrl,
+        userId,
+      })),
       turnEndsAt: this.snapshot.turnEndsAt,
       publicRefused: this.publicRefused(policy),
       relayAvailable: policy.relayAvailable,
     }
+  }
+
+  /**
+   * Someone arrives. They come straight in when the room lets everyone in, or lets the
+   * host's friends in and they are one; otherwise they wait at the door for the host.
+   */
+  knock(
+    arrival: {
+      guestId: GuestId
+      name: string
+      account: Account | null
+      banKeys: string[]
+      grants: Grants
+      friend: boolean
+    },
+    now: number,
+  ): Member | 'waiting' | RejectReason {
+    const { guestId, name, account, banKeys, grants, friend } = arrival
+    if (banKeys.some((key) => this.snapshot.bans.includes(key))) return 'banned'
+    if (this.snapshot.members.length + this.snapshot.waiting.length >= MAX_MEMBERS) {
+      return 'room-full'
+    }
+    const admission = this.settings.admission
+    if (admission === 'open' || (admission === 'friends' && friend)) {
+      return this.join(guestId, name, account, banKeys, now, grants)
+    }
+    this.snapshot.waiting.push({
+      id: guestId,
+      name,
+      avatarUrl: account?.avatarUrl ?? null,
+      userId: account?.userId ?? null,
+      account,
+      banKeys,
+      grants,
+    })
+    return 'waiting'
+  }
+
+  isWaiting(guestId: GuestId): boolean {
+    return this.snapshot.waiting.some((guest) => guest.id === guestId)
   }
 
   /**
@@ -177,6 +247,7 @@ export class RoomModel {
   }
 
   leave(guestId: GuestId, now: number): void {
+    this.snapshot.waiting = this.snapshot.waiting.filter((guest) => guest.id !== guestId)
     this.snapshot.members = this.snapshot.members.filter((m) => m.id !== guestId)
     this.snapshot.queue = this.snapshot.queue.filter((id) => id !== guestId)
     this.fillSeats(now)
@@ -222,6 +293,10 @@ export class RoomModel {
         target.mouse = command.mouse
         return DONE
       }
+      case 'admit':
+        return role === 'host' || role === 'moderator'
+          ? this.admit(command.guestId, command.accept, now)
+          : FORBIDDEN
       case 'close':
         return role === 'host' ? { ok: true, closed: true } : FORBIDDEN
     }
@@ -262,6 +337,17 @@ export class RoomModel {
       this.snapshot.turnEndsAt =
         settings.hotseat.mode === 'timer' ? now + settings.hotseat.minutes * 60_000 : null
     }
+  }
+
+  private admit(guestId: GuestId, accept: boolean, now: number): Outcome {
+    const guest = this.snapshot.waiting.find((waiting) => waiting.id === guestId)
+    if (!guest) return UNKNOWN
+    this.snapshot.waiting = this.snapshot.waiting.filter((waiting) => waiting.id !== guestId)
+    if (!accept) return { ok: true, refused: guestId }
+    const joined = this.join(guest.id, guest.name, guest.account, guest.banKeys, now, guest.grants)
+    return typeof joined === 'string'
+      ? { ok: true, refused: guestId }
+      : { ok: true, admitted: joined }
   }
 
   private setRole(actorRole: ActorRole, guestId: GuestId, role: GuestRole, now: number): Outcome {

@@ -114,6 +114,10 @@ export const desktop = {
   openPrivacySettings: (pane: PermissionPane) => invoke<void>('open_privacy_settings', { pane }),
   /** Forgets what macOS remembers for this permission, and asks again. */
   repairPermission: (pane: PermissionPane) => invoke<void>('repair_permission', { pane }),
+  /** Whether the system's firewall lets guests reach this app (Windows only says no). */
+  firewallAllowed: () => invoke<boolean>('firewall_allowed'),
+  /** Lets guests through the firewall; Windows asks for administrator rights first. */
+  allowFirewall: () => invoke<boolean>('allow_firewall'),
   /** The app reads PlayStation and Switch controllers' reports and hands them over. */
   watchControllers: (onReport: (report: NativeReport) => void) => {
     const channel = new Channel<NativeReport>()

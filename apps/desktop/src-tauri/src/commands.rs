@@ -105,6 +105,23 @@ pub fn input_allowed() -> bool {
     couchwarp_host::platform::input_allowed()
 }
 
+/// Whether the system's firewall lets guests reach this app. Only Windows can say no.
+#[tauri::command]
+pub async fn firewall_allowed() -> Result<bool, String> {
+    blocking(crate::firewall::allowed).await
+}
+
+/// Lets guests through the firewall, after the administrator prompt. Answers whether they
+/// now get through.
+#[tauri::command]
+pub async fn allow_firewall() -> Result<bool, String> {
+    blocking(|| {
+        crate::firewall::allow()?;
+        crate::firewall::allowed()
+    })
+    .await
+}
+
 /// Sends the page every PlayStation and Switch controller's input reports, for their
 /// motion sensors: the app's web view cannot read them itself.
 #[tauri::command]
