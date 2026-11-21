@@ -8,7 +8,14 @@ function fakeGamepad(index: number, pressed: number[] = [], axes = [0, 0, 0, 0])
     touched: pressed.includes(i),
     value: pressed.includes(i) ? 1 : 0,
   }))
-  return { index, connected: true, axes, buttons, mapping: 'standard' } as unknown as Gamepad
+  return {
+    id: 'Test pad (Vendor: 045e Product: 028e)',
+    index,
+    connected: true,
+    axes,
+    buttons,
+    mapping: 'standard',
+  } as unknown as Gamepad
 }
 
 describe('readGamepad', () => {

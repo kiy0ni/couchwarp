@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import type { PadLayout } from './pad-layout'
 
 /**
  * Choices kept on this device, from the Settings page: how games look and behave for
@@ -21,6 +22,8 @@ export interface Preferences {
   padType: 'xbox360' | 'dualshock4'
   /** Nintendo controllers play by their letters: the A on the right is the game's A. */
   nintendoLetters: boolean
+  /** Remapping and sticks, per controller model (`layoutKey`). */
+  padLayouts: Record<string, PadLayout>
   /** The phone's own gyroscope moves the touch controller. */
   phoneMotion: boolean
   /** Mouse movement multiplier, 0.25 to 3. */
@@ -54,6 +57,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   keyboardMode: 'pad',
   padType: 'xbox360',
   nintendoLetters: true,
+  padLayouts: {},
   phoneMotion: false,
   mouseSpeed: 1,
   bubble: { x: 0.5, y: 0.02 },

@@ -8,6 +8,40 @@ import type { EndReason } from './lib/session'
 
 const fr: Strings = {
   common: { cancel: 'Annuler' },
+  padTest: {
+    open: 'Tester et régler',
+    customised: 'réglages personnalisés',
+    done: 'Terminer',
+    locked:
+      'Pendant le test, la manette ne pilote plus l’appli. Pour quitter : Échap, « Terminer », ou Select et Start maintenus une seconde.',
+    exiting: 'Garde Select et Start appuyés pour quitter…',
+    gone: 'Manette débranchée',
+    goneHelp: 'La manette n’est plus connectée. Rebranche-la, puis appuie sur un bouton.',
+    live: 'La manette en direct',
+    drawing: 'La manette : les boutons s’allument quand tu les appuies',
+    triggers: 'Gâchettes',
+    pressed: 'Appuyés',
+    noMotion:
+      'Aucun gyroscope lu pour cette manette. Les manettes PlayStation et Switch en ont un : dans Chrome ou Edge, connecte-la avec « Connecter une manette » ; dans l’appli, il est lu tout seul.',
+    pitch: 'Avant / arrière',
+    yaw: 'Gauche / droite',
+    roll: 'Inclinaison',
+    centre: 'Recentrer',
+    remapTitle: 'Boutons',
+    remapLead:
+      'Pour chaque bouton du jeu, le bouton de ta manette qui le joue. Clique « Changer », puis appuie sur le bouton voulu. Vaut pour toutes les manettes de ce modèle.',
+    change: 'Changer',
+    changeLabel: (button: string) => `Changer le bouton qui joue ${button}`,
+    pressOne: 'Appuie sur un bouton…',
+    reset: 'Tout réinitialiser',
+    sticksTitle: 'Sticks',
+    deadZone: 'Zone morte',
+    deadZoneHelp:
+      'Ignore les petits mouvements au centre, pour un stick qui bouge tout seul. Le cercle en pointillé la montre.',
+    invertLeft: 'Inverser le haut et le bas du stick gauche',
+    invertRight: 'Inverser le haut et le bas du stick droit',
+    swapSticks: 'Échanger les deux sticks',
+  },
   login: {
     welcome: 'Content de te revoir',
     welcomeLead: 'Connecte-toi pour rejoindre une partie, héberger et retrouver tes amis.',
@@ -307,7 +341,6 @@ const fr: Strings = {
       'Branche une manette PlayStation ou Switch, en USB ou en Bluetooth : l’appli lit son gyroscope toute seule. Il faut un hôte Windows, et le type PlayStation dans le menu.',
     motionConnect: 'Connecter une manette',
     motionFailed: 'La manette n’a pas pu être connectée.',
-    motionLive: (gyro: string) => `Gyroscope : ${gyro} degrés par seconde`,
     phoneMotion: 'Gyroscope du téléphone',
     phoneMotionHelp:
       'Avec la manette tactile, pencher le téléphone fait comme pencher une manette.',
@@ -775,6 +808,40 @@ type Strings = typeof en
 
 const en = {
   common: { cancel: 'Cancel' },
+  padTest: {
+    open: 'Test and set up',
+    customised: 'custom settings',
+    done: 'Done',
+    locked:
+      'During the test, the controller no longer moves through the app. To leave: Escape, Done, or Select and Start held for a second.',
+    exiting: 'Keep Select and Start held to leave…',
+    gone: 'Controller unplugged',
+    goneHelp: 'The controller is no longer connected. Plug it back in, then press a button.',
+    live: 'The controller, live',
+    drawing: 'The controller: buttons light up as you press them',
+    triggers: 'Triggers',
+    pressed: 'Pressed',
+    noMotion:
+      'No gyroscope read for this controller. PlayStation and Switch controllers have one: in Chrome or Edge, connect it with Connect a controller; in the app, it is read on its own.',
+    pitch: 'Forward / back',
+    yaw: 'Left / right',
+    roll: 'Tilt',
+    centre: 'Recentre',
+    remapTitle: 'Buttons',
+    remapLead:
+      'For each game button, the button on your controller that plays it. Click Change, then press the one you want. Applies to every controller of this model.',
+    change: 'Change',
+    changeLabel: (button: string) => `Change the button that plays ${button}`,
+    pressOne: 'Press a button…',
+    reset: 'Reset all',
+    sticksTitle: 'Sticks',
+    deadZone: 'Dead zone',
+    deadZoneHelp:
+      'Ignores small movements around the centre, for a stick that drifts. The dotted circle shows it.',
+    invertLeft: 'Invert up and down on the left stick',
+    invertRight: 'Invert up and down on the right stick',
+    swapSticks: 'Swap the two sticks',
+  },
   login: {
     welcome: 'Good to see you again',
     welcomeLead: 'Sign in to join a game, host one and find your friends.',
@@ -1073,7 +1140,6 @@ const en = {
       'Plug in a PlayStation or Switch controller, over USB or Bluetooth: the app reads its gyroscope on its own. It takes a Windows host, and the PlayStation type in the menu.',
     motionConnect: 'Connect a controller',
     motionFailed: 'The controller could not be connected.',
-    motionLive: (gyro: string) => `Gyroscope: ${gyro} degrees per second`,
     phoneMotion: 'Phone gyroscope',
     phoneMotionHelp: 'With the touch controller, tilting the phone is like tilting a controller.',
     phoneMotionRefused: 'The phone refused access to its sensors.',

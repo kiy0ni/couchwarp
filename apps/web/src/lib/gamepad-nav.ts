@@ -13,6 +13,20 @@ const FIRST_REPEAT_MS = 400
 const NEXT_REPEAT_MS = 120
 const STICK_THRESHOLD = 0.5
 
+/** Pages that need the controller for themselves (the tester) stop the navigation. */
+let holds = 0
+
+/** Keeps the controller from moving through the page until the returned function is called. */
+export function holdGamepadNavigation(): () => void {
+  holds++
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+    holds--
+  }
+}
+
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
@@ -33,7 +47,7 @@ export function useGamepadNavigation(enabled: boolean, onBack?: () => void): voi
 
     const tick = (now: number) => {
       frame = requestAnimationFrame(tick)
-      const key = pressedKey()
+      const key = holds > 0 ? null : pressedKey()
       if (!key) {
         held = null
         return
