@@ -197,10 +197,16 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
           {t.play.waiting}
         </p>
       )}
-      {stream.paused && (
+      {stream.gameClosed ? (
         <p className="play__notice play__notice--paused" role="status">
-          {t.play.paused}
+          {t.play.gameClosed}
         </p>
+      ) : (
+        stream.paused && (
+          <p className="play__notice play__notice--paused" role="status">
+            {t.play.paused}
+          </p>
+        )
       )}
 
       {!playing && (
@@ -240,7 +246,7 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
 
       <GameBubble
         unread={notices.unread}
-        attention={!stream.hasPicture || stream.paused || !playing}
+        attention={!stream.hasPicture || stream.paused || stream.gameClosed || !playing}
         onOpen={openMenu}
         onMoved={() => surface.current?.focus()}
       >

@@ -17,6 +17,8 @@ export type HostControl =
   | { type: 'stream-clock'; epochMs: number }
   | { type: 'slot'; pad: number; slot: number }
   | { type: 'input-paused'; paused: boolean }
+  /** The game closed on the host's computer; the room waits for it to come back. */
+  | { type: 'game-closed'; closed: boolean }
 
 export function parseHostControl(text: string): HostControl | null {
   const message = parseObject(text)
@@ -40,6 +42,10 @@ export function parseHostControl(text: string): HostControl | null {
     case 'input-paused':
       return typeof message.paused === 'boolean'
         ? { type: 'input-paused', paused: message.paused }
+        : null
+    case 'game-closed':
+      return typeof message.closed === 'boolean'
+        ? { type: 'game-closed', closed: message.closed }
         : null
     default:
       return null

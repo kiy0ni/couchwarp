@@ -118,7 +118,8 @@ impl Capture {
                 while !stopping.load(Ordering::Acquire) {
                     let captured_at = Instant::now();
                     match display.pixels(target) {
-                        Ok(Some((pixels, width, height))) => {
+                        Ok(Some((mut pixels, width, height))) => {
+                            display.draw_cursor(target, &mut pixels, width, height);
                             encoder.encode_bgra(&pixels, width, height, captured_at);
                             if thumbnails.due() {
                                 thumbnails.send_bgra(&pixels, width, height);

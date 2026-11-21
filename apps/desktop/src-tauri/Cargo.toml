@@ -1,6 +1,6 @@
 [package]
 name = "couchwarp-desktop"
-version = "0.2.5"
+version = "0.2.6"
 description = "Couchwarp for Mac and Windows: host a game for friends, or join theirs"
 edition.workspace = true
 license.workspace = true

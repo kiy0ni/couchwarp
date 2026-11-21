@@ -32,6 +32,7 @@
     "allow-open-privacy-settings",
     "allow-set-bubble-open",
     "allow-set-bubble-notice",
+    "allow-relaunch-game",
     "allow-show-main-window",
     "allow-update-available",
     "allow-install-update",

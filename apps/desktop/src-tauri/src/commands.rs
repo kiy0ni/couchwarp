@@ -64,6 +64,13 @@ pub fn stop_hosting(hosting: State<'_, Hosting>) {
     hosting.stop();
 }
 
+/// Starts the shared game again after it closed; hosting picks up its new window.
+#[tauri::command]
+pub async fn relaunch_game(app: AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    blocking(move || app.state::<Hosting>().relaunch_game()).await
+}
+
 /// The token this computer keeps for the site, so the page can sign its window in too.
 #[tauri::command]
 pub fn saved_session(site: State<'_, Site>) -> Option<String> {

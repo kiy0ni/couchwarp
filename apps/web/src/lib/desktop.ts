@@ -45,6 +45,10 @@ export type HostingState =
       /** The game is behind another window: guests' keyboards and mice wait. */
       inputPaused: boolean
       publicNeedsAccount: boolean
+      /** The game closed: the room waits for it. Apps before 0.2.6 never say so. */
+      gameClosed?: boolean
+      /** The app knows the game's program and can start it again. */
+      canRelaunch?: boolean
     }
 
 export interface StartRequest {
@@ -61,6 +65,8 @@ export interface StartRequest {
   keepAwake: boolean
   /** Guests' keys wait while the game window is not in front. */
   focusLock: boolean
+  /** Mac: guests' mice move the real cursor. Ignored elsewhere and by apps before 0.2.6. */
+  systemPointer: boolean
   /** The small window over the game to manage it. */
   bubble: boolean
   /** UDP port for guests, 0 for any. */
@@ -100,6 +106,8 @@ export const desktop = {
   hostingState: () => invoke<HostingState>('hosting_state'),
   startHosting: (request: StartRequest) => invoke<void>('start_hosting', { request }),
   stopHosting: () => invoke<void>('stop_hosting'),
+  /** Starts the shared game again after it closed; hosting picks up its new window. */
+  relaunchGame: () => invoke<void>('relaunch_game'),
   onHosting: (handler: (state: HostingState) => void) =>
     listen<HostingState>('hosting', (event) => handler(event.payload)),
   /** The session this computer keeps, if the app signed in before. */

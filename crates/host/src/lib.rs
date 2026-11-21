@@ -8,8 +8,11 @@ mod audio;
 #[cfg(any(target_os = "macos", test))]
 mod avcc;
 mod bitrate;
+#[cfg(any(target_os = "linux", test))]
+mod cursor;
 #[cfg(any(windows, test))]
 mod ds4;
+pub mod game;
 mod host;
 mod input;
 // Elsewhere only its tests run, which leave a few codes unused.
@@ -17,6 +20,10 @@ mod input;
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 mod linux_input;
 mod net;
+#[cfg(any(windows, test))]
+mod nv12;
+#[cfg(any(target_os = "macos", test))]
+mod pad_keys;
 #[cfg(any(windows, target_os = "linux", test))]
 mod pc_keys;
 mod peer;

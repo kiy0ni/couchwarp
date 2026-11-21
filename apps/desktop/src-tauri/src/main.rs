@@ -83,6 +83,7 @@ fn main() {
             commands::open_privacy_settings,
             commands::set_bubble_open,
             commands::set_bubble_notice,
+            commands::relaunch_game,
             commands::show_main_window,
             commands::update_available,
             commands::install_update,

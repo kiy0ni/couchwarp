@@ -38,6 +38,10 @@ pub struct InputSink {
     held_keys: Vec<u8>,
     held_buttons: MouseButtons,
     wheel: Wheel,
+    /// Keeps the real pointer, which guests' mice move, inside the game window. None
+    /// until a guest's mouse moves, or when X11 cannot do it.
+    confinement: Option<super::x11::Confinement>,
+    confinement_tried: bool,
 }
 
 impl InputSink {
@@ -53,8 +57,17 @@ impl InputSink {
             held_keys: Vec::new(),
             held_buttons: MouseButtons::default(),
             wheel: Wheel::default(),
+            confinement: None,
+            confinement_tried: false,
         }
     }
+
+    /// The game came back as another process. Input goes to the window in front, so
+    /// nothing changes here.
+    pub fn set_game(&mut self, _game_pid: i32) {}
+
+    /// Guests' mice always move the real cursor here.
+    pub fn set_system_pointer(&mut self, _on: bool) {}
 
     /// Controllers can be plugged in whenever `uinput` works.
     pub fn virtual_pads(&self) -> bool {
@@ -103,7 +116,21 @@ impl InputSink {
     /// An Xbox 360 controller has no motion sensors.
     pub fn set_motion(&mut self, _slot: u8, _motion: &MotionState) {}
 
+    /// The pointer stays in the game window while guests' mice act, as on Windows: a
+    /// click can never land in another window. The router only sends mouse input while
+    /// the game is in front.
+    fn confine(&mut self) {
+        if !self.confinement_tried {
+            self.confinement_tried = true;
+            self.confinement = super::x11::Confinement::open();
+        }
+        if let Some(confinement) = &mut self.confinement {
+            confinement.confine();
+        }
+    }
+
     pub fn move_mouse(&mut self, dx: i32, dy: i32) {
+        self.confine();
         self.send_desk(&[(EV_REL, REL_X, dx), (EV_REL, REL_Y, dy)]);
     }
 
@@ -128,6 +155,9 @@ impl InputSink {
     pub fn set_paused(&mut self, paused: bool) {
         if paused {
             self.set_mouse_buttons(MouseButtons::default());
+            if let Some(confinement) = &mut self.confinement {
+                confinement.release();
+            }
         }
     }
 

@@ -4,6 +4,7 @@ import { Choice } from '../components/Choice'
 import { ConfirmButton } from '../components/ConfirmButton'
 import { ControllerSupport } from '../components/ControllerSupport'
 import { FirewallNotice, letGuestsThrough } from '../components/FirewallNotice'
+import { GameClosedNotice } from '../components/GameClosedNotice'
 import { GameCover } from '../components/GameCover'
 import { Icon } from '../components/Icon'
 import { Link } from '../components/Link'
@@ -204,6 +205,7 @@ function Setup({ lastError }: { lastError: string | null }) {
         maxHeight: prefs.hostMaxHeight,
         keepAwake: prefs.hostKeepAwake,
         focusLock: prefs.hostFocusLock,
+        systemPointer: prefs.hostSystemPointer,
         bubble: prefs.hostBubble,
         port: prefs.hostPort,
         stun: prefs.hostStun,
@@ -476,7 +478,8 @@ function Live({ state }: { state: Extract<HostingState, { state: 'live' }> }) {
           </>
         ))}
       <FirewallNotice />
-      {state.inputPaused && (
+      {state.gameClosed && <GameClosedNotice canRelaunch={state.canRelaunch === true} />}
+      {state.inputPaused && !state.gameClosed && (
         <p className="notice" data-tone="warning" role="status">
           {t.host.inputPaused}
         </p>

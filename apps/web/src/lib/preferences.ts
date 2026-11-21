@@ -40,6 +40,8 @@ export interface Preferences {
   hostKeepAwake: boolean
   /** Host app, Mac: guests' keys wait while the game window is not in front. */
   hostFocusLock: boolean
+  /** Host app, Mac: guests' mice move the real cursor, for games that read it. */
+  hostSystemPointer: boolean
   /** Host app: a small window over the game to manage it. */
   hostBubble: boolean
   /** Host app: UDP port for guests, 0 for any free one. */
@@ -66,6 +68,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   hostBitrate: 12,
   hostKeepAwake: true,
   hostFocusLock: true,
+  hostSystemPointer: false,
   hostBubble: true,
   hostPort: 0,
   hostStun: 'stun.cloudflare.com:3478',

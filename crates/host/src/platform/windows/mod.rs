@@ -3,6 +3,7 @@
 
 pub mod capture;
 pub use super::openh264 as encoder;
+pub(crate) mod hardware;
 mod keyboard;
 mod mouse;
 mod pads;
@@ -61,6 +62,13 @@ impl InputSink {
             pads: PadSink::connect(),
         }
     }
+
+    /// The game came back as another process. Input goes to the window in front, so
+    /// nothing changes here.
+    pub fn set_game(&mut self, _game_pid: i32) {}
+
+    /// Guests' mice always move the real cursor here.
+    pub fn set_system_pointer(&mut self, _on: bool) {}
 
     /// True when the VIIPER service answered at startup.
     pub fn virtual_pads(&self) -> bool {

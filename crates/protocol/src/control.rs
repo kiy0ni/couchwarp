@@ -44,4 +44,7 @@ pub enum HostControl {
     Slot { pad: u8, slot: u8 },
     /// Keyboard input is held back, because the game window lost focus on the host.
     InputPaused { paused: bool },
+    /// The game closed on the host's computer. The room stays open, and the stream comes
+    /// back with `closed: false` once the game does.
+    GameClosed { closed: bool },
 }

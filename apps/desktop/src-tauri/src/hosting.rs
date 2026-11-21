@@ -2,6 +2,7 @@
 //! with its own async runtime, like the command line. The page follows it through the
 //! `hosting` event and `hosting_state`.
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -92,6 +93,10 @@ pub enum HostingState {
         /// The game is behind another window: guests' keyboards and mice wait.
         input_paused: bool,
         public_needs_account: bool,
+        /// The game closed: the room waits for it, and guests are told.
+        game_closed: bool,
+        /// The game's program is known, so the app can start it again.
+        can_relaunch: bool,
     },
 }
 
@@ -111,6 +116,9 @@ pub struct StartRequest {
     pub keep_awake: bool,
     /// Guests' keys wait while the game window is not in front.
     pub focus_lock: bool,
+    /// macOS: guests' mice move the real cursor. Pages before 0.2.6 do not say.
+    #[serde(default)]
+    pub system_pointer: bool,
     /// The small window over the game, while it runs.
     pub bubble: bool,
     /// UDP port for guests, 0 for any free one.
@@ -133,6 +141,7 @@ impl StartRequest {
             stun: text(Some(self.stun.clone())).unwrap_or_else(|| Options::new(server).stun),
             // Only a Mac sends keys to the game alone, so only there may the lock be off.
             ignore_focus: !self.focus_lock && couchwarp_host::platform::KEYS_REACH_GAME_ONLY,
+            system_pointer: self.system_pointer,
             settings: SettingsRequest {
                 title: text(self.title.clone()),
                 game: text(self.game.clone()),
@@ -158,6 +167,8 @@ struct Session {
 pub struct Hosting {
     state: Arc<Mutex<Option<HostingState>>>,
     session: Mutex<Option<Session>>,
+    /// The shared game's program, to start it again if it closes.
+    program: Arc<Mutex<Option<PathBuf>>>,
 }
 
 impl Hosting {
@@ -197,6 +208,7 @@ impl Hosting {
         let (stop_tx, stop) = oneshot::channel();
         let options = request.options(&server);
         let keep_awake = request.keep_awake;
+        let program = self.program.clone();
         let thread = std::thread::Builder::new()
             .name("host".to_owned())
             .spawn(move || {
@@ -205,7 +217,20 @@ impl Hosting {
                 // The host looks for virtual controllers once, as the game starts.
                 crate::controllers::ensure_running();
                 let outcome = match find_window(&info.id) {
-                    Ok(Some(window)) => run(&window, info, options, &server, stop, &publish),
+                    Ok(Some(window)) => {
+                        let found = couchwarp_host::game::executable(window.pid);
+                        let can_relaunch = found.is_some();
+                        *program.lock().expect("never poisoned") = found;
+                        run(
+                            &window,
+                            info,
+                            options,
+                            &server,
+                            stop,
+                            &publish,
+                            can_relaunch,
+                        )
+                    }
                     Ok(None) => Err(anyhow::anyhow!("the window closed before the game started")),
                     Err(error) => Err(error),
                 };
@@ -232,6 +257,13 @@ impl Hosting {
         {
             let _ = stop.send(());
         }
+    }
+
+    /// Starts the shared game again, after it closed. The session finds its new window.
+    pub fn relaunch_game(&self) -> anyhow::Result<()> {
+        let program = self.program.lock().expect("never poisoned").clone();
+        let program = program.ok_or_else(|| anyhow::anyhow!("the game's program is unknown"))?;
+        couchwarp_host::game::launch(&program)
     }
 
     /// Stops and waits a little for the room to close, as the app quits.
@@ -293,6 +325,7 @@ fn run(
     server: &str,
     stop: oneshot::Receiver<()>,
     publish: &Publisher,
+    can_relaunch: bool,
 ) -> anyhow::Result<()> {
     let token = session::saved_token(server);
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -316,6 +349,8 @@ fn run(
                         no_input_permission,
                         input_paused: false,
                         public_needs_account,
+                        game_closed: false,
+                        can_relaunch,
                     }),
                     Event::Stats(stats) => publish.update(|state| {
                         if let HostingState::Live { stats: shown, .. } = state {
@@ -346,6 +381,14 @@ fn run(
                         } = state
                         {
                             *shown = paused;
+                        }
+                    }),
+                    Event::GameClosed { closed } => publish.update(|state| {
+                        if let HostingState::Live {
+                            game_closed: shown, ..
+                        } = state
+                        {
+                            *shown = closed;
                         }
                     }),
                     Event::PublicNeedsAccount => public_needs_account = true,
