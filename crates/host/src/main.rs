@@ -61,6 +61,11 @@ struct Args {
     #[arg(long)]
     ignore_focus: bool,
 
+    /// macOS: guests' mice move the real cursor, kept in the game window, for games that
+    /// read it rather than the mouse events they get
+    #[arg(long)]
+    system_pointer: bool,
+
     /// STUN server used to find this machine's public address
     #[arg(long, default_value = "stun.cloudflare.com:3478")]
     stun: String,
@@ -155,6 +160,7 @@ async fn main() -> Result<()> {
         port: args.port,
         stun: args.stun,
         ignore_focus: args.ignore_focus,
+        system_pointer: args.system_pointer,
         settings: SettingsRequest {
             title: args.title,
             game: args.game,

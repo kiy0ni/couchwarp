@@ -22,6 +22,8 @@ mod linux_input;
 mod net;
 #[cfg(any(windows, test))]
 mod nv12;
+#[cfg(any(target_os = "macos", test))]
+mod pad_keys;
 #[cfg(any(windows, target_os = "linux", test))]
 mod pc_keys;
 mod peer;

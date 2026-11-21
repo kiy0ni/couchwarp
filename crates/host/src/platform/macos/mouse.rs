@@ -3,13 +3,17 @@
 //! a click cannot land in another app.
 //!
 //! Games that read raw movement get the deltas; games that read the pointer position get
-//! a virtual pointer kept inside their window.
+//! a virtual pointer kept inside their window. Some games read the system's cursor
+//! instead and ignore all this: with the real-cursor option, events go through the
+//! system and move the Mac's cursor, still kept inside the game window.
 
 use std::time::{Duration, Instant};
 
 use couchwarp_protocol::input::MouseButtons;
 use objc2_core_foundation::{CGPoint, CGRect};
-use objc2_core_graphics::{CGEvent, CGEventField, CGEventType, CGMouseButton, CGScrollEventUnit};
+use objc2_core_graphics::{
+    CGEvent, CGEventField, CGEventTapLocation, CGEventType, CGMouseButton, CGScrollEventUnit,
+};
 
 use super::window_bounds;
 use crate::input::button_changes;
@@ -24,6 +28,8 @@ pub struct MouseSink {
     position: Option<CGPoint>,
     held: MouseButtons,
     bounds: Option<(CGRect, Instant)>,
+    /// Events go through the system and move the real cursor.
+    system: bool,
 }
 
 impl MouseSink {
@@ -33,6 +39,24 @@ impl MouseSink {
             position: None,
             held: MouseButtons::default(),
             bounds: None,
+            system: false,
+        }
+    }
+
+    pub fn set_system_pointer(&mut self, on: bool) {
+        self.system = on;
+    }
+
+    pub fn system_pointer(&self) -> bool {
+        self.system
+    }
+
+    /// To the game's process, or through the system with the real-cursor option.
+    fn deliver(&self, event: &CGEvent) {
+        if self.system {
+            CGEvent::post(CGEventTapLocation::HIDEventTap, Some(event));
+        } else {
+            CGEvent::post_to_pid(self.pid, Some(event));
         }
     }
 
@@ -59,7 +83,7 @@ impl MouseSink {
         };
         CGEvent::set_integer_value_field(Some(&event), CGEventField::MouseEventDeltaX, dx.into());
         CGEvent::set_integer_value_field(Some(&event), CGEventField::MouseEventDeltaY, dy.into());
-        CGEvent::post_to_pid(self.pid, Some(&event));
+        self.deliver(&event);
     }
 
     pub fn set_buttons(&mut self, buttons: MouseButtons) {
@@ -99,7 +123,7 @@ impl MouseSink {
                 CGEventField::MouseEventButtonNumber,
                 number,
             );
-            CGEvent::post_to_pid(self.pid, Some(&event));
+            self.deliver(&event);
         }
     }
 
@@ -114,7 +138,7 @@ impl MouseSink {
         else {
             return;
         };
-        CGEvent::post_to_pid(self.pid, Some(&event));
+        self.deliver(&event);
     }
 
     fn bounds(&mut self) -> Option<CGRect> {

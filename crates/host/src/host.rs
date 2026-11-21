@@ -48,6 +48,8 @@ pub struct Game {
     pub pid: i32,
     pub focus_lock: bool,
     pub input_allowed: bool,
+    /// macOS: guests' mice move the real cursor.
+    pub system_pointer: bool,
 }
 
 /// Room settings chosen before the room opens, applied over the room server's defaults.
@@ -178,7 +180,11 @@ impl Host {
             names: HashMap::new(),
             slot_owners: HashMap::new(),
             router: InputRouter::new(!game.focus_lock || in_front(game.pid)),
-            sink: InputSink::new(game.pid),
+            sink: {
+                let mut sink = InputSink::new(game.pid);
+                sink.set_system_pointer(game.system_pointer);
+                sink
+            },
             game_pid: game.pid,
             game_closed: false,
             focus_lock: game.focus_lock,

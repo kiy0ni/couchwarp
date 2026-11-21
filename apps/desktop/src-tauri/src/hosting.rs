@@ -116,6 +116,9 @@ pub struct StartRequest {
     pub keep_awake: bool,
     /// Guests' keys wait while the game window is not in front.
     pub focus_lock: bool,
+    /// macOS: guests' mice move the real cursor. Pages before 0.2.6 do not say.
+    #[serde(default)]
+    pub system_pointer: bool,
     /// The small window over the game, while it runs.
     pub bubble: bool,
     /// UDP port for guests, 0 for any free one.
@@ -138,6 +141,7 @@ impl StartRequest {
             stun: text(Some(self.stun.clone())).unwrap_or_else(|| Options::new(server).stun),
             // Only a Mac sends keys to the game alone, so only there may the lock be off.
             ignore_focus: !self.focus_lock && couchwarp_host::platform::KEYS_REACH_GAME_ONLY,
+            system_pointer: self.system_pointer,
             settings: SettingsRequest {
                 title: text(self.title.clone()),
                 game: text(self.game.clone()),

@@ -304,3 +304,126 @@ pub fn active_window_pid() -> Option<i32> {
         .first()?;
     display.pid(active)
 }
+
+/// Keeps the pointer inside the window in front while guests' mice move it, with four
+/// pointer barriers around the window (XFixes 5). The barriers belong to this connection:
+/// if the host stops, the X server removes them.
+pub struct Confinement {
+    display: Display,
+    barriers: Vec<u32>,
+    /// Where the barriers stand: left, top, width, height on the screen.
+    area: Option<(i16, i16, u16, u16)>,
+}
+
+impl Confinement {
+    pub fn open() -> Option<Self> {
+        let display = Display::open().ok()?;
+        display.xfixes.then_some(Self {
+            display,
+            barriers: Vec::new(),
+            area: None,
+        })
+    }
+
+    /// Puts the barriers around the window in front, if it moved or changed. Cheap when
+    /// nothing changed: run before every mouse event.
+    pub fn confine(&mut self) {
+        let area = self.active_area();
+        if area == self.area {
+            return;
+        }
+        self.release();
+        let Some((left, top, width, height)) = area else {
+            return;
+        };
+        let connection = &self.display.connection;
+        let pointer = connection
+            .query_pointer(self.display.root)
+            .ok()
+            .and_then(|cookie| cookie.reply().ok());
+        let inside = pointer.is_some_and(|pointer| {
+            (left..left.saturating_add(width as i16)).contains(&pointer.root_x)
+                && (top..top.saturating_add(height as i16)).contains(&pointer.root_y)
+        });
+        if !inside {
+            // A barrier keeps the pointer on the side it is: it goes in first.
+            let _ = connection.warp_pointer(
+                x11rb::NONE,
+                self.display.root,
+                0,
+                0,
+                0,
+                0,
+                left.saturating_add((width / 2) as i16),
+                top.saturating_add((height / 2) as i16),
+            );
+        }
+        let (x1, y1) = (left.max(0) as u16, top.max(0) as u16);
+        let (x2, y2) = (
+            x1.saturating_add(width.saturating_sub(1)),
+            y1.saturating_add(height.saturating_sub(1)),
+        );
+        for (from, to) in [
+            ((x1, y1), (x2, y1)),
+            ((x1, y2), (x2, y2)),
+            ((x1, y1), (x1, y2)),
+            ((x2, y1), (x2, y2)),
+        ] {
+            let Ok(barrier) = connection.generate_id() else {
+                continue;
+            };
+            let created = connection.xfixes_create_pointer_barrier(
+                barrier,
+                self.display.root,
+                from.0,
+                from.1,
+                to.0,
+                to.1,
+                0u32.into(),
+                &[],
+            );
+            if created.is_ok() {
+                self.barriers.push(barrier);
+            }
+        }
+        let _ = connection.flush();
+        self.area = Some((left, top, width, height));
+    }
+
+    /// Lets the pointer go, for when the game is no longer in front.
+    pub fn release(&mut self) {
+        for barrier in self.barriers.drain(..) {
+            let _ = self
+                .display
+                .connection
+                .xfixes_delete_pointer_barrier(barrier);
+        }
+        let _ = self.display.connection.flush();
+        self.area = None;
+    }
+
+    fn active_area(&self) -> Option<(i16, i16, u16, u16)> {
+        let display = &self.display;
+        let active = *display
+            .numbers(
+                display.root,
+                display.atoms.active_window,
+                AtomEnum::WINDOW.into(),
+            )
+            .first()?;
+        let geometry = display.connection.get_geometry(active).ok()?.reply().ok()?;
+        let origin = display
+            .connection
+            .translate_coordinates(active, display.root, 0, 0)
+            .ok()?
+            .reply()
+            .ok()?;
+        Some((origin.dst_x, origin.dst_y, geometry.width, geometry.height))
+    }
+}
+
+impl Drop for Confinement {
+    fn drop(&mut self) {
+        self.release();
+    }
+}

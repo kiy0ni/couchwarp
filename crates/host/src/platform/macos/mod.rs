@@ -19,7 +19,6 @@ use objc2_core_graphics::{
     CGRequestPostEventAccess, CGRequestScreenCaptureAccess, CGWindowListCopyWindowInfo,
     CGWindowListOption, kCGNullWindowID, kCGWindowBounds, kCGWindowLayer, kCGWindowOwnerPID,
 };
-use tracing::warn;
 
 use keyboard::KeyboardSink;
 use mouse::MouseSink;
@@ -102,7 +101,10 @@ fn number(window: &CFDictionary<CFString, CFType>, key: &CFString) -> Option<i32
 pub struct InputSink {
     keyboard: KeyboardSink,
     mouse: MouseSink,
-    warned_about_pads: bool,
+    /// Keys the guests type.
+    typed: Vec<u8>,
+    /// Keys each player's controller holds, by slot (see `pad_keys`).
+    pad_keys: std::collections::BTreeMap<u8, Vec<u8>>,
 }
 
 impl InputSink {
@@ -110,38 +112,63 @@ impl InputSink {
         Self {
             keyboard: KeyboardSink::new(game_pid),
             mouse: MouseSink::new(game_pid),
-            warned_about_pads: false,
+            typed: Vec::new(),
+            pad_keys: std::collections::BTreeMap::new(),
         }
+    }
+
+    /// Typed keys and controllers' keys together, each key once.
+    fn press_keys(&mut self) {
+        let mut keys = self.typed.clone();
+        for key in self.pad_keys.values().flatten() {
+            if !keys.contains(key) {
+                keys.push(*key);
+            }
+        }
+        self.keyboard.set_keys(&keys);
+    }
+
+    /// Guests' mice move the real cursor, for games that read it.
+    pub fn set_system_pointer(&mut self, on: bool) {
+        self.mouse.set_system_pointer(on);
     }
 
     /// The game came back as another process: keys and clicks go to it from now on.
     pub fn set_game(&mut self, game_pid: i32) {
         self.keyboard.set_keys(&[]);
+        self.typed.clear();
+        self.pad_keys.clear();
         self.mouse.set_buttons(MouseButtons(0));
+        let system_pointer = self.mouse.system_pointer();
         self.keyboard = KeyboardSink::new(game_pid);
         self.mouse = MouseSink::new(game_pid);
+        self.mouse.set_system_pointer(system_pointer);
     }
 
-    /// Whether guests' controllers reach the game. Never on macOS.
+    /// Whether guests' controllers reach the game. On macOS they do as keys, for players
+    /// 1 and 2: no virtual controller can exist there.
     pub fn virtual_pads(&self) -> bool {
-        false
+        true
     }
 
     pub fn set_keys(&mut self, keys: &[u8]) {
-        self.keyboard.set_keys(keys);
+        self.typed = keys.to_vec();
+        self.press_keys();
     }
 
-    pub fn set_pad(&mut self, slot: u8, _pad_type: PadType, _state: &GamepadState) {
-        if !self.warned_about_pads {
-            self.warned_about_pads = true;
-            warn!(
-                slot,
-                "controllers cannot be played into games on a macOS host; use a Windows or Linux host"
-            );
+    pub fn set_pad(&mut self, slot: u8, _pad_type: PadType, state: &GamepadState) {
+        let keys = crate::pad_keys::keys_for(slot, state);
+        if self.pad_keys.get(&slot) != Some(&keys) {
+            self.pad_keys.insert(slot, keys);
+            self.press_keys();
         }
     }
 
-    pub fn release_pad(&mut self, _slot: u8) {}
+    pub fn release_pad(&mut self, slot: u8) {
+        if self.pad_keys.remove(&slot).is_some() {
+            self.press_keys();
+        }
+    }
 
     /// No virtual controller on a Mac, so nothing reads motion either.
     pub fn set_motion(&mut self, _slot: u8, _motion: &MotionState) {}

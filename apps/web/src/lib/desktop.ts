@@ -65,6 +65,8 @@ export interface StartRequest {
   keepAwake: boolean
   /** Guests' keys wait while the game window is not in front. */
   focusLock: boolean
+  /** Mac: guests' mice move the real cursor. Ignored elsewhere and by apps before 0.2.6. */
+  systemPointer: boolean
   /** The small window over the game to manage it. */
   bubble: boolean
   /** UDP port for guests, 0 for any. */

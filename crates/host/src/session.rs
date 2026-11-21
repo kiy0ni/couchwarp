@@ -41,6 +41,9 @@ pub struct Options {
     pub stun: String,
     /// Keep sending guests' keys while the game window is in the background (macOS only).
     pub ignore_focus: bool,
+    /// macOS: guests' mice move the real cursor, for games that read it rather than the
+    /// events they get. Elsewhere they always do.
+    pub system_pointer: bool,
     pub settings: SettingsRequest,
 }
 
@@ -54,6 +57,7 @@ impl Options {
             port: 0,
             stun: "stun.cloudflare.com:3478".to_owned(),
             ignore_focus: false,
+            system_pointer: false,
             settings: SettingsRequest::default(),
         }
     }
@@ -183,6 +187,7 @@ pub async fn run(
         Game {
             pid: window.pid,
             focus_lock: !options.ignore_focus,
+            system_pointer: options.system_pointer,
             input_allowed,
         },
         control,

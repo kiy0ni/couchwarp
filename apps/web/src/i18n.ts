@@ -95,7 +95,7 @@ const fr: Strings = {
     ready: 'Prêtes : les manettes de tes invités jouent dans tes jeux.',
     stopped: 'Installées. Couchwarp les démarre au lancement de chaque partie.',
     impossible:
-      'macOS ne permet à aucune appli de créer une manette virtuelle. Tes invités jouent au clavier, converti en touches ou en manette selon le jeu.',
+      'macOS ne permet à aucune appli de créer une manette virtuelle : les manettes des joueurs 1 et 2 jouent donc au clavier. Joueur 1 : ZQSD (WASD en QWERTY), Espace, Maj, E, A, 1, 2, Entrée, Échap. Joueur 2 : flèches et pavé numérique (1, 2, 4, 5, 7, 8, Entrée), Retour arrière.',
     missingWindows:
       'Pour que leurs manettes jouent dans tes jeux, Couchwarp installe VIIPER, un petit service gratuit avec un pilote signé. Windows demande une fois l’accord administrateur, et parfois un redémarrage.',
     missingLinux:
@@ -340,6 +340,9 @@ const fr: Strings = {
       focus: 'Pause des claviers hors du jeu',
       focusHelp:
         'Les touches des invités attendent quand la fenêtre du jeu n’est plus devant. Sur Mac, elles ne vont de toute façon qu’au jeu.',
+      pointer: 'Souris des invités : vrai curseur',
+      pointerHelp:
+        'Pour les jeux qui ignorent la souris des invités : elle déplace alors le curseur du Mac, gardé dans la fenêtre du jeu. Ta propre souris le déplace aussi pendant ce temps.',
     },
     network: {
       port: 'Port UDP',
@@ -947,7 +950,7 @@ const en = {
     ready: 'Ready: your guests’ controllers play in your games.',
     stopped: 'Installed. Couchwarp starts them with every game.',
     impossible:
-      'macOS lets no app create a virtual controller. Your guests play with the keyboard, sent as keys or as a controller depending on the game.',
+      'macOS lets no app create a virtual controller, so players 1 and 2 play their controllers as keys. Player 1: WASD, Space, Shift, E, Q, 1, 2, Return, Escape. Player 2: arrows and keypad (1, 2, 4, 5, 7, 8, Enter), Backspace.',
     missingWindows:
       'For their controllers to play in your games, Couchwarp installs VIIPER, a small free service with a signed driver. Windows asks once for administrator approval, sometimes for a restart.',
     missingLinux:
@@ -1190,6 +1193,9 @@ const en = {
       focus: 'Pause keyboards outside the game',
       focusHelp:
         'Guests’ keys wait while the game window is not in front. On a Mac they only reach the game anyway.',
+      pointer: 'Guests’ mice: real cursor',
+      pointerHelp:
+        'For games that ignore guests’ mice: they then move the Mac’s cursor, kept inside the game window. Your own mouse moves it too meanwhile.',
     },
     network: {
       port: 'UDP port',

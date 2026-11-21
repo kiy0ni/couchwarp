@@ -67,6 +67,9 @@ impl InputSink {
     /// nothing changes here.
     pub fn set_game(&mut self, _game_pid: i32) {}
 
+    /// Guests' mice always move the real cursor here.
+    pub fn set_system_pointer(&mut self, _on: bool) {}
+
     /// True when the VIIPER service answered at startup.
     pub fn virtual_pads(&self) -> bool {
         self.pads.available()

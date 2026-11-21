@@ -205,6 +205,7 @@ function Setup({ lastError }: { lastError: string | null }) {
         maxHeight: prefs.hostMaxHeight,
         keepAwake: prefs.hostKeepAwake,
         focusLock: prefs.hostFocusLock,
+        systemPointer: prefs.hostSystemPointer,
         bubble: prefs.hostBubble,
         port: prefs.hostPort,
         stun: prefs.hostStun,

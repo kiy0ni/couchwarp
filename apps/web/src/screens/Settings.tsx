@@ -204,6 +204,9 @@ function HostSettings() {
       {system === 'mac' && (
         <PreferenceSwitch name="hostFocusLock" title={s.focus} help={s.focusHelp} />
       )}
+      {system === 'mac' && (
+        <PreferenceSwitch name="hostSystemPointer" title={s.pointer} help={s.pointerHelp} />
+      )}
     </div>
   )
 }
