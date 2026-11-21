@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 
 use hidapi::{DeviceInfo, HidApi, HidDevice};
 use serde::Serialize;
+use tauri::AppHandle;
 use tauri::ipc::Channel;
 use tracing::{info, warn};
 
@@ -47,7 +48,7 @@ struct Shared {
 static SHARED: OnceLock<Arc<Shared>> = OnceLock::new();
 
 /// Sends this page every controller's reports from now on, starting the reading once.
-pub fn watch(page: Channel<Report>) {
+pub fn watch(app: AppHandle, page: Channel<Report>) {
     let mut started = false;
     let shared = SHARED.get_or_init(|| {
         started = true;
@@ -58,7 +59,7 @@ pub fn watch(page: Channel<Report>) {
         let shared = shared.clone();
         thread::Builder::new()
             .name("controllers".to_owned())
-            .spawn(move || look_for_controllers(&shared))
+            .spawn(move || look_for_controllers(&app, &shared))
             .expect("a thread can always be started at launch");
     }
 }
@@ -78,7 +79,7 @@ pub fn controllers() -> Vec<String> {
     })
 }
 
-fn look_for_controllers(shared: &Arc<Shared>) {
+fn look_for_controllers(app: &AppHandle, shared: &Arc<Shared>) {
     let mut api = match HidApi::new() {
         Ok(api) => api,
         Err(error) => {
@@ -87,6 +88,7 @@ fn look_for_controllers(shared: &Arc<Shared>) {
         }
     };
     loop {
+        keep_sensors_on(app);
         if let Err(error) = api.refresh_devices() {
             warn!(%error, "could not list controllers");
         }
@@ -199,3 +201,33 @@ fn ask_for_motion(handle: &HidDevice, vendor_id: u16, product_id: u16) {
         }
     }
 }
+
+/// macOS's controller driver switches a controller's motion sensors off unless an app asks
+/// for them: the reports then come without motion. The page's own controllers (WebKit)
+/// never ask, so the app does, for every controller, on the main thread as AppKit wants.
+#[cfg(target_os = "macos")]
+fn keep_sensors_on(app: &AppHandle) {
+    use objc2_game_controller::GCController;
+    let asked = app.run_on_main_thread(|| {
+        // SAFETY: GameController calls on the main thread, on objects it hands out.
+        unsafe {
+            // Also while a game, not Couchwarp, is in front.
+            GCController::setShouldMonitorBackgroundEvents(true);
+            for controller in GCController::controllers().iter() {
+                if let Some(motion) = controller.motion()
+                    && motion.sensorsRequireManualActivation()
+                    && !motion.sensorsActive()
+                {
+                    motion.setSensorsActive(true);
+                }
+            }
+        }
+    });
+    if let Err(error) = asked {
+        warn!(%error, "controllers' motion sensors not turned on");
+    }
+}
+
+/// Elsewhere, nothing turns the sensors off behind the app's back.
+#[cfg(not(target_os = "macos"))]
+fn keep_sensors_on(_app: &AppHandle) {}

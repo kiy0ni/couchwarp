@@ -54,4 +54,14 @@ describe('controller motion', () => {
     const chrome = pad('Vendor: 054c Product: 09cc')
     expect(motionFor(chrome, now + 500)).toBeNull()
   })
+
+  it('turns a Switch controller’s axes into a DualShock’s', () => {
+    const now = performance.now()
+    // Switch axes: forward, left, up. Lying flat and turning left (around "up").
+    addReport(0x057e, 0x2009, 0x30, report(48, 12, [0, 0, 4096, 0, 0, 1000]))
+    const motion = motionFor(pad('Pro Controller (Vendor: 057e Product: 2009)'), now)
+    // DualShock axes: right, up, towards the player. Gravity up, the turn around "up".
+    expect(motion?.accel).toEqual([-0, 8192, -0])
+    expect(motion?.gyro.map(Math.round)).toEqual([-0, 1150, -0])
+  })
 })

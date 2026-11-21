@@ -3,7 +3,6 @@ import { t } from '../i18n'
 import { FACE_LABELS, FAMILY_NAMES, type Family, familyOf } from '../lib/controllers'
 import { holdGamepadNavigation } from '../lib/gamepad-nav'
 import { padName } from '../lib/gamepads'
-import { type Motion, motionFor } from '../lib/motion'
 import {
   DEFAULT_LAYOUT,
   GAME_BUTTONS,
@@ -14,6 +13,7 @@ import {
   saveLayout,
 } from '../lib/pad-layout'
 import { usePreferences } from '../lib/preferences'
+import { MotionView } from './MotionView'
 import { PlayerBadge } from './PlayerBadge'
 import { SettingRow, Switch } from './SettingRow'
 
@@ -76,7 +76,6 @@ interface Snapshot {
   buttons: { pressed: boolean; value: number }[]
   axes: number[]
   rumble: boolean
-  motion: Motion | null
 }
 
 function snapshot(index: number): Snapshot | null {
@@ -88,7 +87,6 @@ function snapshot(index: number): Snapshot | null {
     buttons: pad.buttons.map((button) => ({ pressed: button.pressed, value: button.value })),
     axes: [...pad.axes],
     rumble: Boolean(pad.vibrationActuator),
-    motion: motionFor(pad, performance.now()),
   }
 }
 
@@ -106,64 +104,6 @@ function useSnapshot(index: number): Snapshot | null {
   return pad
 }
 
-/** DualShock 4 units, as `motion.ts` gives them. */
-const PER_DPS = 16.4
-const PER_G = 8192
-/** How much each frame trusts gravity over the gyroscope: drift goes, shaking stays smooth. */
-const GRAVITY_WEIGHT = 0.04
-/** Yaw has no gravity to correct it: it slowly comes back to the front instead. */
-const YAW_RETURN = 0.995
-/** Beyond this the drawing would cover the readings; the real controller can go further. */
-const MAX_TILT = 45
-
-interface Orientation {
-  pitch: number
-  yaw: number
-  roll: number
-}
-
-const LEVEL: Orientation = { pitch: 0, yaw: 0, roll: 0 }
-
-/**
- * Where the controller points, from its gyroscope and accelerometer (a complementary
- * filter), relative to how it was held when last centred.
- */
-function useOrientation(motion: Motion | null): [Orientation, () => void] {
-  const state = useRef({ angles: LEVEL, origin: LEVEL, at: 0 })
-  const [angles, setAngles] = useState(LEVEL)
-  useEffect(() => {
-    if (!motion || motion.at === state.current.at) return
-    const current = state.current
-    const dt = current.at === 0 ? 0 : Math.min(0.1, (motion.at - current.at) / 1000)
-    current.at = motion.at
-    const [gx, gy, gz] = motion.gyro.map((value) => value / PER_DPS) as [number, number, number]
-    const [ax, ay, az] = motion.accel.map((value) => value / PER_G) as [number, number, number]
-    const fromGravity = {
-      pitch: (Math.atan2(az, ay) * 180) / Math.PI,
-      roll: (Math.atan2(-ax, ay) * 180) / Math.PI,
-    }
-    const blend = (angle: number, rate: number, gravity: number) =>
-      (1 - GRAVITY_WEIGHT) * (angle + rate * dt) + GRAVITY_WEIGHT * gravity
-    current.angles = {
-      pitch: blend(current.angles.pitch, gx, fromGravity.pitch),
-      yaw: (current.angles.yaw + gy * dt) * YAW_RETURN,
-      roll: blend(current.angles.roll, gz, fromGravity.roll),
-    }
-    setAngles({
-      pitch: current.angles.pitch - current.origin.pitch,
-      yaw: current.angles.yaw - current.origin.yaw,
-      roll: current.angles.roll - current.origin.roll,
-    })
-  }, [motion])
-  const centre = () => {
-    state.current.origin = { ...state.current.angles, yaw: 0 }
-    state.current.angles = { ...state.current.angles, yaw: 0 }
-  }
-  return [angles, centre]
-}
-
-const clampTilt = (value: number) => Math.max(-MAX_TILT, Math.min(MAX_TILT, value))
-
 /**
  * The full-screen tester: the controller drawn and lit as it is used, tilting with its
  * gyroscope, and its remapping beside it. While open, the controller never moves through
@@ -180,7 +120,6 @@ export function PadTester({
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const pad = useSnapshot(index)
-  const [orientation, centre] = useOrientation(pad?.motion ?? null)
   const exitSince = useRef<number | null>(null)
 
   useEffect(() => {
@@ -237,16 +176,9 @@ export function PadTester({
       {pad ? (
         <div className="pad-test__body">
           <section className="pad-test__stage" aria-label={t.padTest.live}>
-            <div
-              className="pad-test__tilt"
-              style={{
-                transform: `perspective(900px) rotateX(${clampTilt(-orientation.pitch).toFixed(1)}deg) rotateY(${clampTilt(orientation.yaw).toFixed(1)}deg) rotateZ(${clampTilt(orientation.roll).toFixed(1)}deg)`,
-              }}
-            >
-              <PadDrawing family={family} pad={pad} deadZone={layoutFor(pad).deadZone} />
-            </div>
+            <PadDrawing family={family} pad={pad} deadZone={layoutFor(pad).deadZone} />
             <Readouts pad={pad} family={family} />
-            <MotionView motion={pad.motion} onCentre={centre} />
+            <MotionView gamepadId={pad.id} />
             {pad.mapping !== 'standard' && <p className="field__help">{t.settings.nonStandard}</p>}
           </section>
           <Remapping pad={pad} family={family} />
@@ -503,34 +435,6 @@ function Readouts({ pad, family }: { pad: Snapshot; family: Family }) {
         <dd>{held.length > 0 ? held.join(' ') : '–'}</dd>
       </div>
     </dl>
-  )
-}
-
-/** Turn rates as bars around zero, so a twist of the wrist shows at once. */
-function MotionView({ motion, onCentre }: { motion: Motion | null; onCentre(): void }) {
-  if (!motion) return <p className="field__help">{t.padTest.noMotion}</p>
-  const rates = motion.gyro.map((value) => value / PER_DPS)
-  const names = [t.padTest.pitch, t.padTest.yaw, t.padTest.roll]
-  return (
-    <div className="pad-test__motion">
-      <div className="pad-test__rates">
-        {rates.map((rate, i) => (
-          <span key={names[i]} className="pad-rate">
-            <span className="pad-rate__name">{names[i]}</span>
-            <span className="pad-rate__track">
-              <span
-                className="pad-rate__bar"
-                style={{ transform: `scaleX(${Math.max(-1, Math.min(1, rate / 360)).toFixed(3)})` }}
-              />
-            </span>
-            <span className="pad-rate__value num">{Math.round(rate)}°/s</span>
-          </span>
-        ))}
-      </div>
-      <button type="button" className="button button--secondary button--small" onClick={onCentre}>
-        {t.padTest.centre}
-      </button>
-    </div>
   )
 }
 

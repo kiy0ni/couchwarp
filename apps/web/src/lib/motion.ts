@@ -45,7 +45,7 @@ const DUALSENSE = new Set([0x0ce6, 0x0df2])
 
 const readings = new Map<string, Motion>()
 let phone: Motion | null = null
-const listeners = new Set<() => void>()
+const listeners = new Set<(key: string, motion: Motion) => void>()
 
 export function hidAvailable(): boolean {
   return 'hid' in navigator
@@ -82,18 +82,25 @@ const key = (vendor: number, product: number) =>
   `${vendor.toString(16).padStart(4, '0')}:${product.toString(16).padStart(4, '0')}`
 
 /** The latest motion for a controller, matched by the vendor and product in its id. */
-export function motionFor(gamepad: Gamepad, now: number): Motion | null {
+export function motionFor(gamepad: Pick<Gamepad, 'id'>, now: number): Motion | null {
+  const found = readings.get(motionKey(gamepad, now) ?? '')
+  return found && now - found.at < FRESH_MS ? found : null
+}
+
+/**
+ * Which controller's readings belong to this gamepad. WebKit, in the Mac app, names a
+ * controller without its vendor and product: the only fresh reading of the same maker is
+ * taken then, never a guess between two.
+ */
+export function motionKey(gamepad: Pick<Gamepad, 'id'>, now: number): string | null {
   const ids = vendorProduct(gamepad.id)
-  const found = ids ? readings.get(`${ids.vendor}:${ids.product}`) : undefined
-  if (found) return now - found.at < FRESH_MS ? found : null
-  // WebKit, in the Mac app, names a controller without its vendor and product: the only
-  // fresh reading of the same maker is taken, never a guess between two.
+  if (ids) return `${ids.vendor}:${ids.product}`
   const vendor = FAMILY_VENDORS[familyOf(gamepad.id)]
-  if (ids || vendor === undefined) return null
+  if (vendor === undefined) return null
   const same = [...readings.entries()].filter(
     ([id, reading]) => id.startsWith(`${vendor}:`) && now - reading.at < FRESH_MS,
   )
-  return same.length === 1 ? (same[0]?.[1] ?? null) : null
+  return same.length === 1 ? (same[0]?.[0] ?? null) : null
 }
 
 const FAMILY_VENDORS: Partial<Record<Family, string>> = {
@@ -120,7 +127,8 @@ export async function connectController(): Promise<string[]> {
   return devices.map((device) => device.productName)
 }
 
-export function onMotionChange(listener: () => void): () => void {
+/** Every reading as it comes, for what needs all of them (the tester's orientation). */
+export function onMotion(listener: (key: string, motion: Motion) => void): () => void {
   listeners.add(listener)
   return () => listeners.delete(listener)
 }
@@ -139,8 +147,9 @@ function onReport({ device, reportId, data }: HidReport) {
 export function addReport(vendorId: number, productId: number, reportId: number, data: DataView) {
   const motion = parse(vendorId, productId, reportId, data)
   if (!motion) return
-  readings.set(key(vendorId, productId), motion)
-  for (const listener of listeners) listener()
+  const id = key(vendorId, productId)
+  readings.set(id, motion)
+  for (const listener of listeners) listener(id, motion)
 }
 
 function parse(
@@ -165,9 +174,17 @@ function parse(
   }
   if (vendorId === NINTENDO && reportId === 0x30 && data.byteLength >= 24) {
     // Full mode: accelerometer then gyroscope, three samples; the first is enough.
-    return { accel: triple(12, 2), gyro: triple(18, 1.15), at }
+    return { accel: switchAxes(triple(12, 2)), gyro: switchAxes(triple(18, 1.15)), at }
   }
   return null
+}
+
+/**
+ * A Nintendo controller's axes point forward, left and up; a DualShock 4's right, up and
+ * towards the player. Turned into the DualShock's, which the host plays and games expect.
+ */
+function switchAxes([forward, left, up]: [number, number, number]): [number, number, number] {
+  return [-left, up, -forward]
 }
 
 /** Nintendo controllers send motion only once asked: full report mode, sensors on. */
