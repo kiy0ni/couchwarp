@@ -114,6 +114,14 @@ impl InputSink {
         }
     }
 
+    /// The game came back as another process: keys and clicks go to it from now on.
+    pub fn set_game(&mut self, game_pid: i32) {
+        self.keyboard.set_keys(&[]);
+        self.mouse.set_buttons(MouseButtons(0));
+        self.keyboard = KeyboardSink::new(game_pid);
+        self.mouse = MouseSink::new(game_pid);
+    }
+
     /// Whether guests' controllers reach the game. Never on macOS.
     pub fn virtual_pads(&self) -> bool {
         false

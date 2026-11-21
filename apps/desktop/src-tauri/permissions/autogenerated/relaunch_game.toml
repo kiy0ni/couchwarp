@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-relaunch-game"
+description = "Enables the relaunch_game command without any pre-configured scope."
+commands.allow = ["relaunch_game"]
+
+[[permission]]
+identifier = "deny-relaunch-game"
+description = "Denies the relaunch_game command without any pre-configured scope."
+commands.deny = ["relaunch_game"]

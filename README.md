@@ -44,7 +44,7 @@ cargo run -p couchwarp-host -- --list-windows
 cargo run -p couchwarp-host -- --window "nom du jeu"
 ```
 
-L'hôte affiche le code de la partie, le lien d'invitation, un QR code et le lien de sa **console**. Ouvre le lien d'invitation dans Chrome, Edge ou Arc, choisis un pseudo, puis « Jouer ».
+L'hôte affiche le code de la partie, le lien d'invitation, un QR code et le lien de sa **console**. Ouvre le lien d'invitation dans un navigateur récent (Chrome, Edge, Safari ou Firefox), choisis un pseudo, puis « Jouer ».
 
 La console (`/<code>/console#key=…`) gère la partie depuis n'importe quel appareil : personnes qui demandent à entrer (accepter ou refuser), places de joueur, rôles (modérateur, joueur, spectateur), manette, clavier et souris autorisés ou non pour chaque invité, expulsion et bannissement, tour par tour, chat, fermeture. Garde ce lien pour toi : il donne les droits de l'hôte.
 

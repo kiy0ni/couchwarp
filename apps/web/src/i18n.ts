@@ -462,6 +462,12 @@ const fr: Strings = {
     restartApp: 'Relancer Couchwarp',
     inputPaused:
       'Le jeu n’est plus au premier plan : les claviers et souris des invités attendent. Clique sur la fenêtre du jeu pour qu’ils reprennent.',
+    gameClosed:
+      'Le jeu s’est fermé. La partie reste ouverte 15 minutes et les invités attendent : relance le jeu, le partage reprend tout seul.',
+    relaunch: 'Relancer le jeu',
+    relaunching: 'Lancement…',
+    relaunchFailed:
+      'Le jeu n’a pas pu être relancé. Lance-le toi-même : le partage reprend dès que sa fenêtre s’ouvre.',
     inputPermissionLinux:
       'Les touches, souris et manettes des invités n’atteignent pas le jeu : Couchwarp a besoin d’accéder à /dev/uinput. Utilise « Autoriser » dans l’encart Manettes des invités ci-dessous : ce message part tout seul ensuite.',
   },
@@ -797,6 +803,8 @@ const fr: Strings = {
     latency: 'Latence',
     paused:
       'Le jeu n’est plus au premier plan chez l’hôte. Ton clavier et ta souris reprennent dès qu’il y revient.',
+    gameClosed:
+      'Le jeu s’est fermé chez l’hôte. Reste là : la partie reprend dès qu’il le relance.',
     menu: 'Menu',
     closeMenu: 'Fermer le menu',
     fullscreen: 'Plein écran',
@@ -844,7 +852,7 @@ const fr: Strings = {
       'connection-failed':
         'Impossible de joindre le PC de l’hôte. Son réseau ou le tien bloque peut-être les connexions directes.',
       'browser-blocked':
-        'Ton navigateur n’a ouvert aucune connexion réseau pour la vidéo. Essaie Chrome, Edge ou Arc, ou autorise-le dans Réglages Système > Confidentialité et sécurité > Réseau local.',
+        'Ton navigateur n’a ouvert aucune connexion réseau pour la vidéo. Essaie Chrome, Edge ou Safari, ou autorise ce navigateur dans Réglages Système > Confidentialité et sécurité > Réseau local, puis recharge la page.',
       'server-unreachable': 'Le serveur ne répond pas. Vérifie ta connexion.',
     } satisfies Record<EndReason, string>,
   },
@@ -1302,6 +1310,12 @@ const en = {
     restartApp: 'Restart Couchwarp',
     inputPaused:
       'The game is no longer in front: guests’ keyboards and mice wait. Click the game window so they carry on.',
+    gameClosed:
+      'The game closed. The room stays open for 15 minutes and guests wait: start the game again, sharing picks up on its own.',
+    relaunch: 'Start the game again',
+    relaunching: 'Starting…',
+    relaunchFailed:
+      'The game could not be started. Start it yourself: sharing picks up as soon as its window opens.',
     inputPermissionLinux:
       'Guests’ keys, mice and controllers cannot reach the game: Couchwarp needs access to /dev/uinput. Use Allow in the Guests’ controllers box below: this message goes away on its own afterwards.',
   },
@@ -1628,6 +1642,8 @@ const en = {
     latency: 'Latency',
     paused:
       'The game is no longer in front on the host’s computer. Your keyboard and mouse come back as soon as it is.',
+    gameClosed:
+      'The game closed on the host’s computer. Stay here: the game goes on as soon as they start it again.',
     menu: 'Menu',
     closeMenu: 'Close menu',
     fullscreen: 'Full screen',
@@ -1675,7 +1691,7 @@ const en = {
       'connection-failed':
         'Could not reach the host’s PC. Their network or yours may block direct connections.',
       'browser-blocked':
-        'Your browser opened no network connection for the video. Try Chrome, Edge or Arc, or allow it under System Settings > Privacy & Security > Local Network.',
+        'Your browser opened no network connection for the video. Try Chrome, Edge or Safari, or allow this browser under System Settings > Privacy & Security > Local Network, then reload the page.',
       'server-unreachable': 'The server is not answering. Check your connection.',
     } satisfies Record<EndReason, string>,
   },

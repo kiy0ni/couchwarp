@@ -191,8 +191,8 @@ async fn main() -> Result<()> {
                      Privacy & Security > Accessibility"
                 ),
                 Event::InputPermission { allowed: true } => info!("guests' keys reach the game"),
-                // The host loop already logs it.
-                Event::InputPaused { .. } => {}
+                // The host loop already logs these.
+                Event::InputPaused { .. } | Event::GameClosed { .. } => {}
                 Event::PublicNeedsAccount => warn!(
                     "--public needs an account: run `couchwarp-host login` first; the game \
                      stays unlisted"

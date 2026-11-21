@@ -12,6 +12,7 @@
     { "type": "stream-clock", "epochMs": 1763539990000 },
     { "type": "slot", "pad": 0, "slot": 2 },
     { "type": "slot", "pad": 4, "slot": 3 },
-    { "type": "input-paused", "paused": true }
+    { "type": "input-paused", "paused": true },
+    { "type": "game-closed", "closed": true }
   ]
 }

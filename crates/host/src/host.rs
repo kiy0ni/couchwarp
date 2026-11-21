@@ -7,7 +7,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use anyhow::{Result, anyhow};
+use crate::net::Sockets;
+use anyhow::Result;
 use couchwarp_protocol::control::{GuestControl, HostControl};
 use couchwarp_protocol::room::{
     Admission, GuestRole, Hotseat, HotseatMode, PadType, RoomSettings, RoomState, Visibility,
@@ -15,7 +16,6 @@ use couchwarp_protocol::room::{
 use couchwarp_protocol::signal::{EdgeToHost, GuestId, HostToEdge, SignalPayload};
 use str0m::net::{Protocol, Receive};
 use str0m::{Candidate, Input};
-use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 use tokio::time::{MissedTickBehavior, interval, sleep_until};
 use tracing::{debug, info, warn};
@@ -109,6 +109,15 @@ fn permissions(state: &RoomState, guest: GuestId) -> Permissions {
     }
 }
 
+/// What became of the shared game, as the session sees it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GameChange {
+    /// Its window closed: the room stays open and guests are told.
+    Closed,
+    /// It is back, as process `pid`, and the stream goes on.
+    Back { pid: i32 },
+}
+
 /// Where the host's messages go: the room server, the room list's pictures, and whoever
 /// runs the session.
 pub struct Outputs {
@@ -118,7 +127,7 @@ pub struct Outputs {
 }
 
 pub struct Host {
-    socket: UdpSocket,
+    sockets: Sockets,
     local_candidates: Vec<Candidate>,
     peers: Vec<Peer>,
     names: HashMap<GuestId, String>,
@@ -127,6 +136,8 @@ pub struct Host {
     router: InputRouter,
     sink: InputSink,
     game_pid: i32,
+    /// The game's window closed and has not come back yet.
+    game_closed: bool,
     /// Hold guest keys back while the game window is not in front.
     focus_lock: bool,
     input_allowed: bool,
@@ -148,7 +159,7 @@ pub struct Host {
 
 impl Host {
     pub fn new(
-        socket: UdpSocket,
+        sockets: Sockets,
         local_candidates: Vec<Candidate>,
         game: Game,
         encoder: EncoderControl,
@@ -161,7 +172,7 @@ impl Host {
             events,
         } = outputs;
         Self {
-            socket,
+            sockets,
             local_candidates,
             peers: Vec::new(),
             names: HashMap::new(),
@@ -169,6 +180,7 @@ impl Host {
             router: InputRouter::new(!game.focus_lock || in_front(game.pid)),
             sink: InputSink::new(game.pid),
             game_pid: game.pid,
+            game_closed: false,
             focus_lock: game.focus_lock,
             input_allowed: game.input_allowed,
             clock: StreamClock::start(),
@@ -191,7 +203,7 @@ impl Host {
         mut room: Room,
         mut frames: mpsc::Receiver<EncodedFrame>,
         mut sound: mpsc::Receiver<AudioPacket>,
-        mut capture_stopped: mpsc::UnboundedReceiver<String>,
+        mut game: mpsc::UnboundedReceiver<GameChange>,
         stop: impl Future<Output = ()>,
     ) -> Result<()> {
         tokio::pin!(stop);
@@ -223,9 +235,9 @@ impl Host {
                         warn!("lost the room server: guests already playing stay, new ones cannot join");
                     }
                 },
-                received = self.socket.recv_from(&mut buffer) => {
-                    let handled = received.map_err(anyhow::Error::from).and_then(|(length, source)| {
-                        self.on_datagram(&buffer[..length], source)
+                received = self.sockets.recv(&mut buffer) => {
+                    let handled = received.map_err(anyhow::Error::from).and_then(|(length, source, local)| {
+                        self.on_datagram(&buffer[..length], source, local)
                     });
                     if let Err(error) = handled {
                         break Err(error);
@@ -234,9 +246,7 @@ impl Host {
                 () = sleep_until(deadline.into()) => self.on_timeout(),
                 _ = focus.tick() => self.check_focus(),
                 _ = permission.tick(), if !self.input_allowed => self.check_permission(),
-                Some(reason) = capture_stopped.recv() => {
-                    break Err(anyhow!("the shared window is gone, so the game ended ({reason})"));
-                }
+                Some(change) = game.recv() => self.on_game_change(change),
                 () = &mut stop => break Ok(()),
             }
         };
@@ -261,7 +271,7 @@ impl Host {
             let mut reported = Vec::new();
             for peer in &mut self.peers {
                 let mut events = Vec::new();
-                if let Some(at) = peer.poll(&self.socket, &mut events) {
+                if let Some(at) = peer.poll(&self.sockets, &mut events) {
                     deadline = deadline.min(at);
                 }
                 reported.extend(events.into_iter().map(|event| (peer.guest_id, event)));
@@ -282,11 +292,15 @@ impl Host {
                 let paused = self.router.keyboard_paused();
                 let virtual_pads = self.sink.virtual_pads();
                 let epoch_ms = self.clock.epoch_unix_ms();
+                let game_closed = self.game_closed;
                 if let Some(peer) = self.peer(guest) {
                     info!(guest, name = %peer.name, "guest connected");
                     peer.send_control(&HostControl::HostInfo { virtual_pads });
                     peer.send_control(&HostControl::StreamClock { epoch_ms });
                     peer.send_control(&HostControl::InputPaused { paused });
+                    if game_closed {
+                        peer.send_control(&HostControl::GameClosed { closed: true });
+                    }
                 }
                 self.encoder.want_keyframe();
             }
@@ -451,10 +465,15 @@ impl Host {
         }
     }
 
-    fn on_datagram(&mut self, contents: &[u8], source: SocketAddr) -> Result<()> {
+    fn on_datagram(
+        &mut self,
+        contents: &[u8],
+        source: SocketAddr,
+        local: SocketAddr,
+    ) -> Result<()> {
         let input = Input::Receive(
             Instant::now(),
-            Receive::new(Protocol::Udp, source, self.socket.local_addr()?, contents)?,
+            Receive::new(Protocol::Udp, source, local, contents)?,
         );
         match self.peers.iter_mut().find(|peer| peer.accepts(&input)) {
             Some(peer) => peer.handle_input(input),
@@ -484,6 +503,27 @@ impl Host {
         let rtp_ticks = self.clock.rtp_ticks(frame.captured_at);
         for peer in &mut self.peers {
             peer.send_frame(frame, rtp_ticks);
+        }
+    }
+
+    fn on_game_change(&mut self, change: GameChange) {
+        match change {
+            GameChange::Closed => {
+                info!("the game closed: the room waits for it to come back");
+                self.game_closed = true;
+            }
+            GameChange::Back { pid } => {
+                info!(pid, "the game is back");
+                self.game_closed = false;
+                self.game_pid = pid;
+                self.sink.set_game(pid);
+                self.check_focus();
+                self.encoder.want_keyframe();
+            }
+        }
+        let closed = self.game_closed;
+        for peer in &mut self.peers {
+            peer.send_control(&HostControl::GameClosed { closed });
         }
     }
 

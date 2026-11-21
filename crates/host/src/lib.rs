@@ -10,6 +10,7 @@ mod avcc;
 mod bitrate;
 #[cfg(any(windows, test))]
 mod ds4;
+pub mod game;
 mod host;
 mod input;
 // Elsewhere only its tests run, which leave a few codes unused.

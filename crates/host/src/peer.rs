@@ -5,6 +5,7 @@
 
 use std::time::Instant;
 
+use crate::net::Sockets;
 use anyhow::{Context, Result};
 use couchwarp_protocol::control::{GuestControl, HostControl};
 use couchwarp_protocol::input::InputPacket;
@@ -14,7 +15,6 @@ use str0m::channel::{ChannelData, ChannelId};
 use str0m::format::Codec;
 use str0m::media::{Frequency, MediaKind, MediaTime, Mid, Pt};
 use str0m::{Candidate, Event, IceConnectionState, Input, Output, Rtc};
-use tokio::net::UdpSocket;
 use tracing::{debug, trace, warn};
 
 use crate::audio::AudioPacket;
@@ -110,13 +110,15 @@ impl Peer {
 
     /// Sends what str0m has queued and collects what happened. Returns when str0m next
     /// needs the time to move on.
-    pub fn poll(&mut self, socket: &UdpSocket, events: &mut Vec<PeerEvent>) -> Option<Instant> {
+    pub fn poll(&mut self, sockets: &Sockets, events: &mut Vec<PeerEvent>) -> Option<Instant> {
         while self.rtc.is_alive() {
             match self.rtc.poll_output() {
                 Ok(Output::Timeout(at)) => return Some(at),
                 Ok(Output::Transmit(packet)) => {
                     // UDP: a send that would block is a lost packet, which WebRTC recovers from.
-                    if let Err(error) = socket.try_send_to(&packet.contents, packet.destination) {
+                    if let Err(error) =
+                        sockets.send(packet.source, packet.destination, &packet.contents)
+                    {
                         trace!(%error, "packet not sent");
                     }
                 }

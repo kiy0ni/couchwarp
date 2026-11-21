@@ -51,6 +51,7 @@ export function useStream(
   const [hasPicture, setHasPicture] = useState(false)
   const [slots, setSlots] = useState<ReadonlyMap<number, number>>(new Map())
   const [paused, setPaused] = useState(false)
+  const [gameClosed, setGameClosed] = useState(false)
   /** The browser refused to start the sound without a click; the picture plays muted. */
   const [soundBlocked, setSoundBlocked] = useState(false)
   /** Whether controllers reach the game. Unknown (null) until the host says. */
@@ -112,6 +113,9 @@ export function useStream(
           case 'input-paused':
             setPaused(message.paused)
             break
+          case 'game-closed':
+            setGameClosed(message.closed)
+            break
         }
       },
       onEnd: (reason) => onEndRef.current(reason),
@@ -142,7 +146,14 @@ export function useStream(
       }
       frameRequest = element?.requestVideoFrameCallback(onFrame) ?? 0
     }
-    frameRequest = element?.requestVideoFrameCallback(onFrame) ?? 0
+    // Safari before 15.4 has no frame callback: the first picture still shows, without
+    // frame rate or latency.
+    const pictureShown = () => setHasPicture(true)
+    if (typeof element?.requestVideoFrameCallback === 'function') {
+      frameRequest = element.requestVideoFrameCallback(onFrame)
+    } else {
+      element?.addEventListener('playing', pictureShown)
+    }
 
     const reporter = window.setInterval(() => {
       const stats = latency.stats()
@@ -177,7 +188,10 @@ export function useStream(
       window.clearInterval(pinger)
       window.clearInterval(reporter)
       window.clearInterval(qualityReporter)
-      element?.cancelVideoFrameCallback(frameRequest)
+      if (typeof element?.cancelVideoFrameCallback === 'function') {
+        element.cancelVideoFrameCallback(frameRequest)
+      }
+      element?.removeEventListener('playing', pictureShown)
     }
   }, [code, name, video])
 
@@ -210,6 +224,7 @@ export function useStream(
     waiting,
     slots,
     paused,
+    gameClosed,
     virtualPads,
     soundBlocked,
     enableSound,

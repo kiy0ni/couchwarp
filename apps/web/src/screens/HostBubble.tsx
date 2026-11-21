@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { ConfirmButton } from '../components/ConfirmButton'
 import { DoorRequests } from '../components/DoorRequests'
+import { GameClosedNotice } from '../components/GameClosedNotice'
 import { Icon } from '../components/Icon'
 import { GUEST_INPUTS, INPUT_ICONS, inputsOf } from '../components/MemberList'
 import { t } from '../i18n'
@@ -281,6 +282,7 @@ function Panel({
         )}
       </div>
 
+      {live.gameClosed && <GameClosedNotice canRelaunch={live.canRelaunch === true} />}
       {room && <DoorRequests room={room} onCommand={command} compact />}
 
       <section className="host-panel__members" aria-label={t.room.membersTitle}>

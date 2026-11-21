@@ -1,17 +1,19 @@
 //! One hosting session, from opening the room to closing it: capture, encoding, the
 //! connections to guests. It reports what happens through [`Event`]s and stops when the
-//! `stop` future given to [`run`] completes, when the room is closed from the console, or
-//! when the shared window goes away.
+//! `stop` future given to [`run`] completes or when the room is closed from the console. If
+//! the game closes, the room stays open: the session finds the game's new window when it
+//! comes back, and gives up after [`GAME_WAIT`].
 
 use std::future::Future;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use tokio::sync::mpsc;
 use tracing::{info, warn};
 
-use crate::host::{Game, Host, Outputs, SettingsRequest};
-use crate::platform::capture::{Capture, GameWindow};
+use crate::host::{Game, GameChange, Host, Outputs, SettingsRequest};
+use crate::platform::capture::{Capture, GameWindow, list_windows};
 use crate::platform::encoder::{Encoder, EncoderSettings};
 use crate::{account, net, platform, signaling, thumbnail, video};
 
@@ -19,6 +21,10 @@ use crate::{account, net, platform, signaling, thumbnail, video};
 const FRAME_QUEUE: usize = 4;
 /// Sound packets waiting for the network: 80 ms.
 const SOUND_QUEUE: usize = 8;
+/// How often the windows are looked through for the game, while it is closed.
+const GAME_LOOK: Duration = Duration::from_secs(1);
+/// How long a room waits for its game to come back before it closes.
+pub const GAME_WAIT: Duration = Duration::from_secs(15 * 60);
 
 #[derive(Debug, Clone)]
 pub struct Options {
@@ -67,6 +73,9 @@ pub enum Event {
     InputPaused { paused: bool },
     /// The room was asked to be public, but the host is not signed in.
     PublicNeedsAccount,
+    /// The game's window closed (`true`), or the game came back (`false`). The room stays
+    /// open meanwhile, for [`GAME_WAIT`] at most.
+    GameClosed { closed: bool },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -105,9 +114,10 @@ pub async fn run(
     });
 
     let endpoint = net::open_endpoint(options.port, &options.stun)?;
-    endpoint.socket.set_nonblocking(true)?;
-    let socket = tokio::net::UdpSocket::from_std(endpoint.socket)?;
-    info!(address = %socket.local_addr()?, "listening for guests");
+    let sockets = net::Sockets::new(endpoint.sockets)?;
+    if let Some(address) = sockets.main_address() {
+        info!(%address, "listening for guests");
+    }
 
     if options.settings.public && token.is_none() {
         let _ = events.send(Event::PublicNeedsAccount);
@@ -144,17 +154,20 @@ pub async fn run(
             }
         })?;
     let (sound_tx, sound) = mpsc::channel(SOUND_QUEUE);
-    let (stopped_tx, capture_stopped) = mpsc::unbounded_channel();
+    let (stopped_tx, mut capture_stopped) = mpsc::unbounded_channel();
     let thumbnails = Arc::new(thumbnail::Thumbnails::new(room.thumbnails.clone()));
-    let _capture = Capture::start(
-        window,
-        size,
-        options.fps,
-        encoder,
-        thumbnails.clone(),
-        sound_tx,
-        stopped_tx,
-    )?;
+    let start_capture = |window: &GameWindow| {
+        Capture::start(
+            window,
+            size,
+            options.fps,
+            encoder.clone(),
+            thumbnails.clone(),
+            sound_tx.clone(),
+            stopped_tx.clone(),
+        )
+    };
+    let mut capture = Some(start_capture(window)?);
     info!(
         width = size.0,
         height = size.1,
@@ -162,9 +175,10 @@ pub async fn run(
         "capture started"
     );
 
+    let (game_tx, game) = mpsc::unbounded_channel();
     let signal_out = room.outgoing.clone();
-    Host::new(
-        socket,
+    let host = Host::new(
+        sockets,
         endpoint.candidates,
         Game {
             pid: window.pid,
@@ -175,12 +189,55 @@ pub async fn run(
         options.settings,
         Outputs {
             signal_out,
-            thumbnails,
-            events,
+            thumbnails: thumbnails.clone(),
+            events: events.clone(),
         },
     )
-    .run(room, frames, sound, capture_stopped, stop)
-    .await
+    .run(room, frames, sound, game, stop);
+    tokio::pin!(host);
+
+    let mut look = tokio::time::interval(GAME_LOOK);
+    let mut closed_at: Option<Instant> = None;
+    loop {
+        tokio::select! {
+            outcome = &mut host => return outcome,
+            Some(reason) = capture_stopped.recv(), if capture.is_some() => {
+                info!(%reason, "the game's window is gone; waiting for it to come back");
+                capture = None;
+                closed_at = Some(Instant::now());
+                let _ = game_tx.send(GameChange::Closed);
+                let _ = events.send(Event::GameClosed { closed: true });
+            }
+            _ = look.tick(), if capture.is_none() => {
+                if closed_at.is_some_and(|at| at.elapsed() >= GAME_WAIT) {
+                    return Err(anyhow!("the game closed and did not come back"));
+                }
+                let Some(back) = window_of(&window.app) else { continue };
+                match start_capture(&back) {
+                    Ok(started) => {
+                        info!(title = %back.title, "sharing the game's new window");
+                        capture = Some(started);
+                        closed_at = None;
+                        let _ = game_tx.send(GameChange::Back { pid: back.pid });
+                        let _ = events.send(Event::GameClosed { closed: false });
+                    }
+                    Err(error) => warn!(%error, "the game's new window cannot be captured yet"),
+                }
+            }
+        }
+    }
+}
+
+/// The largest window of the program named `app`, once the game shows one again.
+fn window_of(app: &str) -> Option<GameWindow> {
+    list_windows()
+        .ok()?
+        .into_iter()
+        .filter(|window| window.app == app)
+        .max_by_key(|window| {
+            let (width, height) = window.stream_size(u32::MAX);
+            u64::from(width) * u64::from(height)
+        })
 }
 
 /// The saved session for `server`, if the server still accepts it. An expired one is

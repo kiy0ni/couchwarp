@@ -23,6 +23,7 @@ fn main() {
         "open_privacy_settings",
         "set_bubble_open",
         "set_bubble_notice",
+        "relaunch_game",
         "show_main_window",
         "update_available",
         "install_update",

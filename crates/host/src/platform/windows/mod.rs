@@ -62,6 +62,10 @@ impl InputSink {
         }
     }
 
+    /// The game came back as another process. Input goes to the window in front, so
+    /// nothing changes here.
+    pub fn set_game(&mut self, _game_pid: i32) {}
+
     /// True when the VIIPER service answered at startup.
     pub fn virtual_pads(&self) -> bool {
         self.pads.available()
