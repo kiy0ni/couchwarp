@@ -266,3 +266,60 @@ describe('the public list', () => {
     await expect.poll(async () => (await thumbnail()).status).toBe(404)
   })
 })
+
+describe('the door', () => {
+  it('keeps a guest waiting, with nothing to connect with, until the host says yes', async () => {
+    const { host, code } = await openRoom({}, 'ask')
+    const guest = await join(code, 'Noé')
+    expect(await guest.next('waiting')).toEqual({ type: 'waiting' })
+    const state = await host.latestState()
+    expect(state.waiting).toEqual([
+      { id: expect.any(Number), name: 'Noé', avatarUrl: null, userId: null },
+    ])
+    expect(state.members).toEqual([])
+
+    // While waiting, the guest can neither signal the host nor chat, and sees nothing.
+    guest.send({ type: 'chat', text: 'Coucou' })
+    guest.send({ type: 'signal', payload: { kind: 'offer', sdp: 'v=0' } })
+    host.send({ type: 'chat', text: 'Qui est là ?' })
+    await host.next('chat')
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(guest.received('room-state')).toBe(0)
+    expect(guest.received('chat')).toBe(0)
+
+    const id = (state.waiting as { id: number }[])[0]?.id
+    host.send({ type: 'admit', guestId: id, accept: true })
+    const welcome = await guest.next('welcome')
+    expect(welcome.guestId).toBe(id)
+    expect(await host.next('guest-joined')).toMatchObject({ guestId: id, name: 'Noé' })
+    const after = await host.latestState()
+    expect(after.waiting).toEqual([])
+    expect(after.members).toEqual([expect.objectContaining({ id, name: 'Noé' })])
+  })
+
+  it('turns a guest away when the host says no', async () => {
+    const { host, code } = await openRoom({}, 'ask')
+    const guest = await join(code, 'Troll')
+    await guest.next('waiting')
+    const id = ((await host.latestState()).waiting as { id: number }[])[0]?.id
+    host.send({ type: 'admit', guestId: id, accept: false })
+    expect(await guest.next('rejected')).toEqual({ type: 'rejected', reason: 'refused' })
+    expect((await host.latestState()).waiting).toEqual([])
+  })
+
+  it('forgets a guest who leaves the door', async () => {
+    const { host, code } = await openRoom({}, 'ask')
+    const guest = await join(code, 'Pressé')
+    await guest.next('waiting')
+    guest.socket.close(1000)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect((await host.latestState()).waiting).toEqual([])
+  })
+
+  it('asks for everyone by default', async () => {
+    const host = await connect('/api/host')
+    await host.next('room-created')
+    const state = await host.next('room-state')
+    expect((state.state as { settings: { admission: string } }).settings.admission).toBe('ask')
+  })
+})

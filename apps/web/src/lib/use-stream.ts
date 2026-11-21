@@ -57,6 +57,8 @@ export function useStream(
   const [virtualPads, setVirtualPads] = useState<boolean | null>(null)
   const [measures, setMeasures] = useState(NO_MEASURES)
   const [guestId, setGuestId] = useState<number | null>(null)
+  /** At the door, until the host lets this guest in. */
+  const [waiting, setWaiting] = useState(false)
   const [room, setRoom] = useState<RoomState | null>(null)
   const [chat, setChat] = useState<ChatMessage[]>([])
   const onEndRef = useRef(onEnd)
@@ -73,7 +75,11 @@ export function useStream(
     let pinger = 0
 
     const current = new GuestSession(code, name, {
-      onWelcome: setGuestId,
+      onWaiting: () => setWaiting(true),
+      onWelcome: (id) => {
+        setWaiting(false)
+        setGuestId(id)
+      },
       onRoom: setRoom,
       onChat: (message) => setChat((previous) => [...previous, message].slice(-CHAT_KEPT)),
       onConnected: startPinging,
@@ -201,6 +207,7 @@ export function useStream(
     me,
     chat,
     hasPicture,
+    waiting,
     slots,
     paused,
     virtualPads,

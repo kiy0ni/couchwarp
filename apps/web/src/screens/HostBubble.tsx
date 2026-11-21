@@ -4,6 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useEffect, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { ConfirmButton } from '../components/ConfirmButton'
+import { DoorRequests } from '../components/DoorRequests'
 import { Icon } from '../components/Icon'
 import { GUEST_INPUTS, INPUT_ICONS, inputsOf } from '../components/MemberList'
 import { t } from '../i18n'
@@ -49,25 +50,62 @@ export function HostBubble() {
       .catch(console.error)
   }
 
-  if (hosting?.state !== 'live') return null
+  const live = hosting?.state === 'live' ? hosting : null
+  const { room, command } = useRoom(live)
+  // Someone new at the door: the panel opens on its own, so the host sees the request.
+  const waiting = room?.waiting.length ?? 0
+  const knocked = useRef(0)
+  useEffect(() => {
+    if (waiting > knocked.current && !open) toggle(true)
+    knocked.current = waiting
+  })
+
+  if (!live) return null
   return open ? (
-    <Panel live={hosting} direction={direction} onClose={() => toggle(false)} />
+    <Panel
+      live={live}
+      room={room}
+      command={command}
+      direction={direction}
+      onClose={() => toggle(false)}
+    />
   ) : (
-    <Pill live={hosting} onOpen={() => toggle(true)} />
+    <Pill live={live} waiting={waiting} onOpen={() => toggle(true)} />
   )
+}
+
+/** The room behind the live game, and a way to change it, as the console has. */
+function useRoom(live: Live | null) {
+  const [room, setRoom] = useState<RoomState | null>(null)
+  const [session, setSession] = useState<ConsoleSession | null>(null)
+  const code = live?.code
+  const key = live?.consoleKey
+  useEffect(() => {
+    if (!code || !key) return
+    const current = new ConsoleSession(code, key, {
+      onRoom: setRoom,
+      onChat: () => undefined,
+      // The session ending closes this window from the app's side.
+      onEnd: () => undefined,
+    })
+    setSession(current)
+    return () => current.close()
+  }, [code, key])
+  return { room, command: (message: HostCommand) => session?.command(message) }
 }
 
 /** Past this many pixels, a press on the logo moves the window instead of opening it. */
 const DRAG_THRESHOLD = 4
 
 /** Closed, the bubble is only the logo and how many guests are in. */
-function Pill({ live, onOpen }: { live: Live; onOpen(): void }) {
+function Pill({ live, waiting, onOpen }: { live: Live; waiting: number; onOpen(): void }) {
   const guests = live.stats?.guests ?? 0
   const press = useRef<{ x: number; y: number } | null>(null)
   return (
     <button
       type="button"
       className="host-pill"
+      data-knocking={waiting > 0 || undefined}
       aria-label={t.bubble.open(live.code, guests)}
       onPointerDown={(event) => {
         press.current = { x: event.screenX, y: event.screenY }
@@ -106,30 +144,19 @@ function Pill({ live, onOpen }: { live: Live; onOpen(): void }) {
  */
 function Panel({
   live,
+  room,
+  command,
   direction,
   onClose,
 }: {
   live: Live
+  room: RoomState | null
+  command(message: HostCommand): void
   direction: 'down' | 'up'
   onClose(): void
 }) {
-  const [room, setRoom] = useState<RoomState | null>(null)
-  const [session, setSession] = useState<ConsoleSession | null>(null)
   const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    const current = new ConsoleSession(live.code, live.consoleKey, {
-      onRoom: setRoom,
-      onChat: () => undefined,
-      // The session ending closes this window from the app's side.
-      onEnd: () => undefined,
-    })
-    setSession(current)
-    return () => current.close()
-  }, [live.code, live.consoleKey])
-
   const link = `${location.origin}/${live.code}`
-  const command = (message: HostCommand) => session?.command(message)
 
   return (
     <div className="host-panel" data-direction={direction}>
@@ -167,6 +194,8 @@ function Panel({
           </span>
         )}
       </div>
+
+      {room && <DoorRequests room={room} onCommand={command} compact />}
 
       <section className="host-panel__members" aria-label={t.room.membersTitle}>
         {room === null && <p className="muted">{t.console.connecting}</p>}

@@ -1,4 +1,5 @@
 import {
+  type Admission,
   type ChatMessage,
   type HostCommand,
   type HotseatMode,
@@ -14,6 +15,7 @@ import { type ConsoleEnd, ConsoleSession } from '../lib/console-session'
 import { ChatPanel } from './ChatPanel'
 import { Choice } from './Choice'
 import { ConfirmButton } from './ConfirmButton'
+import { DoorRequests } from './DoorRequests'
 import { MemberList } from './MemberList'
 import { ReportDialog, type ReportTarget } from './ReportDialog'
 
@@ -59,6 +61,7 @@ export function RoomManager({ code, consoleKey: key, onEnd, showClose = true }: 
   }
   return (
     <div className="manager">
+      <DoorRequests room={room} onCommand={command} />
       <div className="manager__grid">
         <section className="card" aria-labelledby="console-members">
           <h2 id="console-members" className="card__title">
@@ -275,6 +278,17 @@ function SettingsForm({ room, onSave }: SettingsProps) {
           </span>
         </label>
       )}
+
+      <Choice<Admission>
+        label={t.door.settingLabel}
+        value={draft.admission}
+        options={[
+          ['ask', t.door.ask],
+          ['friends', t.door.friends],
+          ['open', t.door.open],
+        ]}
+        onChange={(admission) => change({ admission })}
+      />
 
       <Choice<HotseatMode>
         label={t.console.hotseatLabel}

@@ -233,3 +233,56 @@ describe('chat', () => {
     expect(model.chatHistory[0]?.text).toBe('m10')
   })
 })
+
+describe('the door', () => {
+  const arrival = (guestId: number, friend: boolean) => ({
+    guestId,
+    name: `Guest ${guestId}`,
+    account: null,
+    banKeys: [`ip:${guestId}`],
+    grants: { keyboard: false, mouse: false },
+    friend,
+  })
+
+  it('asks for everyone, lets friends in, or lets everyone in', () => {
+    const asking = room()
+    expect(asking.knock(arrival(1, true), 0)).toBe('waiting')
+
+    const friends = room()
+    friends.apply(
+      HOST,
+      { type: 'configure', settings: { ...friends.settings, admission: 'friends' } },
+      0,
+    )
+    expect(friends.knock(arrival(1, true), 0)).toMatchObject({ id: 1 })
+    expect(friends.knock(arrival(2, false), 0)).toBe('waiting')
+
+    const open = room()
+    open.apply(HOST, { type: 'configure', settings: { ...open.settings, admission: 'open' } }, 0)
+    expect(open.knock(arrival(1, false), 0)).toMatchObject({ id: 1 })
+  })
+
+  it('lets the host or a moderator answer, never a player', () => {
+    const model = room(3)
+    model.apply(HOST, { type: 'configure', settings: { ...model.settings, admission: 'open' } }, 0)
+    model.knock(arrival(1, false), 0)
+    model.apply(HOST, { type: 'configure', settings: { ...model.settings, admission: 'ask' } }, 0)
+    model.knock(arrival(2, false), 0)
+    expect(model.apply(guest(1), { type: 'admit', guestId: 2, accept: true }, 0)).toEqual({
+      ok: false,
+      reason: 'forbidden',
+    })
+    expect(model.apply(HOST, { type: 'admit', guestId: 2, accept: true }, 0)).toMatchObject({
+      ok: true,
+      admitted: { id: 2, role: 'player' },
+    })
+    expect(model.isWaiting(2)).toBe(false)
+  })
+
+  it('keeps banned people out, even at the door', () => {
+    const model = room()
+    model.join(1, 'Troll', null, ['ip:9'], 0)
+    model.apply(HOST, { type: 'kick', guestId: 1, ban: true }, 0)
+    expect(model.knock({ ...arrival(2, false), banKeys: ['ip:9'] }, 0)).toBe('banned')
+  })
+})

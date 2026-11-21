@@ -61,6 +61,7 @@ const CLOSE_CODES: Record<RejectReason, number> = {
   banned: 4411,
   'room-closed': 4412,
   'console-key-invalid': 4401,
+  refused: 4413,
 }
 
 interface Meta {
@@ -178,6 +179,9 @@ export class Room extends DurableObject<Env> {
     const parsed = parseGuestToEdge(text)
     if (!parsed) {
       socket.close(1008, 'invalid message')
+    } else if (model.isWaiting(guestId)) {
+      // At the door, a guest can say nothing to anyone: they can only wait or leave.
+      return
     } else if (parsed.type === 'signal') {
       this.hostSocket()?.send(
         json<EdgeToHost>({ type: 'signal', from: guestId, payload: parsed.payload }),
@@ -257,17 +261,38 @@ export class Room extends DurableObject<Env> {
     this.ctx.storage.kv.put('meta', { ...meta, nextGuestId: guestId + 1 })
     const banKeys = [`ip:${arrival.addressHash}`]
     if (arrival.account) banKeys.push(`user:${arrival.account.userId}`)
-    const grants = arrival.account
-      ? await this.friendGrants(model, arrival.account.userId)
-      : NO_GRANTS
-    const joined = model.join(guestId, name, arrival.account, banKeys, Date.now(), grants)
-    if (typeof joined === 'string') return rejection(joined)
+    const friend = arrival.account ? await this.isHostFriend(model, arrival.account.userId) : false
+    const grants =
+      friend && arrival.account ? await this.friendGrants(model, arrival.account.userId) : NO_GRANTS
+    const outcome = model.knock(
+      { guestId, name, account: arrival.account, banKeys, grants, friend },
+      Date.now(),
+    )
+    if (typeof outcome === 'string' && outcome !== 'waiting') return rejection(outcome)
 
     const [client, server] = pair()
     this.ctx.acceptWebSocket(server, [guestTag(guestId)])
     server.serializeAttachment({ role: 'guest', guestId } satisfies Peer)
+    if (outcome === 'waiting') {
+      // Nothing to connect with until the host says yes: no ICE servers, no signalling.
+      server.send(json<EdgeToGuest>({ type: 'waiting' }))
+    } else {
+      await this.welcome(server, model, guestId, name, arrival.account?.userId ?? null)
+    }
+    await this.changed(model)
+    return new Response(null, { status: 101, webSocket: client })
+  }
+
+  /** A guest let in: what they need to reach the host, and the host told. */
+  private async welcome(
+    socket: WebSocket,
+    model: RoomModel,
+    guestId: GuestId,
+    name: string,
+    userId: string | null,
+  ): Promise<void> {
     const iceServers = await iceServersFor(this.env)
-    server.send(
+    socket.send(
       json<EdgeToGuest>({
         type: 'welcome',
         guestId,
@@ -279,12 +304,10 @@ export class Room extends DurableObject<Env> {
       }),
     )
     for (const message of model.chatHistory) {
-      server.send(json<EdgeToGuest>({ type: 'chat', message }))
+      socket.send(json<EdgeToGuest>({ type: 'chat', message }))
     }
     this.hostSocket()?.send(json<EdgeToHost>({ type: 'guest-joined', guestId, name }))
-    if (arrival.account) await this.recordJoin(model, arrival.account.userId)
-    await this.changed(model)
-    return new Response(null, { status: 101, webSocket: client })
+    if (userId) await this.recordJoin(model, userId)
   }
 
   private acceptConsole(): Response {
@@ -310,9 +333,25 @@ export class Room extends DurableObject<Env> {
       return
     }
     if (outcome.chat) {
-      this.broadcast({ type: 'chat', message: outcome.chat })
+      this.broadcast(model, { type: 'chat', message: outcome.chat })
       this.persist(model)
       return
+    }
+    if (outcome.admitted) {
+      const socket = this.guestSocket(outcome.admitted.id)
+      if (socket) {
+        await this.welcome(
+          socket,
+          model,
+          outcome.admitted.id,
+          outcome.admitted.name,
+          outcome.admitted.userId,
+        )
+      }
+    }
+    if (outcome.refused !== undefined) {
+      const socket = this.guestSocket(outcome.refused)
+      if (socket) reject(socket, 'refused')
     }
     if (outcome.kicked !== undefined) {
       const kicked = this.guestSocket(outcome.kicked)
@@ -332,6 +371,12 @@ export class Room extends DurableObject<Env> {
       return
     }
     if (peer.role !== 'guest') return
+    if (model.isWaiting(peer.guestId)) {
+      // Left the door before an answer: the host never heard of them.
+      model.leave(peer.guestId, Date.now())
+      await this.changed(model)
+      return
+    }
     const member = model.member(peer.guestId)
     if (!member) return
     model.leave(peer.guestId, Date.now())
@@ -369,7 +414,7 @@ export class Room extends DurableObject<Env> {
   private async changed(model: RoomModel): Promise<void> {
     this.persist(model)
     const state = model.state(this.policy())
-    this.broadcast({ type: 'room-state', state })
+    this.broadcast(model, { type: 'room-state', state })
     const now = Date.now()
     const meta = this.meta()
     if (model.effectiveVisibility(this.policy()) === 'public') {
@@ -400,12 +445,14 @@ export class Room extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(Math.min(model.turnEndsAt ?? Infinity, now + HEARTBEAT_MS))
   }
 
-  private broadcast(message: Broadcast): void {
+  private broadcast(model: RoomModel, message: Broadcast): void {
     const text = JSON.stringify(message)
     for (const socket of this.ctx.getWebSockets()) {
       const peer = socket.deserializeAttachment() as Peer
       // A socket being closed (a refused console, a kicked guest) is still listed briefly.
       if (socket.readyState !== WebSocket.OPEN) continue
+      // Someone at the door sees nothing of the room: not who is in it, not the chat.
+      if (peer.role === 'guest' && model.isWaiting(peer.guestId)) continue
       if (peer.role !== 'console' || peer.authed) socket.send(text)
     }
   }
@@ -425,6 +472,18 @@ export class Room extends DurableObject<Env> {
     )
       .bind(model.code, actorName, action, target?.name ?? '?', target?.userId ?? null, Date.now())
       .run()
+  }
+
+  /** Whether this account is a friend of the signed-in host. */
+  private async isHostFriend(model: RoomModel, userId: string): Promise<boolean> {
+    if (!model.host.userId || model.host.userId === userId) return false
+    const row = await this.env.DB.prepare(
+      `SELECT 1 FROM friendships WHERE accepted_at IS NOT NULL
+       AND ((requester_id = ?1 AND addressee_id = ?2) OR (requester_id = ?2 AND addressee_id = ?1))`,
+    )
+      .bind(model.host.userId, userId)
+      .first()
+    return row !== null
   }
 
   /** What the host lets this friend do from the start, when the host is signed in. */

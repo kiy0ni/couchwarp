@@ -183,7 +183,16 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
       {/* biome-ignore lint/a11y/useMediaCaption: a live game stream has no caption source */}
       <video ref={video} className="play__video" playsInline autoPlay disablePictureInPicture />
 
-      {!stream.hasPicture && (
+      {stream.waiting && (
+        <div className="play__door" role="status">
+          <p className="play__door-title">{t.play.doorTitle}</p>
+          <p className="muted">{t.play.doorLead}</p>
+          <button type="button" className="button button--secondary" onClick={onLeave}>
+            {t.play.doorLeave}
+          </button>
+        </div>
+      )}
+      {!stream.hasPicture && !stream.waiting && (
         <p className="play__notice" role="status">
           {t.play.waiting}
         </p>

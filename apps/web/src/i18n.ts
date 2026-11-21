@@ -8,6 +8,25 @@ import type { EndReason } from './lib/session'
 
 const fr: Strings = {
   common: { cancel: 'Annuler' },
+  firewall: {
+    title: 'Le pare-feu de Windows bloque tes invités',
+    lead: 'Tant que Couchwarp n’est pas autorisé, personne ne peut rejoindre ta partie, même chez toi. Windows demande une fois l’accord administrateur.',
+    refused:
+      'Windows n’a pas donné son accord. Réessaie, et choisis « Oui » dans la fenêtre de Windows.',
+    allow: 'Autoriser',
+  },
+  door: {
+    title: (count: number) =>
+      count === 1 ? 'Une personne frappe à la porte' : `${count} personnes frappent à la porte`,
+    accept: 'Accepter',
+    refuse: 'Refuser',
+    signedIn: 'Connecté à un compte',
+    anonymous: 'Sans compte',
+    settingLabel: 'Qui peut entrer',
+    ask: 'Je dis oui à chaque personne',
+    friends: 'Mes amis entrent, je dis oui aux autres',
+    open: 'Tout le monde entre directement',
+  },
   padTest: {
     open: 'Tester et régler',
     customised: 'réglages personnalisés',
@@ -744,6 +763,9 @@ const fr: Strings = {
     back: 'Changer de code',
   },
   play: {
+    doorTitle: 'Tu frappes à la porte',
+    doorLead: 'L’hôte doit t’accepter pour que tu rejoignes la partie. Reste sur cette page.',
+    doorLeave: 'Partir',
     bubble: 'Menu de la partie',
     bubbleUnread: (count: number) =>
       count === 1
@@ -797,6 +819,7 @@ const fr: Strings = {
       banned: 'L’hôte t’a banni de cette partie.',
       'room-closed': 'L’hôte a fermé la partie.',
       'console-key-invalid': 'Ce lien de console n’est plus valable.',
+      refused: 'L’hôte n’a pas accepté ta demande pour cette partie.',
       'host-left': 'L’hôte a fermé la partie.',
       'connection-failed':
         'Impossible de joindre le PC de l’hôte. Son réseau ou le tien bloque peut-être les connexions directes.',
@@ -811,6 +834,24 @@ type Strings = typeof en
 
 const en = {
   common: { cancel: 'Cancel' },
+  firewall: {
+    title: 'Windows’ firewall blocks your guests',
+    lead: 'Until Couchwarp is allowed, no one can join your game, not even at home. Windows asks once for administrator approval.',
+    refused: 'Windows did not give its approval. Try again, and choose Yes in the Windows window.',
+    allow: 'Allow',
+  },
+  door: {
+    title: (count: number) =>
+      count === 1 ? 'Someone is knocking' : `${count} people are knocking`,
+    accept: 'Let in',
+    refuse: 'Turn away',
+    signedIn: 'Signed in',
+    anonymous: 'No account',
+    settingLabel: 'Who comes in',
+    ask: 'I say yes to each person',
+    friends: 'My friends come in, I say yes to others',
+    open: 'Everyone comes straight in',
+  },
   padTest: {
     open: 'Test and set up',
     customised: 'custom settings',
@@ -1536,6 +1577,9 @@ const en = {
     back: 'Change code',
   },
   play: {
+    doorTitle: 'You are knocking',
+    doorLead: 'The host has to let you in before you join the game. Stay on this page.',
+    doorLeave: 'Leave',
     bubble: 'Game menu',
     bubbleUnread: (count: number) =>
       count === 1 ? 'Game menu, 1 unread message' : `Game menu, ${count} unread messages`,
@@ -1587,6 +1631,7 @@ const en = {
       banned: 'The host banned you from this game.',
       'room-closed': 'The host closed the game.',
       'console-key-invalid': 'This console link is no longer valid.',
+      refused: 'The host did not let you into this game.',
       'host-left': 'The host closed the game.',
       'connection-failed':
         'Could not reach the host’s PC. Their network or yours may block direct connections.',

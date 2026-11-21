@@ -22,6 +22,8 @@ export type EndReason =
   | 'server-unreachable'
 
 export interface SessionEvents {
+  /** At the door: the host has not let us in yet. */
+  onWaiting(): void
   /** The room server let us in, under this id. */
   onWelcome(guestId: number): void
   /** The whole room, after every change. */
@@ -125,6 +127,9 @@ export class GuestSession {
         break
       case 'rejected':
         this.end(message.reason)
+        break
+      case 'waiting':
+        this.events.onWaiting()
         break
       case 'host-left':
         this.end('host-left')

@@ -28,7 +28,8 @@ pub struct Room {
 
 #[derive(Debug)]
 pub enum RoomEvent {
-    Message(EdgeToHost),
+    /// Boxed: a room state is far bigger than the other events.
+    Message(Box<EdgeToHost>),
     /// The room was closed on purpose, from the host console.
     Closed,
     /// The connection to the room server dropped.
@@ -70,7 +71,10 @@ pub async fn open_room(server: &str, token: Option<&str>) -> Result<Room> {
             match source.next().await {
                 Some(Ok(Message::Text(text))) => match serde_json::from_str(&text) {
                     Ok(message) => {
-                        if incoming_tx.send(RoomEvent::Message(message)).is_err() {
+                        if incoming_tx
+                            .send(RoomEvent::Message(Box::new(message)))
+                            .is_err()
+                        {
                             return;
                         }
                     }

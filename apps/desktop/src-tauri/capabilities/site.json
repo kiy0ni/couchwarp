@@ -22,6 +22,8 @@
     "allow-save-session",
     "allow-input-allowed",
     "allow-restart-app",
+    "allow-firewall-allowed",
+    "allow-allow-firewall",
     "allow-watch-controllers",
     "allow-motion-controllers",
     "allow-controller-support",

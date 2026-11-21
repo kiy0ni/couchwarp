@@ -29,6 +29,7 @@ export type RejectReason =
   | 'banned'
   | 'room-closed'
   | 'console-key-invalid'
+  | 'refused'
 
 export type EdgeToHost =
   /** `consoleKey` opens the host console, a page to manage the room from any device. */
@@ -49,6 +50,8 @@ export type EdgeToGuest =
   | { type: 'host-left' }
   | { type: 'room-state'; state: RoomState }
   | { type: 'chat'; message: ChatMessage }
+  /** At the door: the host has not said yes yet. `welcome` follows once they do. */
+  | { type: 'waiting' }
 
 /** Guests send commands too: chat for everyone, the rest only as moderators. */
 export type GuestToEdge =
@@ -76,6 +79,7 @@ const REJECT_REASONS: readonly RejectReason[] = [
   'banned',
   'room-closed',
   'console-key-invalid',
+  'refused',
 ]
 
 function parsePayload(value: unknown): SignalPayload | null {
@@ -171,6 +175,8 @@ export function parseEdgeToGuest(text: string): EdgeToGuest | null {
         : null
     case 'host-left':
       return { type: 'host-left' }
+    case 'waiting':
+      return { type: 'waiting' }
     default:
       return null
   }

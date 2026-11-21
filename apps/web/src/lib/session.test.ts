@@ -129,6 +129,7 @@ const STUN = [{ urls: ['stun:stun.cloudflare.com:3478'] }]
 function recorder() {
   const ended: EndReason[] = []
   const events: SessionEvents = {
+    onWaiting: vi.fn(),
     onWelcome: vi.fn(),
     onRoom: vi.fn(),
     onChat: vi.fn(),
@@ -211,6 +212,16 @@ describe('joining from a browser', () => {
     peer.connectionState = 'connected'
     socket.onclose?.()
     expect(ended).toEqual([])
+  })
+
+  it('waits at the door without connecting until the host lets it in', () => {
+    const { events } = recorder()
+    new GuestSession('K7QM2X', 'Sam', events)
+    FakeSocket.last.receive({ type: 'waiting' })
+    expect(events.onWaiting).toHaveBeenCalledOnce()
+    expect(FakeSocket.last.sent).toEqual([])
+    FakeSocket.last.receive({ type: 'welcome', guestId: 4, iceServers: STUN, relayOnly: false })
+    expect(events.onWelcome).toHaveBeenCalledWith(4)
   })
 
   it('goes through the relay only when the room asks for it', async () => {

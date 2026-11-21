@@ -79,6 +79,7 @@ impl SettingsRequest {
                 current.visibility
             },
             relay_only: self.relay_only || current.relay_only,
+            admission: current.admission,
             hotseat: match self.turn_minutes {
                 Some(minutes) => Hotseat {
                     mode: HotseatMode::Timer,
@@ -201,7 +202,7 @@ impl Host {
                     }
                 }
                 event = room.incoming.recv(), if room_open => match event {
-                    Some(RoomEvent::Message(message)) => self.on_room_message(message),
+                    Some(RoomEvent::Message(message)) => self.on_room_message(*message),
                     Some(RoomEvent::Closed) => {
                         info!("the room was closed from the host console");
                         room_open = false;
@@ -388,6 +389,15 @@ impl Host {
                 "the room stays unlisted: only people with the link can join"
             );
         }
+        for guest in &state.waiting {
+            let known = self
+                .room_state
+                .as_ref()
+                .is_some_and(|previous| previous.waiting.iter().any(|w| w.id == guest.id));
+            if !known {
+                info!(name = %guest.name, "asks to join: let them in from the console");
+            }
+        }
         let guests: Vec<GuestId> = state
             .members
             .iter()
@@ -457,7 +467,7 @@ impl Host {
                 median_ms: delays.median_ms,
                 p95_ms: delays.p95_ms,
                 bitrate: self.encoder.bitrate(),
-                guests: self.peers.len(),
+                guests: self.peers.iter().filter(|peer| peer.connected()).count(),
             }));
         }
         let rtp_ticks = self.clock.rtp_ticks(frame.captured_at);
@@ -539,7 +549,7 @@ fn in_front(game_pid: i32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use couchwarp_protocol::room::{Member, PadType};
+    use couchwarp_protocol::room::{Admission, Member, PadType};
 
     fn settings() -> RoomSettings {
         RoomSettings {
@@ -552,6 +562,7 @@ mod tests {
                 mode: HotseatMode::Off,
                 minutes: 5,
             },
+            admission: Admission::Ask,
         }
     }
 
@@ -598,6 +609,7 @@ mod tests {
                 member(3, GuestRole::Spectator, true),
             ],
             queue: vec![],
+            waiting: vec![],
             turn_ends_at: None,
             public_refused: None,
             relay_available: false,
