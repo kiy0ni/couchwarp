@@ -16,7 +16,7 @@ import { fetchRooms, type RoomCard as Room } from '../lib/directory'
 import { type Friend, fetchFriends } from '../lib/friends'
 import { padName } from '../lib/gamepads'
 import { useKnownGame } from '../lib/games'
-import { playedOn, useHistory } from '../lib/history'
+import { byRoom, playedOn, useHistory } from '../lib/history'
 import { navigate } from '../lib/router'
 import { isRoomOpen } from '../lib/session'
 import { useGamepads } from '../lib/use-gamepads'
@@ -258,12 +258,18 @@ function RecentGames() {
   const { account } = useAccount()
   const games = useHistory(account)
   if (!account || !games || games.length === 0) return null
-  // One row per room: the newest visit.
-  const rooms = games.filter(
-    (game, index) => games.findIndex((other) => other.roomCode === game.roomCode) === index,
-  )
+  const rooms = byRoom(games)
   return (
-    <Section title={t.home.recentTitle}>
+    <Section
+      title={t.home.recentTitle}
+      actions={
+        rooms.length > SHOWN_GAMES && (
+          <Link to="/settings/account" className="link-button">
+            {t.common.seeAll}
+          </Link>
+        )
+      }
+    >
       <ul className="list">
         {rooms.slice(0, SHOWN_GAMES).map((game) => (
           <li key={`${game.roomCode}-${game.joinedAt}`} className="list__item">

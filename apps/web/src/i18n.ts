@@ -7,7 +7,14 @@ import type { EndReason } from './lib/session'
  */
 
 const fr: Strings = {
-  common: { cancel: 'Annuler' },
+  common: {
+    cancel: 'Annuler',
+    pages: 'Pages',
+    previous: 'Précédentes',
+    next: 'Suivantes',
+    pageOf: (page: number, pages: number) => `Page ${page} sur ${pages}`,
+    seeAll: 'Tout voir',
+  },
   firewall: {
     title: 'Le pare-feu de Windows bloque tes invités',
     lead: 'Tant que Couchwarp n’est pas autorisé, personne ne peut rejoindre ta partie, même chez toi. Windows demande une fois l’accord administrateur.',
@@ -17,7 +24,7 @@ const fr: Strings = {
   },
   door: {
     title: (count: number) =>
-      count === 1 ? 'Une personne frappe à la porte' : `${count} personnes frappent à la porte`,
+      count === 1 ? 'Une demande pour rejoindre' : `${count} demandes pour rejoindre`,
     accept: 'Accepter',
     refuse: 'Refuser',
     signedIn: 'Connecté à un compte',
@@ -107,8 +114,17 @@ const fr: Strings = {
     restarting: 'Redémarrage…',
     retry: 'Réessayer',
     failed: 'La mise à jour n’a pas pu s’installer. Vérifie ta connexion et réessaie.',
+    check: 'Rechercher une mise à jour',
+    checking: 'Recherche…',
+    latest: 'À jour',
+    available: (version: string) => `Version ${version} disponible`,
+    checkFailed: 'Recherche impossible, vérifie ta connexion',
   },
   bubble: {
+    wantsToJoin: (others: number) =>
+      others === 0
+        ? 'veut rejoindre'
+        : `veut rejoindre, et ${others === 1 ? '1 autre' : `${others} autres`}`,
     open: (code: string, guests: number) =>
       `Partie ${code}, ${guests === 0 ? 'personne' : guests === 1 ? '1 invité' : `${guests} invités`}. Ouvrir, ou glisser pour déplacer.`,
     allow: {
@@ -763,8 +779,9 @@ const fr: Strings = {
     back: 'Changer de code',
   },
   play: {
-    doorTitle: 'Tu frappes à la porte',
-    doorLead: 'L’hôte doit t’accepter pour que tu rejoignes la partie. Reste sur cette page.',
+    doorTitle: 'En attente de l’hôte',
+    doorLead:
+      'Ta demande pour rejoindre la partie est envoyée. Tu entres dès que l’hôte l’accepte : reste sur cette page.',
     doorLeave: 'Partir',
     bubble: 'Menu de la partie',
     bubbleUnread: (count: number) =>
@@ -833,7 +850,14 @@ const fr: Strings = {
 type Strings = typeof en
 
 const en = {
-  common: { cancel: 'Cancel' },
+  common: {
+    cancel: 'Cancel',
+    pages: 'Pages',
+    previous: 'Newer',
+    next: 'Older',
+    pageOf: (page: number, pages: number) => `Page ${page} of ${pages}`,
+    seeAll: 'See all',
+  },
   firewall: {
     title: 'Windows’ firewall blocks your guests',
     lead: 'Until Couchwarp is allowed, no one can join your game, not even at home. Windows asks once for administrator approval.',
@@ -841,8 +865,7 @@ const en = {
     allow: 'Allow',
   },
   door: {
-    title: (count: number) =>
-      count === 1 ? 'Someone is knocking' : `${count} people are knocking`,
+    title: (count: number) => (count === 1 ? 'A request to join' : `${count} requests to join`),
     accept: 'Let in',
     refuse: 'Turn away',
     signedIn: 'Signed in',
@@ -932,8 +955,17 @@ const en = {
     restarting: 'Restarting…',
     retry: 'Retry',
     failed: 'The update could not be installed. Check your connection and try again.',
+    check: 'Check for updates',
+    checking: 'Checking…',
+    latest: 'Up to date',
+    available: (version: string) => `Version ${version} available`,
+    checkFailed: 'Could not check, look at your connection',
   },
   bubble: {
+    wantsToJoin: (others: number) =>
+      others === 0
+        ? 'wants to join'
+        : `wants to join, with ${others === 1 ? '1 other' : `${others} others`}`,
     open: (code: string, guests: number) =>
       `Game ${code}, ${guests === 0 ? 'nobody' : guests === 1 ? '1 guest' : `${guests} guests`}. Open, or drag to move.`,
     allow: {
@@ -1577,8 +1609,9 @@ const en = {
     back: 'Change code',
   },
   play: {
-    doorTitle: 'You are knocking',
-    doorLead: 'The host has to let you in before you join the game. Stay on this page.',
+    doorTitle: 'Waiting for the host',
+    doorLead:
+      'Your request to join the game is sent. You come in as soon as the host accepts it: stay on this page.',
     doorLeave: 'Leave',
     bubble: 'Game menu',
     bubbleUnread: (count: number) =>

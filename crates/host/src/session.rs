@@ -132,6 +132,17 @@ pub async fn run(
         frame_tx,
         control.clone(),
     )?);
+    // Ends with the encoder, once capture stops.
+    let watched = Arc::downgrade(&encoder);
+    std::thread::Builder::new()
+        .name("still window".into())
+        .spawn(move || {
+            while let Some(encoder) = watched.upgrade() {
+                encoder.repeat_if_still();
+                drop(encoder);
+                std::thread::sleep(video::STILL_CHECK);
+            }
+        })?;
     let (sound_tx, sound) = mpsc::channel(SOUND_QUEUE);
     let (stopped_tx, capture_stopped) = mpsc::unbounded_channel();
     let thumbnails = Arc::new(thumbnail::Thumbnails::new(room.thumbnails.clone()));

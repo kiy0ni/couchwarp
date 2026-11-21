@@ -14,6 +14,9 @@ const LABEL: &str = "bubble";
 /// Closed, the bubble is a pill; open, a panel.
 const CLOSED: (f64, f64) = (64.0, 64.0);
 const OPEN: (f64, f64) = (340.0, 520.0);
+/// Closed with someone asking to join, the pill grows to the left into a strip with their
+/// name and the answers, the height it had.
+const NOTICE_WIDTH: f64 = 340.0;
 /// Distance from the top right corner of the screen.
 const MARGIN: f64 = 24.0;
 
@@ -76,6 +79,39 @@ pub fn set_open(app: &AppHandle, open: bool) -> tauri::Result<Direction> {
     let Some(window) = app.get_webview_window(LABEL) else {
         return Ok(Direction::Down);
     };
+    let (current, screen) = frames(app, &window)?;
+    let (next, direction) = if open {
+        let (panel, direction) = panel_frame(current, screen);
+        OPENED_UP.store(direction == Direction::Up, Ordering::Relaxed);
+        (panel, direction)
+    } else {
+        let direction = if OPENED_UP.load(Ordering::Relaxed) {
+            Direction::Up
+        } else {
+            Direction::Down
+        };
+        (pill_frame(current, direction, screen), direction)
+    };
+    window.set_size(LogicalSize::new(next.width, next.height))?;
+    window.set_position(LogicalPosition::new(next.x, next.y))?;
+    Ok(direction)
+}
+
+/// Widens the closed pill into a strip that says someone asks to join, or narrows it back.
+/// The right edge stays put, so the pill does not move under the pointer.
+pub fn set_notice(app: &AppHandle, shown: bool) -> tauri::Result<()> {
+    let Some(window) = app.get_webview_window(LABEL) else {
+        return Ok(());
+    };
+    let (current, screen) = frames(app, &window)?;
+    let next = notice_frame(current, shown, screen);
+    window.set_size(LogicalSize::new(next.width, next.height))?;
+    window.set_position(LogicalPosition::new(next.x, next.y))?;
+    Ok(())
+}
+
+/// The bubble's window and the screen it is on, in logical pixels.
+fn frames(app: &AppHandle, window: &tauri::WebviewWindow) -> tauri::Result<(Frame, Option<Frame>)> {
     let scale = window.scale_factor()?;
     let position = window.outer_position()?.to_logical::<f64>(scale);
     let size = window.outer_size()?.to_logical::<f64>(scale);
@@ -99,21 +135,21 @@ pub fn set_open(app: &AppHandle, open: bool) -> tauri::Result<Direction> {
                 height: size.height,
             }
         });
-    let (next, direction) = if open {
-        let (panel, direction) = panel_frame(current, screen);
-        OPENED_UP.store(direction == Direction::Up, Ordering::Relaxed);
-        (panel, direction)
-    } else {
-        let direction = if OPENED_UP.load(Ordering::Relaxed) {
-            Direction::Up
-        } else {
-            Direction::Down
-        };
-        (pill_frame(current, direction, screen), direction)
-    };
-    window.set_size(LogicalSize::new(next.width, next.height))?;
-    window.set_position(LogicalPosition::new(next.x, next.y))?;
-    Ok(direction)
+    Ok((current, screen))
+}
+
+/// The closed bubble, as a strip or as the pill, keeping the right edge of `current`.
+fn notice_frame(current: Frame, shown: bool, screen: Option<Frame>) -> Frame {
+    let width = if shown { NOTICE_WIDTH } else { CLOSED.0 };
+    inside(
+        Frame {
+            x: current.x + current.width - width,
+            y: current.y,
+            width,
+            height: CLOSED.1,
+        },
+        screen,
+    )
 }
 
 /// A rectangle on the desktop, in logical pixels.
@@ -192,6 +228,34 @@ fn top_right(app: &AppHandle, width: f64) -> (f64, f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_notice_grows_left_and_shrinks_back_onto_the_pill() {
+        let pill = Frame {
+            x: 1352.0,
+            y: 48.0,
+            width: CLOSED.0,
+            height: CLOSED.1,
+        };
+        let strip = notice_frame(pill, true, Some(SCREEN));
+        assert_eq!(strip.x + strip.width, pill.x + pill.width);
+        assert_eq!(
+            (strip.y, strip.width, strip.height),
+            (48.0, NOTICE_WIDTH, 64.0)
+        );
+        assert_eq!(notice_frame(strip, false, Some(SCREEN)), pill);
+    }
+
+    #[test]
+    fn a_pill_on_the_left_edge_keeps_its_notice_on_screen() {
+        let pill = Frame {
+            x: 0.0,
+            y: 300.0,
+            width: CLOSED.0,
+            height: CLOSED.1,
+        };
+        assert_eq!(notice_frame(pill, true, Some(SCREEN)).x, 0.0);
+    }
 
     const SCREEN: Frame = Frame {
         x: 0.0,

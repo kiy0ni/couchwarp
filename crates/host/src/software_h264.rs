@@ -15,6 +15,8 @@ pub struct SoftwareEncoder {
     fps: u32,
     /// Created on the first frame and again whenever the picture size changes.
     current: Option<(Encoder, (usize, usize))>,
+    /// The last picture encoded, to send again while the window shows nothing new.
+    last: Option<YUVBuffer>,
 }
 
 impl SoftwareEncoder {
@@ -23,6 +25,7 @@ impl SoftwareEncoder {
             bitrate,
             fps,
             current: None,
+            last: None,
         }
     }
 
@@ -39,13 +42,29 @@ impl SoftwareEncoder {
         let size = (width & !1, height & !1);
         let packed = crop(bgra, width, size);
         self.prepare(size.0, size.1)?;
-        let (encoder, _) = self.current.as_mut().expect("prepared above");
+        self.last = Some(YUVBuffer::from_rgb_source(BgraSliceU8::new(&packed, size)));
+        self.encode_last(keyframe)
+    }
+
+    /// Encodes the last picture again. A window that does not change sends no new frame,
+    /// yet a guest who just arrived needs a whole picture to start from. `None` before
+    /// the first frame.
+    pub fn repeat(&mut self, keyframe: bool) -> Result<Option<Vec<u8>>> {
+        if self.last.is_none() {
+            return Ok(None);
+        }
+        self.encode_last(keyframe)
+    }
+
+    fn encode_last(&mut self, keyframe: bool) -> Result<Option<Vec<u8>>> {
+        let (Some((encoder, _)), Some(yuv)) = (self.current.as_mut(), self.last.as_ref()) else {
+            return Ok(None);
+        };
         if keyframe {
             encoder.force_intra_frame();
         }
-        let yuv = YUVBuffer::from_rgb_source(BgraSliceU8::new(&packed, size));
         let annex_b = encoder
-            .encode(&yuv)
+            .encode(yuv)
             .context("OpenH264 encoding failed")?
             .to_vec();
         Ok((!annex_b.is_empty()).then_some(annex_b))
@@ -178,6 +197,17 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(!nal_types(&next).contains(&IDR_SLICE_NAL));
+    }
+
+    #[test]
+    fn the_last_picture_can_be_sent_again_as_a_keyframe() {
+        let mut encoder = SoftwareEncoder::new(4_000_000, 60);
+        assert!(encoder.repeat(true).unwrap().is_none());
+        encoder
+            .encode(&grey_frame(64, 48, 90), 64, 48, false)
+            .unwrap();
+        let again = encoder.repeat(true).unwrap().unwrap();
+        assert!(nal_types(&again).contains(&IDR_SLICE_NAL));
     }
 
     #[test]

@@ -6,6 +6,14 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const RTP_VIDEO_CLOCK_HZ: u128 = 90_000;
 
+/// A window that has drawn nothing for this long is still. Capture sends a frame only when
+/// the picture changes, so a menu, a pause screen or a launcher sends none: a guest who
+/// arrives then, or loses a packet, would wait for a picture that never comes. The encoder
+/// sends its last one again instead.
+pub const STILL_AFTER: Duration = Duration::from_millis(100);
+/// How often a still window is checked for a guest waiting on a whole picture.
+pub const STILL_CHECK: Duration = Duration::from_millis(50);
+
 /// One H.264 access unit in Annex B form (NAL units after start codes), as str0m sends it.
 pub struct EncodedFrame {
     /// Shared, because the same frame goes to every guest.

@@ -31,8 +31,11 @@
     "allow-repair-permission",
     "allow-open-privacy-settings",
     "allow-set-bubble-open",
+    "allow-set-bubble-notice",
     "allow-show-main-window",
     "allow-update-available",
-    "allow-install-update"
+    "allow-install-update",
+    "allow-app-version",
+    "allow-check-for-update"
   ]
 }

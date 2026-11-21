@@ -146,8 +146,9 @@ impl Capture {
             // NV12, what the hardware encoder takes without a conversion.
             .with_pixel_format(PixelFormat::YCbCr_420v)
             .with_minimum_frame_interval(&screencapturekit::cm::CMTime::new(1, fps as i32))
-            // Few buffers in flight: a frame waiting in a queue is latency.
-            .with_queue_depth(3)
+            // Few buffers in flight: a frame waiting in a queue is latency. One more than
+            // the least, as the encoder keeps the last picture to send again.
+            .with_queue_depth(4)
             .with_shows_cursor(true)
             // The sound of the shared window's app, never Couchwarp's own.
             .with_captures_audio(true)

@@ -127,7 +127,7 @@ L'application montre le site écrit dans `apps/desktop/src-tauri/tauri.conf.json
 
 Sous Linux, l'AppImage se met à jour toute seule ; le `.deb` se met à jour en installant le suivant.
 
-Les applis installées regardent au démarrage puis toutes les 4 heures. Quand une version est sortie, un bouton vert « Mettre à jour » apparaît en haut à droite : un clic télécharge, installe et redémarre.
+Les applis installées regardent au démarrage puis toutes les 4 heures. Quand une version est sortie, un bouton vert « Mettre à jour » apparaît en haut à droite : un clic télécharge, installe et redémarre. Paramètres > Application montre la version installée ; « Rechercher une mise à jour » regarde tout de suite, sans attendre la prochaine fois.
 
 ### Secrets
 
@@ -137,13 +137,13 @@ Sur GitHub (Settings > Secrets and variables > Actions) :
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` : seulement si la clé a un mot de passe.
 - `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` : le certificat qui signe l'appli Mac. Une seule commande les crée et les enregistre : `apps/desktop/scripts/macos-signing-certificate.sh`. Garde-le : c'est parce que la signature reste la même d'une version à l'autre que macOS garde les autorisations Enregistrement de l'écran et Accessibilité après une mise à jour. Les versions signées « ad hoc » (avant 0.2.0) étaient vues comme une nouvelle appli à chaque mise à jour ; l'appli propose « Réparer » pour effacer l'ancienne autorisation restée cochée.
 
-Sur Cloudflare : les applis ne lisent pas GitHub directement, elles passent par le site (`/api/updates/latest.json`, voir `services/edge/src/updates.ts`). Tant que le dépôt (`RELEASES_REPO` dans `wrangler.jsonc`) est privé, le site a besoin d'un jeton GitHub en lecture seule. Crée-le dans GitHub > Settings > Developer settings > Fine-grained tokens, avec le seul dépôt Couchwarp et la permission « Contents: Read-only », puis :
+Sur Cloudflare : les applis ne lisent pas GitHub directement, elles passent par le site (`/api/updates/latest.json`, voir `services/edge/src/updates.ts`). Le dépôt (`RELEASES_REPO` dans `wrangler.jsonc`) est public : le site lit ses versions sans jeton, et `RELEASES_TOKEN` peut être supprimé. S'il redevenait privé, le site aurait besoin d'un jeton GitHub en lecture seule. Crée-le dans GitHub > Settings > Developer settings > Fine-grained tokens, avec le seul dépôt Couchwarp et la permission « Contents: Read-only », puis :
 
 ```sh
 pnpm --filter @couchwarp/edge exec wrangler secret put RELEASES_TOKEN
 ```
 
-Avec ce jeton, la page Héberger propose aussi les installateurs de la dernière version. Des adresses ailleurs restent possibles avec `DOWNLOAD_MAC_URL` et `DOWNLOAD_WINDOWS_URL`, qui passent alors en priorité.
+La page Héberger propose aussi les installateurs de la dernière version. Des adresses ailleurs restent possibles avec `DOWNLOAD_MAC_URL` et `DOWNLOAD_WINDOWS_URL`, qui passent alors en priorité.
 
 ### Construire sur le Mac
 

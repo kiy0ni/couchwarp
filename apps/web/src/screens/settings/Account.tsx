@@ -3,6 +3,7 @@ import { Avatar } from '../../components/Avatar'
 import { Badges } from '../../components/Badges'
 import { Link } from '../../components/Link'
 import { Section } from '../../components/Page'
+import { Pager } from '../../components/Pager'
 import { SettingRow } from '../../components/SettingRow'
 import { t } from '../../i18n'
 import {
@@ -14,7 +15,7 @@ import {
 } from '../../lib/account'
 import { isDesktop } from '../../lib/desktop'
 import { fullTag } from '../../lib/friends'
-import { playedOn, useHistory } from '../../lib/history'
+import { byRoom, playedOn, useHistory } from '../../lib/history'
 import {
   addPassword,
   changeEmail,
@@ -389,21 +390,23 @@ function Profile({ account }: { account: Account }) {
   )
 }
 
+/** Games per page in the history. */
+const HISTORY_PAGE = 8
+
 function History({ account }: { account: Account }) {
   const games = useHistory(account)
+  const [page, setPage] = useState(0)
+  const rooms = games === null ? null : byRoom(games)
+  const pages = rooms === null ? 0 : Math.ceil(rooms.length / HISTORY_PAGE)
+  const shown = Math.min(page, Math.max(0, pages - 1))
   return (
     <Section title={t.account.historyTitle}>
-      {games === null ? null : games.length === 0 ? (
+      {rooms === null ? null : rooms.length === 0 ? (
         <p className="muted">{t.account.historyEmpty}</p>
       ) : (
-        <ul className="list">
-          {games
-            .filter(
-              (game, index) =>
-                games.findIndex((other) => other.roomCode === game.roomCode) === index,
-            )
-            .slice(0, 20)
-            .map((game) => (
+        <>
+          <ul className="list">
+            {rooms.slice(shown * HISTORY_PAGE, (shown + 1) * HISTORY_PAGE).map((game) => (
               <li key={`${game.roomCode}-${game.joinedAt}`} className="list__item">
                 <span className="list__main">
                   <span className="list__title">{game.title || game.game || game.roomCode}</span>
@@ -416,7 +419,9 @@ function History({ account }: { account: Account }) {
                 </time>
               </li>
             ))}
-        </ul>
+          </ul>
+          <Pager page={shown} pages={pages} onPage={setPage} />
+        </>
       )}
     </Section>
   )

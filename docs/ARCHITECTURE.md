@@ -24,7 +24,7 @@ Le serveur de salons ne voit passer que la négociation (offres SDP, candidats I
 - lister les fenêtres et en prendre un aperçu ;
 - lancer et arrêter une session d'hôte, qui tourne sur son propre fil et prévient la page à chaque changement (`hosting`) ;
 - se connecter par le navigateur du système, comme l'hôte en ligne de commande. Le jeton obtenu est échangé contre le cookie du site (`POST /api/auth/app-session`), pour que la fenêtre soit connectée elle aussi ;
-- se mettre à jour (`src/updates.rs`, extension `tauri-plugin-updater`). L'appli regarde 10 secondes après le démarrage puis toutes les 4 heures, et prévient la page (`update`), qui affiche un bouton vert dans la barre du haut. Le manifeste vient du site (`GET /api/updates/latest.json`), qui lit la dernière version publiée sur GitHub et renvoie vers ses fichiers : le dépôt peut rester privé. Chaque fichier est signé, et l'appli refuse ce que la clé publique de `tauri.conf.json` ne reconnaît pas.
+- se mettre à jour (`src/updates.rs`, extension `tauri-plugin-updater`). L'appli regarde 10 secondes après le démarrage puis toutes les 4 heures, et prévient la page (`update`), qui affiche un bouton vert dans la barre du haut. Le manifeste vient du site (`GET /api/updates/latest.json`), qui lit la dernière version publiée sur GitHub et renvoie vers ses fichiers : le dépôt pourrait redevenir privé sans rien changer aux applis. Paramètres > Application montre la version (`app_version`) et lance une recherche tout de suite (`check_for_update`). Chaque fichier est signé, et l'appli refuse ce que la clé publique de `tauri.conf.json` ne reconnaît pas.
 
 L'interface est en anglais par défaut, en français si le navigateur l'est ou si on le choisit dans les paramètres (`apps/web/src/i18n.ts` ; l'anglais sert de référence, une traduction manquante est une erreur de type). Les adresses des pages sont en anglais ; celles des versions précédentes, en français, redirigent (`lib/router.ts`).
 
@@ -39,8 +39,10 @@ Côté client web, `lib/desktop.ts` détecte l'application et regroupe ses comma
 1. L'hôte ouvre un WebSocket sur `/api/host`. Le Worker tire un code de six caractères, crée le salon (un Durable Object nommé par ce code) et renvoie `room-created`.
 2. L'invité tape le code. Le client vérifie le salon (`GET /api/rooms/:code`), puis ouvre `/api/rooms/:code/guest?name=`. Le salon répond `welcome`, avec les serveurs ICE (STUN, et TURN si une clé Cloudflare est configurée), et prévient l'hôte (`guest-joined`).
 3. L'invité crée la connexion WebRTC : une piste vidéo en réception (H.264 constrained baseline uniquement), un canal `control` fiable et un canal `input` non fiable et non ordonné. Il envoie son offre.
-4. L'hôte crée un `Peer` str0m, répond avec son adresse locale et son adresse publique (trouvée par STUN au démarrage). Les candidats de l'invité suivent au fil de l'eau.
+4. L'hôte crée un `Peer` str0m, répond avec son adresse locale et son adresse publique (trouvée par STUN au démarrage). Les candidats de l'invité suivent au fil de l'eau, et l'hôte les teste lui-même : derrière le relais, c'est lui qui doit écrire le premier, sinon sa box rejette les paquets du relais.
 5. À l'ouverture du canal `control`, l'hôte envoie l'horloge du flux et force une image clé.
+
+str0m n'avance que quand on lui donne l'heure. La boucle de l'hôte (`host.rs`) le réveille à l'échéance qu'il demande, et au plus tard 100 ms après le dernier réveil. Ce délai compte depuis le dernier réveil, pas depuis maintenant : les images et le son arrivent toutes les quelques millisecondes, et un délai recompté à chaque fois n'arriverait jamais. C'était le cas jusqu'à la 0.2.4 : une connexion neuve ne lançait jamais ses vérifications, et un invité derrière le relais ne pouvait pas se connecter.
 
 ## L'état d'un salon
 
@@ -49,7 +51,7 @@ Le Durable Object du salon tient l'état complet (`RoomState` : réglages, membr
 - **Commandes** (`HostCommand`) : réglages, rôle, permissions, type de manette, expulsion et bannissement, tour suivant, chat, fermeture. L'hôte (application ou console) peut tout ; un modérateur peut déplacer et expulser les joueurs, pas les autres modérateurs ; un joueur choisit seulement son type de manette. Chaque action de modération est journalisée en base (`moderation_log`).
 - **Console** : une page web authentifiée par la clé du lien (`room-created` la donne à l'hôte). La clé est dans le fragment `#`, que le navigateur n'envoie jamais à un serveur ; le salon la compare par empreinte SHA-256.
 - **Bannissement** : par compte et par empreinte de l'adresse IP salée avec le code du salon. L'adresse elle-même n'est jamais stockée.
-- **La porte** : par défaut, une personne qui arrive attend l'accord de l'hôte (`admission: 'ask'`) ; l'hôte peut aussi laisser entrer ses amis, ou tout le monde. À la porte, l'invité ne reçoit ni serveurs ICE, ni état de la salle, ni chat, et ne peut rien envoyer : la salle lui envoie `waiting`, puis `welcome` une fois accepté, ou `rejected` (`refused`).
+- **La porte** : par défaut, une personne qui arrive attend l'accord de l'hôte (`admission: 'ask'`) ; l'hôte peut aussi laisser entrer ses amis, ou tout le monde. À la porte, l'invité ne reçoit ni serveurs ICE, ni état de la salle, ni chat, et ne peut rien envoyer : la salle lui envoie `waiting`, puis `welcome` une fois accepté, ou `rejected` (`refused`). Les demandes s'affichent en haut de la console et, dans l'appli, dans un bandeau que la pastille déplie quelques secondes (`set_bubble_notice`) sans ouvrir son panneau par-dessus le jeu.
 - **Relais seul** : avec `relayOnly` (par défaut quand le serveur a un relais, toujours dans une partie publique), l'invité ne collecte que des candidats TURN, donc l'hôte et les autres invités ne voient jamais son adresse. Le relais est celui de Cloudflare ou un coturn à soi (`services/edge/src/ice.ts`).
 - **Parties publiques** : un salon public est écrit dans la table `rooms` de D1 et rafraîchi chaque minute par une alarme ; une ligne de plus de deux minutes disparaît de la liste. Seul un hôte connecté à un compte peut lister sa partie : `couchwarp-host login` passe par la page de connexion du site, qui renvoie un jeton de session sur une page locale de l'hôte (`127.0.0.1`, chemin aléatoire) ; l'hôte le présente ensuite en `Authorization: Bearer`.
 - **Aperçu** : tant que la partie est publique, la capture réduit une image toutes les 10 secondes à 320 pixels de large et l'envoie en JPEG, en message binaire, au salon. Le salon n'accepte qu'un JPEG de moins de 128 Ko et ne le sert que tant que la partie est publique.
@@ -76,13 +78,15 @@ Les tables de traduction (touche HID vers code de touche Mac, vers scancode PC, 
 
 | Étape      | Où                            | Détail                                                                                                                        |
 | ---------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Capture    | `platform/macos/capture.rs`   | ScreenCaptureKit, fenêtre du jeu seule, NV12, 3 tampons au plus                                                               |
+| Capture    | `platform/macos/capture.rs`   | ScreenCaptureKit, fenêtre du jeu seule, NV12, 4 tampons au plus                                                               |
 | Encodage   | `platform/macos/encoder.rs`   | VideoToolbox matériel, temps réel, contrôle de débit basse latence, pas de réordonnancement, image clé seulement à la demande |
 | Conversion | `video.rs`                    | Unités NAL préfixées par leur longueur vers Annex B, SPS/PPS devant chaque image clé                                          |
 | Envoi      | `peer.rs`                     | str0m découpe en paquets RTP, une seule copie de l'image partagée entre tous les invités                                      |
 | Affichage  | `apps/web/src/lib/session.ts` | Tampon de gigue réglé à 0, décodage matériel du navigateur                                                                    |
 
 File pleine (réseau en retard) : l'image est jetée plutôt que mise en attente, et la suivante est une image clé. La latence reste stable, au prix d'une image perdue.
+
+Une fenêtre immobile n'envoie aucune image : ScreenCaptureKit et Windows Graphics Capture ne livrent une image que quand elle change. Un menu, un écran de pause ou un lanceur ne change pas, et un invité qui arrive à ce moment attendrait sa première image clé indéfiniment (« En attente de l'image »). L'encodeur garde donc la dernière image (le tampon NV12 sur Mac, l'image YUV d'OpenH264 sous Windows et Linux). Quand une image clé est demandée et que la fenêtre n'a rien envoyé depuis 100 ms, il la ré-encode (`repeat_if_still`, appelé toutes les 50 ms par `session.rs`). Une image clé qu'OpenH264 saute pour tenir son débit reste due à la suivante.
 
 ## Le son
 

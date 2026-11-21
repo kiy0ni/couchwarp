@@ -22,9 +22,12 @@ fn main() {
         "repair_permission",
         "open_privacy_settings",
         "set_bubble_open",
+        "set_bubble_notice",
         "show_main_window",
         "update_available",
         "install_update",
+        "app_version",
+        "check_for_update",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

@@ -8,6 +8,7 @@ use clap::{Parser, Subcommand};
 use couchwarp_host::platform::capture::{find_window, list_windows};
 use couchwarp_host::session::{self, Event, Options};
 use couchwarp_host::{SettingsRequest, account, platform};
+use couchwarp_protocol::room::Admission;
 use qrcode::QrCode;
 use qrcode::render::unicode::Dense1x2;
 use tokio::sync::mpsc;
@@ -84,6 +85,11 @@ struct Args {
     #[arg(long)]
     relay_only: bool,
 
+    /// Let everyone in without asking. Otherwise each guest waits until someone admits
+    /// them from the room's page
+    #[arg(long)]
+    let_everyone_in: bool,
+
     /// Take turns: a spectator in line gets a seat every this many minutes
     #[arg(long, value_parser = clap::value_parser!(u32).range(1..=60))]
     turn_minutes: Option<u32>,
@@ -155,6 +161,7 @@ async fn main() -> Result<()> {
             max_players: args.players,
             public: args.public,
             relay_only: args.relay_only,
+            admission: args.let_everyone_in.then_some(Admission::Open),
             turn_minutes: args.turn_minutes,
         },
     };

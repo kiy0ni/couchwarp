@@ -33,9 +33,9 @@ Dans un autre terminal, `pnpm desktop:dev` ouvre l'application branchée sur le 
 
 `pnpm desktop:build` produit l'application et son installateur pour le système courant (`.dmg` sur Mac, `.exe` sous Windows, `.AppImage` et `.deb` sous Linux) dans `target/release/bundle`. Pousser une étiquette `v*` les construit tous sur GitHub Actions et publie la version (`.github/workflows/release.yml`, voir [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md)).
 
-L'appli s'appelle Couchwarp dans le Dock et la barre des tâches ; son icône est dans `docs/branding/couchwarp-app.svg`. Pendant une partie, une pastille ronde reste au-dessus du jeu (code, invités, permissions, arrêt) ; la capture ne prend que la fenêtre du jeu, donc les invités ne la voient pas.
+L'appli s'appelle Couchwarp dans le Dock et la barre des tâches ; son icône est dans `docs/branding/couchwarp-app.svg`. Pendant une partie, une pastille ronde reste au-dessus du jeu (code, invités, permissions, arrêt) ; la capture ne prend que la fenêtre du jeu, donc les invités ne la voient pas. Quand quelqu'un demande à rejoindre, la pastille s'allonge quelques secondes en un bandeau avec son nom, « Accepter » et « Refuser », sans s'ouvrir par-dessus le jeu ; repliée, elle garde un anneau orange tant que la demande attend.
 
-L'application affiche le site en ligne (`build.frontendDist` dans `apps/desktop/src-tauri/tauri.conf.json`) : une mise à jour du site lui parvient sans la réinstaller.
+L'application affiche le site en ligne (`build.frontendDist` dans `apps/desktop/src-tauri/tauri.conf.json`) : une mise à jour du site lui parvient sans la réinstaller. Une nouvelle version de l'appli elle-même s'annonce par un bouton « Mettre à jour » dans la barre du haut ; Paramètres > Application montre la version installée et cherche une mise à jour à la demande.
 
 ### L'hôte en ligne de commande
 
@@ -46,7 +46,7 @@ cargo run -p couchwarp-host -- --window "nom du jeu"
 
 L'hôte affiche le code de la partie, le lien d'invitation, un QR code et le lien de sa **console**. Ouvre le lien d'invitation dans Chrome, Edge ou Arc, choisis un pseudo, puis « Jouer ».
 
-La console (`/<code>/console#key=…`) gère la partie depuis n'importe quel appareil : places de joueur, rôles (modérateur, joueur, spectateur), clavier autorisé ou non pour chaque invité, expulsion et bannissement, tour par tour, chat, fermeture. Garde ce lien pour toi : il donne les droits de l'hôte.
+La console (`/<code>/console#key=…`) gère la partie depuis n'importe quel appareil : personnes qui demandent à entrer (accepter ou refuser), places de joueur, rôles (modérateur, joueur, spectateur), manette, clavier et souris autorisés ou non pour chaque invité, expulsion et bannissement, tour par tour, chat, fermeture. Garde ce lien pour toi : il donne les droits de l'hôte.
 
 Les réglages de départ peuvent aussi se donner à l'hôte :
 
@@ -54,20 +54,21 @@ Les réglages de départ peuvent aussi se donner à l'hôte :
 cargo run -p couchwarp-host -- --window "nom du jeu" --game "Overcooked 2" --players 4 --turn-minutes 5
 ```
 
-| Option           | Effet                                                                             |
-| ---------------- | --------------------------------------------------------------------------------- |
-| `--title`        | Nom de la partie                                                                  |
-| `--game`         | Jeu affiché dans la liste publique                                                |
-| `--players`      | Places de joueur, de 1 à 8 ; les suivants regardent                               |
-| `--public`       | Liste la partie dans « Parties publiques » (hôte connecté à un compte)            |
-| `--relay-only`   | Tout passe par le relais TURN : personne ne voit l'adresse IP des autres          |
-| `--turn-minutes` | Tour par tour minuté : un spectateur en file prend une place toutes les N minutes |
+| Option              | Effet                                                                             |
+| ------------------- | --------------------------------------------------------------------------------- |
+| `--title`           | Nom de la partie                                                                  |
+| `--game`            | Jeu affiché dans la liste publique                                                |
+| `--players`         | Places de joueur, de 1 à 8 ; les suivants regardent                               |
+| `--public`          | Liste la partie dans « Parties publiques » (hôte connecté à un compte)            |
+| `--relay-only`      | Tout passe par le relais TURN : personne ne voit l'adresse IP des autres          |
+| `--let-everyone-in` | Tout le monde entre sans demander ; sinon chacun attend l'accord de la console    |
+| `--turn-minutes`    | Tour par tour minuté : un spectateur en file prend une place toutes les N minutes |
 
 Pour lister une partie publiquement, l'hôte se connecte une fois à un compte : `cargo run -p couchwarp-host -- login` ouvre le navigateur (Discord par défaut, `--provider google` sinon) et garde la session dans le dossier de configuration de l'utilisateur, une par site. `logout` la termine. Une partie publique montre dans la liste une petite image du jeu, prise toutes les 10 secondes ; une partie privée n'en envoie aucune.
 
 Le site a aussi des comptes (Discord ou Google), des amis avec leur présence en jeu, un historique, les signalements avec une page de modération (`/moderation`, pour les comptes listés dans `ADMIN_USER_IDS`), et les pages Conditions et Confidentialité. La mise en ligne est décrite dans [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md) ; le site tourne sur https://couchwarp.sachapastor34.workers.dev.
 
-Par défaut, un invité joue à la manette seulement : son clavier n'atteint le jeu que si l'hôte l'autorise dans la console. Ctrl+C ferme la partie pour tout le monde.
+Par défaut, chaque personne qui arrive attend l'accord de l'hôte : elle ne voit rien de la partie tant qu'il ne l'a pas acceptée (réglage « Qui peut entrer » : chaque personne, les amis directement, ou tout le monde). Un invité accepté joue à la manette seulement : son clavier n'atteint le jeu que si l'hôte l'autorise dans la console. Ctrl+C ferme la partie pour tout le monde.
 
 Le clavier des invités est mis en pause dès que la fenêtre du jeu n'est plus au premier plan. Pour tester l'hôte et l'invité sur le même Mac, où le navigateur passe forcément devant le jeu, lance l'hôte avec `--ignore-focus` : les touches continuent d'aller au jeu, et à lui seul.
 
@@ -93,7 +94,7 @@ Pour les téléphones d'un même réseau, le client doit être servi en HTTPS (l
 ## Limites connues
 
 - **Manettes sur un hôte Mac** : macOS ne permet pas à une application de créer une manette virtuelle. Les manettes des invités reçoivent une place de joueur mais n'agissent pas sur le jeu. Avec un hôte Windows et VIIPER, ou un hôte Linux, elles agissent.
-- **Hôte Windows** : il compile et passe ses tests sur Windows (intégration continue), mais n'a pas encore tourné sur un vrai PC de jeu. Il encode en logiciel (OpenH264) à la taille de la fenêtre : `--max-height` n'y a pas d'effet, et les encodeurs matériels (NVIDIA, AMD, Intel) viendront ensuite.
+- **Hôte Windows** : il a tourné sur un vrai PC (partage d'une fenêtre, pare-feu, connexion directe et par le relais), mais la latence n'y est pas encore mesurée sur un vrai jeu. Il encode en logiciel (OpenH264) à la taille de la fenêtre : `--max-height` n'y a pas d'effet, et les encodeurs matériels (NVIDIA, AMD, Intel) viendront ensuite.
 - **Hôte Linux** : compilé et testé en intégration continue (la capture lit une vraie fenêtre sur un serveur X virtuel), mais pas encore essayé sur un vrai bureau. Les fenêtres natives Wayland ne sont pas listées (il faudrait le portail de partage d'écran) ; la capture lit la fenêtre par X11 sans mémoire partagée, ce qui coûte du processeur en 1080p ; le curseur n'apparaît pas dans l'image ; l'encodage est logiciel (OpenH264), VA-API viendra ensuite.
 - **Réseau** : l'hôte écoute sur une seule interface en IPv4. Sans clé TURN Cloudflare (voir `services/edge/.dev.vars.example`), un invité derrière un réseau très fermé ne peut pas se connecter.
 - **Son** : sur Mac, celui de l'application qui possède la fenêtre ; un jeu qui joue son son dans un processus à part (jeux dans un navigateur, applications Electron) arrive muet. Sous Windows et Linux, le son du jeu et de tous les processus qu'il a lancés est capturé.
