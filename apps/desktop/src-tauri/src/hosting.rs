@@ -217,7 +217,15 @@ impl Hosting {
                         let found = couchwarp_host::game::executable(window.pid);
                         let can_relaunch = found.is_some();
                         *program.lock().expect("never poisoned") = found;
-                        run(&window, info, options, &server, stop, &publish, can_relaunch)
+                        run(
+                            &window,
+                            info,
+                            options,
+                            &server,
+                            stop,
+                            &publish,
+                            can_relaunch,
+                        )
                     }
                     Ok(None) => Err(anyhow::anyhow!("the window closed before the game started")),
                     Err(error) => Err(error),
@@ -373,8 +381,7 @@ fn run(
                     }),
                     Event::GameClosed { closed } => publish.update(|state| {
                         if let HostingState::Live {
-                            game_closed: shown,
-                            ..
+                            game_closed: shown, ..
                         } = state
                         {
                             *shown = closed;
