@@ -1,6 +1,6 @@
 [package]
 name = "couchwarp-desktop"
-version = "0.2.1"
+version = "0.2.2"
 description = "Couchwarp for Mac and Windows: host a game for friends, or join theirs"
 edition.workspace = true
 license.workspace = true
@@ -35,6 +35,15 @@ tauri-plugin-updater = "2.14"
 tokio = { version = "1", features = ["rt", "sync", "macros", "time"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# macOS's own controller driver turns a controller's motion sensors off unless an app asks
+# for them, even while the app reads its raw reports (motion.rs).
+objc2-game-controller = { version = "0.3", default-features = false, features = [
+  "std",
+  "GCController",
+  "GCMotion",
+] }
 
 [target.'cfg(windows)'.dependencies]
 # Downloading VIIPER and checking it is the expected file.

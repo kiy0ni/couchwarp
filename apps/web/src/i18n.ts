@@ -27,6 +27,9 @@ const fr: Strings = {
     yaw: 'Gauche / droite',
     roll: 'Inclinaison',
     centre: 'Recentrer',
+    model: 'La manette en 3D, tournée comme la tienne',
+    calibrating: 'Calibration : pose la manette à plat une seconde, sans y toucher.',
+    calibrated: 'Calibrée. Si elle dérive, repose-la à plat une seconde.',
     remapTitle: 'Boutons',
     remapLead:
       'Pour chaque bouton du jeu, le bouton de ta manette qui le joue. Clique « Changer », puis appuie sur le bouton voulu. Vaut pour toutes les manettes de ce modèle.',
@@ -827,6 +830,9 @@ const en = {
     yaw: 'Left / right',
     roll: 'Tilt',
     centre: 'Recentre',
+    model: 'The controller in 3D, turned like yours',
+    calibrating: 'Calibrating: lay the controller flat for a second, without touching it.',
+    calibrated: 'Calibrated. If it drifts, lay it flat again for a second.',
     remapTitle: 'Buttons',
     remapLead:
       'For each game button, the button on your controller that plays it. Click Change, then press the one you want. Applies to every controller of this model.',

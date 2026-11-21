@@ -931,12 +931,13 @@ dependencies = [
 
 [[package]]
 name = "couchwarp-desktop"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
  "couchwarp-host",
  "hidapi",
+ "objc2-game-controller",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -3326,6 +3327,16 @@ dependencies = [
  "libc",
  "objc2",
  "objc2-core-foundation",
+]
+
+[[package]]
+name = "objc2-game-controller"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1962c1882c5abcedb18e5f01acffeaad7b3cbd0a9d4cd8f5ca259ba8a64cb9a3"
+dependencies = [
+ "objc2",
+ "objc2-foundation",
 ]
 
 [[package]]
