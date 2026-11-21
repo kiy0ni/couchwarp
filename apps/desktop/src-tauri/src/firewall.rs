@@ -51,7 +51,10 @@ pub fn allow() -> anyhow::Result<()> {
 /// This app's path, quoted for a PowerShell single-quoted string.
 #[cfg(windows)]
 fn own_path() -> anyhow::Result<String> {
-    Ok(std::env::current_exe()?.display().to_string().replace('\'', "''"))
+    Ok(std::env::current_exe()?
+        .display()
+        .to_string()
+        .replace('\'', "''"))
 }
 
 #[cfg(windows)]
