@@ -18,6 +18,8 @@ mod input;
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 mod linux_input;
 mod net;
+#[cfg(any(windows, test))]
+mod nv12;
 #[cfg(any(windows, target_os = "linux", test))]
 mod pc_keys;
 mod peer;

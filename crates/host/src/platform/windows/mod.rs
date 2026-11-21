@@ -3,6 +3,7 @@
 
 pub mod capture;
 pub use super::openh264 as encoder;
+pub(crate) mod hardware;
 mod keyboard;
 mod mouse;
 mod pads;
