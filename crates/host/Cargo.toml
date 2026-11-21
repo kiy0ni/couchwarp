@@ -50,7 +50,8 @@ openh264 = "0.9"
 openh264-sys2 = "0.9"
 str0m = { version = "0.25", default-features = false, features = ["aws-lc-rs"] }
 # X11 in pure Rust: no C library to link.
-x11rb = "0.14"
+# The pointer (XFixes) and shared memory for the pictures (MIT-SHM).
+x11rb = { version = "0.14", features = ["shm", "xfixes"] }
 
 [dev-dependencies]
 # The Windows and Linux encoder is tested on every platform.

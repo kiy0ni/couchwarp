@@ -8,6 +8,8 @@ mod audio;
 #[cfg(any(target_os = "macos", test))]
 mod avcc;
 mod bitrate;
+#[cfg(any(target_os = "linux", test))]
+mod cursor;
 #[cfg(any(windows, test))]
 mod ds4;
 pub mod game;
