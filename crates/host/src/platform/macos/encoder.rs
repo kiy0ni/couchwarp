@@ -3,6 +3,7 @@
 
 use std::ffi::{c_int, c_void};
 use std::ptr::{self, NonNull};
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
@@ -26,7 +27,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
 use crate::avcc::{append_annex_b, append_parameter_set, has_idr_slice};
-use crate::video::{EncodedFrame, EncoderControl};
+use crate::video::{EncodedFrame, EncoderControl, STILL_AFTER};
 
 /// Keyframes come on request. This only bounds how long a damaged picture could last.
 const MAX_SECONDS_BETWEEN_KEYFRAMES: i32 = 60;
@@ -45,6 +46,8 @@ pub struct Encoder {
     /// The bitrate the session runs at, to notice when the host asks for another.
     applied_bitrate: AtomicU32,
     frame_duration: CMTime,
+    /// The last picture captured and when, to send again while the window is still.
+    last: Mutex<Option<(CFRetained<CVImageBuffer>, Instant)>>,
 }
 
 // SAFETY: VideoToolbox compression sessions may be used from any thread. `output` is only
@@ -149,6 +152,7 @@ impl Encoder {
             control,
             // SAFETY: plain value constructor.
             frame_duration: unsafe { CMTime::new(1, fps) },
+            last: Mutex::new(None),
         })
     }
 
@@ -175,8 +179,33 @@ impl Encoder {
 
     /// Queues one captured frame. `presented_at` is its timestamp on the host clock.
     pub fn encode(&self, image: &CVImageBuffer, presented_at: CMTime) {
-        self.follow_bitrate();
+        // SAFETY: `image` is a valid pixel buffer; the new reference keeps it alive.
+        let kept = unsafe { CFRetained::retain(NonNull::from(image)) };
+        *self.last.lock().expect("never poisoned") = Some((kept, Instant::now()));
         let force_keyframe = self.control.take_keyframe_request();
+        self.encode_with(image, presented_at, force_keyframe);
+    }
+
+    /// Sends the last picture again as a keyframe when a guest needs one and the window
+    /// has drawn nothing lately (see `video::STILL_AFTER`).
+    pub fn repeat_if_still(&self) {
+        let last = self.last.lock().expect("never poisoned");
+        let Some((image, at)) = last.as_ref() else {
+            return;
+        };
+        if at.elapsed() < STILL_AFTER || !self.control.take_keyframe_request() {
+            return;
+        }
+        let image = image.clone();
+        drop(last);
+        // Capture stamps frames with the host clock; a repeat is presented now.
+        // SAFETY: plain read of the system host clock.
+        let now = unsafe { CMClock::host_time_clock().time() };
+        self.encode_with(&image, now, true);
+    }
+
+    fn encode_with(&self, image: &CVImageBuffer, presented_at: CMTime, force_keyframe: bool) {
+        self.follow_bitrate();
         let options = force_keyframe.then(|| {
             dictionary(&[(
                 unsafe { kVTEncodeFrameOptionKey_ForceKeyFrame },

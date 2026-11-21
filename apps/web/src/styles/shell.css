@@ -716,6 +716,19 @@
   border-top: var(--rule-hair) solid var(--color-rule);
 }
 
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.pager__where {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
 .list__main {
   min-width: 0;
   flex: 1 1 12rem;
@@ -1913,7 +1926,52 @@ html[data-app] :is(img, a) {
   gap: var(--space-xs);
 }
 
-/* Closed, the bubble shows someone is knocking with a light in the warning colour. */
+/* Someone asks to join: the closed pill grows to the left into a strip for a moment. */
+.host-notice {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.host-notice__card {
+  flex: 1;
+  min-width: 0;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: 6px;
+  padding: 0 var(--space-sm);
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-warning);
+  border-radius: 26px;
+}
+
+.host-notice__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.host-notice__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.host-notice__detail {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Closed, the bubble shows someone is asking with a ring in the warning colour. */
 .host-pill[data-knocking] {
   outline: 3px solid var(--color-warning);
   outline-offset: 2px;

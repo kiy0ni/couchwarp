@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Result, anyhow};
 use couchwarp_protocol::control::{GuestControl, HostControl};
 use couchwarp_protocol::room::{
-    GuestRole, Hotseat, HotseatMode, PadType, RoomSettings, RoomState, Visibility,
+    Admission, GuestRole, Hotseat, HotseatMode, PadType, RoomSettings, RoomState, Visibility,
 };
 use couchwarp_protocol::signal::{EdgeToHost, GuestId, HostToEdge, SignalPayload};
 use str0m::net::{Protocol, Receive};
@@ -34,6 +34,9 @@ use crate::video::{EncodedFrame, EncoderControl, StreamClock, unix_ms_now};
 const FOCUS_CHECK: Duration = Duration::from_millis(100);
 /// How often the system's input permission is read again, while it is missing.
 const PERMISSION_CHECK: Duration = Duration::from_secs(2);
+/// The longest the peers go without the clock moving on. It counts from the last time it
+/// did, not from now: frames and sound arrive every few milliseconds, and a wake counted
+/// from now would never come.
 const IDLE_WAKE: Duration = Duration::from_millis(100);
 const MAX_DATAGRAM: usize = 2000;
 /// How long the last messages to the room server may take once the host stops.
@@ -55,6 +58,8 @@ pub struct SettingsRequest {
     pub max_players: Option<u8>,
     pub public: bool,
     pub relay_only: bool,
+    /// Who comes in without the host saying yes; the room's default when `None`.
+    pub admission: Option<Admission>,
     pub turn_minutes: Option<u32>,
 }
 
@@ -65,6 +70,7 @@ impl SettingsRequest {
             && self.max_players.is_none()
             && !self.public
             && !self.relay_only
+            && self.admission.is_none()
             && self.turn_minutes.is_none()
     }
 
@@ -79,7 +85,7 @@ impl SettingsRequest {
                 current.visibility
             },
             relay_only: self.relay_only || current.relay_only,
-            admission: current.admission,
+            admission: self.admission.unwrap_or(current.admission),
             hotseat: match self.turn_minutes {
                 Some(minutes) => Hotseat {
                     mode: HotseatMode::Timer,
@@ -135,6 +141,9 @@ pub struct Host {
     settings_request: Option<SettingsRequest>,
     thumbnails: Arc<Thumbnails>,
     events: mpsc::UnboundedSender<Event>,
+    /// When the peers last heard the time. A new peer's connection only starts its checks
+    /// on its first tick: without one, a guest behind a relay never hears from the host.
+    last_tick: Instant,
 }
 
 impl Host {
@@ -163,6 +172,7 @@ impl Host {
             focus_lock: game.focus_lock,
             input_allowed: game.input_allowed,
             clock: StreamClock::start(),
+            last_tick: Instant::now(),
             bitrate: BitrateController::new(encoder.bitrate()),
             encoder,
             signal_out,
@@ -246,7 +256,7 @@ impl Host {
     /// Lets every peer send what it has queued and handles what they report, until all are
     /// quiet. Returns when the earliest peer needs the clock to move on.
     fn drain(&mut self) -> Instant {
-        let mut deadline = Instant::now() + IDLE_WAKE;
+        let mut deadline = self.last_tick + IDLE_WAKE;
         loop {
             let mut reported = Vec::new();
             for peer in &mut self.peers {
@@ -455,6 +465,7 @@ impl Host {
 
     fn on_timeout(&mut self) {
         let now = Instant::now();
+        self.last_tick = now;
         for peer in &mut self.peers {
             peer.handle_input(Input::Timeout(now));
         }

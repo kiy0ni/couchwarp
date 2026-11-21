@@ -9,7 +9,7 @@ use tokio::sync::mpsc;
 use tracing::warn;
 
 use crate::software_h264::SoftwareEncoder;
-use crate::video::{EncodedFrame, EncoderControl};
+use crate::video::{EncodedFrame, EncoderControl, STILL_AFTER};
 
 pub struct EncoderSettings {
     pub width: u32,
@@ -22,6 +22,8 @@ pub struct Encoder {
     software: Mutex<SoftwareEncoder>,
     frames: mpsc::Sender<EncodedFrame>,
     control: EncoderControl,
+    /// When the window last sent a frame.
+    last_frame: Mutex<Instant>,
 }
 
 impl Encoder {
@@ -37,21 +39,35 @@ impl Encoder {
             software: Mutex::new(software),
             frames,
             control,
+            last_frame: Mutex::new(Instant::now()),
         })
     }
 
     /// Encodes one captured frame, BGRA with packed rows, and queues it for the network.
     pub fn encode_bgra(&self, bgra: &[u8], width: usize, height: usize, captured_at: Instant) {
+        *self.last_frame.lock().expect("never poisoned") = captured_at;
         let keyframe = self.control.take_keyframe_request();
-        let mut software = self
-            .software
-            .lock()
-            .expect("only the capture thread encodes");
+        let mut software = self.software.lock().expect("never poisoned");
         if let Err(error) = software.set_bitrate(self.control.bitrate()) {
             warn!("{error:#}");
         }
         let encoded = software.encode(bgra, width, height, keyframe);
         drop(software);
+        self.send(encoded, keyframe, captured_at);
+    }
+
+    /// Sends the last picture again as a keyframe when a guest needs one and the window
+    /// has drawn nothing lately (see `video::STILL_AFTER`).
+    pub fn repeat_if_still(&self) {
+        let still = self.last_frame.lock().expect("never poisoned").elapsed() >= STILL_AFTER;
+        if !still || !self.control.take_keyframe_request() {
+            return;
+        }
+        let encoded = self.software.lock().expect("never poisoned").repeat(true);
+        self.send(encoded, true, Instant::now());
+    }
+
+    fn send(&self, encoded: Result<Option<Vec<u8>>>, keyframe: bool, captured_at: Instant) {
         match encoded {
             Ok(Some(annex_b)) => {
                 let frame = EncodedFrame {
@@ -64,8 +80,18 @@ impl Encoder {
                     self.control.want_keyframe();
                 }
             }
-            Ok(None) => {}
-            Err(error) => warn!("{error:#}"),
+            // Skipped to hold the bitrate: a keyframe asked for is still owed.
+            Ok(None) => {
+                if keyframe {
+                    self.control.want_keyframe();
+                }
+            }
+            Err(error) => {
+                if keyframe {
+                    self.control.want_keyframe();
+                }
+                warn!("{error:#}");
+            }
         }
     }
 }

@@ -1,10 +1,10 @@
-import { getVersion } from '@tauri-apps/api/app'
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { KeyboardHelp } from '../components/KeyboardHelp'
 import { Link } from '../components/Link'
 import { Page } from '../components/Page'
 import { Select, SettingRow, Switch } from '../components/SettingRow'
 import { Shell } from '../components/Shell'
+import { VersionCheck } from '../components/UpdateButton'
 import { chosenLanguage, type LanguageChoice, setLanguage, t } from '../i18n'
 import { isDesktop, system } from '../lib/desktop'
 import { type Preferences, setPreferences, usePreferences } from '../lib/preferences'
@@ -300,15 +300,8 @@ function Fixed({ title, help, children }: { title: string; help: string; childre
 }
 
 function AppSettings() {
-  const [version, setVersion] = useState<string | null>(null)
   const [language, setChoice] = useState<LanguageChoice>(chosenLanguage)
   const s = t.settings
-  useEffect(() => {
-    if (!isDesktop) return
-    getVersion()
-      .then(setVersion)
-      .catch(() => setVersion(null))
-  }, [])
   return (
     <div className="settings__rows">
       <SettingRow id="app-language" title={s.languageLabel} help={s.languageHelp}>
@@ -322,16 +315,15 @@ function AppSettings() {
           }}
         />
       </SettingRow>
-      <Fixed
-        title={isDesktop ? s.desktopApp : s.webApp}
-        help={version ? s.version(version) : location.host}
-      >
-        {!isDesktop && (
+      {isDesktop ? (
+        <VersionCheck />
+      ) : (
+        <Fixed title={s.webApp} help={location.host}>
           <Link to="/host" className="button button--secondary button--small">
             {t.home.downloadAction}
           </Link>
-        )}
-      </Fixed>
+        </Fixed>
+      )}
       <Fixed title={s.legalTitle} help={s.legalHelp}>
         <span className="setting__links">
           <Link to="/terms" className="link-button">

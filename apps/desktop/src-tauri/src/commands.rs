@@ -220,6 +220,12 @@ pub fn set_bubble_open(app: AppHandle, open: bool) -> Result<crate::bubble::Dire
     crate::bubble::set_open(&app, open).map_err(|error| error.to_string())
 }
 
+/// Shows or hides, on the closed bubble, that someone asks to join.
+#[tauri::command]
+pub fn set_bubble_notice(app: AppHandle, shown: bool) -> Result<(), String> {
+    crate::bubble::set_notice(&app, shown).map_err(|error| error.to_string())
+}
+
 /// Brings the main window forward, from the bubble.
 #[tauri::command]
 pub fn show_main_window(app: AppHandle) -> Result<(), String> {
@@ -234,6 +240,24 @@ pub fn show_main_window(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn update_available(updates: State<'_, Updates>) -> Option<Available> {
     updates.available()
+}
+
+/// This app's version, as released.
+#[tauri::command]
+pub fn app_version(app: AppHandle) -> String {
+    app.package_info().version.to_string()
+}
+
+/// Looks for a newer version now, as the person asked. `None` means this is the latest.
+/// A development build is never offered one: its version is not a released one.
+#[tauri::command]
+pub async fn check_for_update(app: AppHandle) -> Result<Option<Available>, String> {
+    if tauri::is_dev() {
+        return Ok(None);
+    }
+    crate::updates::check(&app)
+        .await
+        .map_err(|error| format!("{error:#}"))
 }
 
 /// Downloads and installs the waiting version, then restarts the app into it.

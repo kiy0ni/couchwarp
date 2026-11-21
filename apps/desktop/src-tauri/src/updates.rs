@@ -79,23 +79,27 @@ pub fn watch(app: AppHandle) {
 }
 
 async fn look(app: &AppHandle) {
-    let found = match app.updater() {
-        Ok(updater) => updater.check().await,
-        Err(error) => Err(error),
-    };
-    match found {
-        Ok(Some(update)) => {
-            let available = Available::from(&update);
-            tracing::info!(version = %available.version, "an update is available");
-            app.state::<Updates>().keep(update);
-            if let Err(error) = app.emit("update", available) {
-                tracing::warn!(%error, "could not tell the page about the update");
-            }
-        }
-        Ok(None) => {}
+    match check(app).await {
+        Ok(_) => {}
         // Offline, or no release yet: the next look will try again.
         Err(error) => tracing::info!(%error, "could not look for updates"),
     }
+}
+
+/// Looks for a newer version now. Returns it, or `None` when this one is the latest; the
+/// page also hears of it through the `update` event, as with the looks made in the
+/// background.
+pub async fn check(app: &AppHandle) -> anyhow::Result<Option<Available>> {
+    let Some(update) = app.updater()?.check().await? else {
+        return Ok(None);
+    };
+    let available = Available::from(&update);
+    tracing::info!(version = %available.version, "an update is available");
+    app.state::<Updates>().keep(update);
+    if let Err(error) = app.emit("update", available.clone()) {
+        tracing::warn!(%error, "could not tell the page about the update");
+    }
+    Ok(Some(available))
 }
 
 /// Downloads and installs the waiting update, then restarts into it. A game being hosted

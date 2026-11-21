@@ -82,9 +82,12 @@ fn main() {
             commands::repair_permission,
             commands::open_privacy_settings,
             commands::set_bubble_open,
+            commands::set_bubble_notice,
             commands::show_main_window,
             commands::update_available,
             commands::install_update,
+            commands::app_version,
+            commands::check_for_update,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

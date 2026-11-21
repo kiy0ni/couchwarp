@@ -9,9 +9,29 @@ import { Icon } from './Icon'
  */
 export function UpdateButton() {
   const update = useAvailableUpdate()
+  const { progress, failed, install, label } = useInstall()
+  if (!update) return null
+  return (
+    <button
+      type="button"
+      className="topbar__update"
+      data-failed={failed || undefined}
+      disabled={progress !== null}
+      title={failed ? t.update.failed : t.update.hint(update.version)}
+      onClick={install}
+    >
+      <Icon name="download" size={18} weight="bold" />
+      <span className="topbar__update-label" aria-live="polite">
+        {label}
+      </span>
+    </button>
+  )
+}
+
+/** Installing the waiting version, and what to call the button meanwhile. */
+function useInstall() {
   const [progress, setProgress] = useState<UpdateProgress | null>(null)
   const [failed, setFailed] = useState(false)
-  if (!update) return null
 
   async function install() {
     setFailed(false)
@@ -35,21 +55,84 @@ export function UpdateButton() {
         : progress.total
           ? t.update.downloading(Math.min(99, Math.floor((progress.done / progress.total) * 100)))
           : t.update.downloadingUnknown
+  return { progress, failed, install, label }
+}
 
+type Check =
+  | { kind: 'idle' }
+  | { kind: 'checking' }
+  | { kind: 'latest' }
+  | { kind: 'failed' }
+  | { kind: 'found'; update: AvailableUpdate }
+
+/**
+ * The app's version in the settings, and a button to look for a newer one now rather than
+ * wait for the next look in the background. What it finds can be installed from here.
+ */
+export function VersionCheck() {
+  const [version, setVersion] = useState<string | null>(null)
+  const [check, setCheck] = useState<Check>({ kind: 'idle' })
+  const waiting = useAvailableUpdate()
+  const { progress, failed, install, label } = useInstall()
+  useEffect(() => {
+    desktop
+      .appVersion()
+      .then(setVersion)
+      .catch(() => setVersion(null))
+  }, [])
+
+  async function look() {
+    setCheck({ kind: 'checking' })
+    try {
+      const update = await desktop.checkForUpdate()
+      setCheck(update ? { kind: 'found', update } : { kind: 'latest' })
+    } catch (error) {
+      console.error(error)
+      setCheck({ kind: 'failed' })
+    }
+  }
+
+  const found = check.kind === 'found' ? check.update : waiting
+  const status = found
+    ? t.update.available(found.version)
+    : check.kind === 'latest'
+      ? t.update.latest
+      : check.kind === 'failed'
+        ? t.update.checkFailed
+        : null
   return (
-    <button
-      type="button"
-      className="topbar__update"
-      data-failed={failed || undefined}
-      disabled={progress !== null}
-      title={failed ? t.update.failed : t.update.hint(update.version)}
-      onClick={install}
-    >
-      <Icon name="download" size={18} weight="bold" />
-      <span className="topbar__update-label" aria-live="polite">
-        {label}
-      </span>
-    </button>
+    <div className="setting">
+      <div className="setting__text">
+        <span className="setting__title">{t.settings.desktopApp}</span>
+        <p className="setting__help" aria-live="polite">
+          {version ? t.settings.version(version) : '…'}
+          {status && ` · ${status}`}
+        </p>
+      </div>
+      <div className="setting__control">
+        {found ? (
+          <button
+            type="button"
+            className="button button--small"
+            data-failed={failed || undefined}
+            disabled={progress !== null}
+            onClick={install}
+          >
+            <Icon name="download" size={16} weight="bold" />
+            {label}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="button button--secondary button--small"
+            disabled={check.kind === 'checking'}
+            onClick={look}
+          >
+            {check.kind === 'checking' ? t.update.checking : t.update.check}
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 

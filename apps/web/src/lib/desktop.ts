@@ -131,6 +131,10 @@ export const desktop = {
   installControllerSupport: () => invoke<ControllerSupport>('install_controller_support'),
   /** Starts the app again, ending a hosted game. */
   restartApp: () => invoke<void>('restart_app'),
+  /** This app's version. */
+  appVersion: () => invoke<string>('app_version'),
+  /** Looks for a newer version now; null when this one is the latest. */
+  checkForUpdate: () => invoke<AvailableUpdate | null>('check_for_update'),
   /** The version the app found waiting, if any. Apps from before updates cannot answer. */
   updateAvailable: () => invoke<AvailableUpdate | null>('update_available'),
   onUpdate: (handler: (update: AvailableUpdate) => void) =>

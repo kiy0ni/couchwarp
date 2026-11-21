@@ -1,7 +1,7 @@
 import type { HostCommand, RoomState } from '@couchwarp/protocol'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { ConfirmButton } from '../components/ConfirmButton'
 import { DoorRequests } from '../components/DoorRequests'
@@ -52,26 +52,112 @@ export function HostBubble() {
 
   const live = hosting?.state === 'live' ? hosting : null
   const { room, command } = useRoom(live)
-  // Someone new at the door: the panel opens on its own, so the host sees the request.
-  const waiting = room?.waiting.length ?? 0
-  const knocked = useRef(0)
-  useEffect(() => {
-    if (waiting > knocked.current && !open) toggle(true)
-    knocked.current = waiting
-  })
+  const waiting = room?.waiting ?? []
+  const notice = useNotice(waiting.length, open)
 
   if (!live) return null
-  return open ? (
-    <Panel
+  if (open)
+    return (
+      <Panel
+        live={live}
+        room={room}
+        command={command}
+        direction={direction}
+        onClose={() => toggle(false)}
+      />
+    )
+  const pill = (
+    <Pill
       live={live}
-      room={room}
-      command={command}
-      direction={direction}
-      onClose={() => toggle(false)}
+      waiting={waiting.length}
+      onOpen={() => {
+        notice.hide(false)
+        toggle(true)
+      }}
     />
-  ) : (
-    <Pill live={live} waiting={waiting} onOpen={() => toggle(true)} />
   )
+  const first = waiting[0]
+  if (!notice.shown || !first) return pill
+  return (
+    <div
+      className="host-notice"
+      onPointerEnter={() => notice.hold(true)}
+      onPointerLeave={() => notice.hold(false)}
+    >
+      <div className="host-notice__card" role="status">
+        <Avatar name={first.name} url={first.avatarUrl} />
+        <span className="host-notice__text">
+          <span className="host-notice__name">{first.name}</span>
+          <span className="host-notice__detail">{t.bubble.wantsToJoin(waiting.length - 1)}</span>
+        </span>
+        <button
+          type="button"
+          className="button button--small"
+          onClick={() => command({ type: 'admit', guestId: first.id, accept: true })}
+        >
+          {t.door.accept}
+        </button>
+        <button
+          type="button"
+          className="button button--small button--secondary"
+          onClick={() => command({ type: 'admit', guestId: first.id, accept: false })}
+        >
+          {t.door.refuse}
+        </button>
+      </div>
+      {pill}
+    </div>
+  )
+}
+
+/** How long the strip stays before folding back into the pill, unless the pointer is on it. */
+const NOTICE_MS = 12_000
+
+/**
+ * Someone asking to join widens the closed pill into a strip for a few seconds, beside the
+ * game rather than over it: the host sees the request without the panel opening in the
+ * middle of play. Folded back, the pill keeps a ring in the warning colour until the
+ * request is answered. Apps before 0.2.5 cannot widen the window: they show the ring only.
+ */
+function useNotice(waiting: number, open: boolean) {
+  const [shown, setShown] = useState(false)
+  const [held, setHeld] = useState(false)
+  // When the strip folds, unless the pointer rests on it then.
+  const [until, setUntil] = useState(0)
+  const seen = useRef(0)
+
+  const show = useCallback((next: boolean) => {
+    invoke('set_bubble_notice', { shown: next })
+      .then(() => setShown(next))
+      .catch(() => setShown(false))
+  }, [])
+  // The panel resizes the window itself: only the strip's state needs forgetting.
+  const hide = (resize: boolean) => {
+    if (resize) show(false)
+    else setShown(false)
+  }
+  const hold = (pointerOn: boolean) => {
+    setHeld(pointerOn)
+    if (!pointerOn) setUntil(Date.now() + NOTICE_MS)
+  }
+
+  // A new request shows the strip; the last one answered folds it.
+  useEffect(() => {
+    if (waiting > seen.current && !open) {
+      show(true)
+      setUntil(Date.now() + NOTICE_MS)
+    }
+    if (waiting === 0 && shown && !open) show(false)
+    seen.current = waiting
+  })
+
+  useEffect(() => {
+    if (!shown || held) return
+    const timer = setTimeout(() => show(false), Math.max(0, until - Date.now()))
+    return () => clearTimeout(timer)
+  }, [shown, held, until, show])
+
+  return { shown, hide, hold }
 }
 
 /** The room behind the live game, and a way to change it, as the console has. */

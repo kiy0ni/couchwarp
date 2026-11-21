@@ -140,6 +140,8 @@ impl StartRequest {
                 public: self.public,
                 // Hiding guests' addresses is the room's default; the console changes it.
                 relay_only: false,
+                // Who comes in is chosen in the console, like the relay.
+                admission: None,
                 turn_minutes: self.turn_minutes.map(|minutes| minutes.clamp(1, 60)),
             },
             ..Options::new(server)

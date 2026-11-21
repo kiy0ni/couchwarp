@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-bubble-notice"
+description = "Enables the set_bubble_notice command without any pre-configured scope."
+commands.allow = ["set_bubble_notice"]
+
+[[permission]]
+identifier = "deny-set-bubble-notice"
+description = "Denies the set_bubble_notice command without any pre-configured scope."
+commands.deny = ["set_bubble_notice"]

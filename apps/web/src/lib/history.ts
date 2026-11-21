@@ -30,3 +30,13 @@ export const playedOn = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
 })
+
+/** One row per room: its newest visit. The history comes newest first. */
+export function byRoom(games: readonly Played[]): Played[] {
+  const seen = new Set<string>()
+  return games.filter((game) => {
+    if (seen.has(game.roomCode)) return false
+    seen.add(game.roomCode)
+    return true
+  })
+}
