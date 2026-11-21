@@ -172,11 +172,12 @@ fn answer(stream: TcpStream, nonce: &str) -> Option<Result<String, String>> {
 fn open_browser(url: &str) -> Result<()> {
     #[cfg(target_os = "macos")]
     let mut command = Command::new("open");
+    // Not `cmd /C start`: cmd reads the `&` between query parameters as the end of the
+    // command, and the browser got the address cut after its first parameter.
     #[cfg(windows)]
     let mut command = {
-        // `start` treats its first quoted argument as a window title, hence the empty one.
-        let mut command = Command::new("cmd");
-        command.args(["/C", "start", ""]);
+        let mut command = Command::new("rundll32.exe");
+        command.arg("url.dll,FileProtocolHandler");
         command
     };
     #[cfg(not(any(target_os = "macos", windows)))]

@@ -147,3 +147,49 @@ export async function adoptAppSession(token: string): Promise<boolean> {
   })
   return response.ok
 }
+
+/** Browser shortcuts that make no sense in an app: reload, print, find, view source, caret browsing. */
+const BROWSER_KEYS = new Set([
+  'F5',
+  'F3',
+  'F7',
+  'KeyR',
+  'KeyP',
+  'KeyF',
+  'KeyG',
+  'KeyU',
+  'KeyJ',
+  'KeyH',
+])
+
+function editable(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || target.matches('input, textarea, select'))
+  )
+}
+
+/**
+ * Makes the app's window behave like an app rather than a web page: its own scrolling and
+ * text rules (`html[data-app]` in the styles), no browser context menu outside text fields,
+ * no reload, print or find shortcuts.
+ */
+export function behaveAsApp(): void {
+  document.documentElement.dataset.app = system
+  document.addEventListener('contextmenu', (event) => {
+    if (!editable(event.target)) event.preventDefault()
+  })
+  document.addEventListener(
+    'keydown',
+    (event) => {
+      const modified = event.ctrlKey || event.metaKey
+      const blocked = event.code.startsWith('F')
+        ? BROWSER_KEYS.has(event.code) && !modified
+        : modified && BROWSER_KEYS.has(event.code)
+      // Only the browser's action goes: a game still gets the key (F5 included), since it
+      // reads keys itself whether or not their default action was prevented.
+      if (blocked) event.preventDefault()
+    },
+    true,
+  )
+}

@@ -1803,3 +1803,53 @@ html[data-surface="bubble"] body {
   font-weight: 600;
   color: var(--color-muted);
 }
+
+/* The desktop app: the window never scrolls, only the content does, beside a fixed rail
+ * and under a fixed top bar. Interface text is not selectable and images do not drag, as
+ * in any app; what people type, read or copy stays selectable. */
+html[data-app],
+html[data-app] body {
+  height: 100%;
+  overflow: hidden;
+}
+
+html[data-app] .shell__body {
+  height: 100dvh;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+html[data-app] .login {
+  height: 100dvh;
+  min-height: 0;
+}
+
+html[data-app] .login__panel {
+  overflow-y: auto;
+}
+
+html[data-app] body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html[data-app]
+  :is(
+    input,
+    textarea,
+    [contenteditable],
+    .chat,
+    .live__code,
+    .invite__link,
+    .code,
+    .setting__value,
+    .profile__tag
+  ) {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+html[data-app] :is(img, a) {
+  -webkit-user-drag: none;
+}

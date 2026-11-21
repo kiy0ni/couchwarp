@@ -8,7 +8,11 @@ body {
   overflow-x: clip;
 }
 html {
-  scrollbar-color: var(--color-muted) var(--color-paper);
+  scrollbar-color: var(--color-field-edge) transparent;
+}
+/* Thin scrollbars without arrows, as in a desktop app; colours come from html. */
+* {
+  scrollbar-width: thin;
 }
 body {
   margin: 0;
