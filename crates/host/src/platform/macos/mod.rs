@@ -170,6 +170,9 @@ impl InputSink {
         }
     }
 
+    /// Controllers play as keys here: nothing to plug in.
+    pub fn prepare_pads(&mut self, _players: u8) {}
+
     /// No virtual controller on a Mac, so nothing reads motion either.
     pub fn set_motion(&mut self, _slot: u8, _motion: &MotionState) {}
 

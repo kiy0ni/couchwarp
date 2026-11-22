@@ -309,6 +309,7 @@ impl Host {
                     }
                 }
                 self.encoder.want_keyframe();
+                self.prepare_pads();
             }
             PeerEvent::Input(packet) => {
                 let actions = self.router.apply(guest, packet);
@@ -441,6 +442,7 @@ impl Host {
             self.carry_out(actions);
         }
         self.room_state = Some(state);
+        self.prepare_pads();
     }
 
     fn on_signal(&mut self, guest: GuestId, payload: SignalPayload) {
@@ -510,6 +512,28 @@ impl Host {
         for peer in &mut self.peers {
             peer.send_frame(frame, rtp_ticks);
         }
+    }
+
+    /// One controller per connected player who may play one, plugged in before they
+    /// press anything: a game or emulator lists it, and can be set to it, from the start.
+    fn prepare_pads(&mut self) {
+        let Some(state) = &self.room_state else {
+            return;
+        };
+        let players = state
+            .members
+            .iter()
+            .filter(|member| member.role != GuestRole::Spectator && member.pads)
+            .filter(|member| {
+                self.peers
+                    .iter()
+                    .any(|peer| peer.guest_id == member.id && peer.connected())
+            })
+            .count();
+        let players = u8::try_from(players)
+            .unwrap_or(u8::MAX)
+            .min(state.settings.max_players);
+        self.sink.prepare_pads(players);
     }
 
     fn on_game_change(&mut self, change: GameChange) {

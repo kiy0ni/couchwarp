@@ -1,5 +1,10 @@
-//! Virtual controllers through VIIPER, one per player slot, created on first use: an Xbox
-//! 360 controller, or a DualShock 4 for a guest who picked PlayStation.
+//! Virtual controllers through VIIPER, one per player slot: an Xbox 360 controller, or a
+//! DualShock 4 for a guest who picked PlayStation.
+//!
+//! A slot's controller is plugged in as soon as a player is there to use it, and stays
+//! until the game ends, at rest between players. Emulators and many games bind a player to
+//! one controller: it must be there to be picked in their settings, and stay the same one
+//! when a guest reconnects or another takes the seat.
 //!
 //! VIIPER is a separate service (USB/IP, with a signed driver) that the host talks to over
 //! its local API. Without it, controllers are received but not played.
@@ -62,6 +67,16 @@ impl PadSink {
         self.service.is_some()
     }
 
+    /// Plugs in an Xbox 360 controller for each of the first `count` slots that has none,
+    /// before anyone presses anything.
+    pub fn prepare(&mut self, count: u8) {
+        for slot in 1..=count {
+            if !self.pads.contains_key(&slot) {
+                self.set(slot, PadType::Xbox360, &GamepadState::default());
+            }
+        }
+    }
+
     /// A guest who changes controller type gets the new one plugged in instead.
     pub fn set(&mut self, slot: u8, pad_type: PadType, state: &GamepadState) {
         if self
@@ -69,7 +84,7 @@ impl PadSink {
             .get(&slot)
             .is_some_and(|pad| pad.pad_type != pad_type)
         {
-            self.release(slot);
+            self.unplug(slot);
         }
         let Some((client, bus)) = &self.service else {
             return;
@@ -116,11 +131,21 @@ impl PadSink {
         };
         if let Err(error) = sent {
             warn!(slot, %error, "controller state not delivered; unplugging it");
-            self.release(slot);
+            self.unplug(slot);
         }
     }
 
+    /// The slot's player is gone: its controller rests, plugged in, for the next one.
     pub fn release(&mut self, slot: u8) {
+        let Some(pad) = self.pads.get_mut(&slot) else {
+            return;
+        };
+        pad.state = GamepadState::default();
+        pad.motion = None;
+        self.send(slot);
+    }
+
+    fn unplug(&mut self, slot: u8) {
         let (Some((client, bus)), Some(pad)) = (&self.service, self.pads.remove(&slot)) else {
             return;
         };
@@ -134,7 +159,7 @@ impl Drop for PadSink {
     fn drop(&mut self) {
         let slots: Vec<u8> = self.pads.keys().copied().collect();
         for slot in slots {
-            self.release(slot);
+            self.unplug(slot);
         }
     }
 }

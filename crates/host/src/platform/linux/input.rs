@@ -1,6 +1,7 @@
 //! Guests' input as `uinput` devices, which games read like real hardware: one keyboard
 //! and mouse for every guest's keys and pointer, and one Xbox 360 controller per player
-//! slot, plugged in on first use and unplugged when dropped.
+//! slot, plugged in as soon as a player is there and kept, at rest between players, until
+//! the game ends.
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -108,9 +109,21 @@ impl InputSink {
         }
     }
 
-    /// Dropping the device unplugs it.
+    /// The slot's player is gone: its controller rests, plugged in, for the next one, so
+    /// a game or emulator bound to it keeps it.
     pub fn release_pad(&mut self, slot: u8) {
-        self.pads.remove(&slot);
+        if self.pads.contains_key(&slot) {
+            self.set_pad(slot, PadType::Xbox360, &GamepadState::default());
+        }
+    }
+
+    /// Controllers for the first `players` slots, plugged in before anyone plays.
+    pub fn prepare_pads(&mut self, players: u8) {
+        for slot in 1..=players {
+            if !self.pads.contains_key(&slot) {
+                self.set_pad(slot, PadType::Xbox360, &GamepadState::default());
+            }
+        }
     }
 
     /// An Xbox 360 controller has no motion sensors.
