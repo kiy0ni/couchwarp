@@ -87,6 +87,11 @@ impl InputSink {
         self.pads.release(slot);
     }
 
+    /// Controllers for the first `players` slots, plugged in before anyone plays.
+    pub fn prepare_pads(&mut self, players: u8) {
+        self.pads.prepare(players);
+    }
+
     pub fn set_motion(&mut self, slot: u8, motion: &MotionState) {
         self.pads.set_motion(slot, motion);
     }
