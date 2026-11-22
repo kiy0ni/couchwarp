@@ -26,6 +26,9 @@ import {
 import { countdown, useNow } from '../lib/use-now'
 import { type Measures, useStream } from '../lib/use-stream'
 
+/** Below this many frames a second, the picture is still and its latency is not shown. */
+const MEASURED_FPS = 10
+
 /** How long a chat message stays over the game while the chat is closed. */
 const TOAST_MS = 5000
 
@@ -175,7 +178,9 @@ export function Play({ code, name, onEnd, onLeave }: Props) {
   const now = useNow(turnEndsAt !== null)
   const players = [...stream.slots.values()].sort((a, b) => a - b)
   const placeInLine = me ? (room?.queue.indexOf(me.id) ?? -1) + 1 : 0
-  const median = stream.measures.median
+  // A still picture (a menu, a pause, a launcher) sends few frames, which the browser
+  // shows late on purpose: its latency says nothing about the connection.
+  const median = stream.measures.fps >= MEASURED_FPS ? stream.measures.median : null
   const slow = median !== null && latencyQuality(median) === 'poor'
 
   return (
