@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:test'
 import { exports } from 'cloudflare:workers'
 import { describe, expect, it } from 'vitest'
 import { cleanDisplayName, imageType } from '../src/profiles'
@@ -34,6 +35,28 @@ describe('profiles', () => {
     const profile = await (await api('/api/users/lea-p', null)).json()
     expect(profile).toMatchObject({ displayName: 'Léa la rapide', color: 'sky' })
     expect(profile).toHaveProperty('badges')
+  })
+
+  it('keeps the host badge alongside the regular host one', async () => {
+    await signIn('max-p', 'Max')
+    const host = (code: string) =>
+      env.DB.prepare(
+        `INSERT INTO play_history (user_id, room_code, title, game, host_name, joined_at, hosted)
+         VALUES ('max-p', ?, 'Soirée', 'Jeu', 'Max', ?, 1)`,
+      ).bind(code, Date.now())
+    const earned = async () =>
+      (await (await api('/api/users/max-p', null)).json<{ badges: string[] }>()).badges
+    await host('ROOM0').run()
+    expect(await earned()).toContain('host')
+    expect(await earned()).not.toContain('regular-host')
+    await env.DB.batch(Array.from({ length: 9 }, (_, i) => host(`ROOM${i + 1}`)))
+    expect(await earned()).toEqual(expect.arrayContaining(['host', 'regular-host']))
+    // Games from more than a year ago no longer make a regular host.
+    await env.DB.prepare("UPDATE play_history SET joined_at = ? WHERE user_id = 'max-p'")
+      .bind(Date.now() - 400 * 24 * 60 * 60 * 1000)
+      .run()
+    expect(await earned()).toContain('host')
+    expect(await earned()).not.toContain('regular-host')
   })
 
   it('keeps a picture of its own, served with its real type, and removes it', async () => {

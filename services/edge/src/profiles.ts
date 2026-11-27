@@ -21,6 +21,8 @@ const MIN_NAME = 2
 const MAX_NAME = 32
 /** Accounts made before this were there for the first games. */
 const PIONEER_UNTIL = Date.UTC(2027, 0, 1)
+/** "This year" on the badges: the last twelve months, as long as history is kept (`cleanup.ts`). */
+const YEAR_MS = 365 * 24 * 60 * 60 * 1000
 const REGULAR_HOST_GAMES = 10
 const REGULAR_GAMES = 10
 const SOCIAL_FRIENDS = 5
@@ -166,18 +168,22 @@ export async function badges(env: Env, userId: string, createdAt: number): Promi
   const counts = await env.DB.prepare(
     `SELECT
        (SELECT COUNT(DISTINCT room_code) FROM play_history WHERE user_id = ?1 AND hosted = 1) AS hosted,
-       (SELECT COUNT(DISTINCT room_code) FROM play_history WHERE user_id = ?1 AND hosted = 0) AS joined,
+       (SELECT COUNT(DISTINCT room_code) FROM play_history
+          WHERE user_id = ?1 AND hosted = 1 AND joined_at >= ?2) AS hostedThisYear,
+       (SELECT COUNT(DISTINCT room_code) FROM play_history
+          WHERE user_id = ?1 AND hosted = 0 AND joined_at >= ?2) AS joinedThisYear,
        (SELECT COUNT(*) FROM friendships WHERE accepted_at IS NOT NULL
           AND (requester_id = ?1 OR addressee_id = ?1)) AS friends`,
   )
-    .bind(userId)
-    .first<{ hosted: number; joined: number; friends: number }>()
+    .bind(userId, Date.now() - YEAR_MS)
+    .first<{ hosted: number; hostedThisYear: number; joinedThisYear: number; friends: number }>()
   const earned: Badge[] = []
   if (isAdmin(env, { id: userId } as User)) earned.push('team')
   if (createdAt < PIONEER_UNTIL) earned.push('pioneer')
-  if ((counts?.hosted ?? 0) >= REGULAR_HOST_GAMES) earned.push('regular-host')
-  else if ((counts?.hosted ?? 0) >= 1) earned.push('host')
-  if ((counts?.joined ?? 0) >= REGULAR_GAMES) earned.push('regular')
+  // Cumulative: a regular host keeps the first badge too.
+  if ((counts?.hosted ?? 0) >= 1) earned.push('host')
+  if ((counts?.hostedThisYear ?? 0) >= REGULAR_HOST_GAMES) earned.push('regular-host')
+  if ((counts?.joinedThisYear ?? 0) >= REGULAR_GAMES) earned.push('regular')
   if ((counts?.friends ?? 0) >= SOCIAL_FRIENDS) earned.push('social')
   return earned
 }
