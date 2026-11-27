@@ -159,8 +159,11 @@ const fr: Strings = {
     team: { name: 'Équipe', help: 'Fait partie de l’équipe Couchwarp.' },
     pioneer: { name: 'Pionnier', help: 'Était là pour les premières parties, avant 2027.' },
     host: { name: 'Hôte', help: 'A hébergé au moins une partie.' },
-    'regular-host': { name: 'Hôte régulier', help: 'A hébergé au moins dix parties cette année.' },
-    regular: { name: 'Habitué', help: 'A rejoint au moins dix parties cette année.' },
+    'regular-host': {
+      name: 'Hôte régulier',
+      help: 'A hébergé au moins dix parties ces douze derniers mois.',
+    },
+    regular: { name: 'Habitué', help: 'A rejoint au moins dix parties ces douze derniers mois.' },
     social: { name: 'Sociable', help: 'A au moins cinq amis sur Couchwarp.' },
   },
   password: {
@@ -1015,8 +1018,11 @@ const en = {
     team: { name: 'Team', help: 'Part of the Couchwarp team.' },
     pioneer: { name: 'Pioneer', help: 'Was there for the first games, before 2027.' },
     host: { name: 'Host', help: 'Hosted at least one game.' },
-    'regular-host': { name: 'Regular host', help: 'Hosted at least ten games this year.' },
-    regular: { name: 'Regular', help: 'Joined at least ten games this year.' },
+    'regular-host': {
+      name: 'Regular host',
+      help: 'Hosted at least ten games in the last twelve months.',
+    },
+    regular: { name: 'Regular', help: 'Joined at least ten games in the last twelve months.' },
     social: { name: 'Social', help: 'Has at least five friends on Couchwarp.' },
   },
   password: {
